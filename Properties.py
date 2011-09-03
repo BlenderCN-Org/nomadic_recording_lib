@@ -211,10 +211,12 @@ class ObjProperty(object):
         if isinstance(self.value, dict):
             d = self.normalized
             for key in d.iterkeys():
-                d[key] = d[key] + ((self.max[key] - self.min[key]) / 2.)
+                #d[key] = d[key] + ((self.max[key] - self.min[key]) / 2.)
+                d[key] = d[key] - self.min[key]
             return d
         elif isinstance(self.value, list):
-            return [v + ((self.max[i] - self.min[i]) / 2.) for i, v in self.normalized]
+            #return [v + ((self.max[i] - self.min[i]) / 2.) for i, v in self.normalized]
+            return [v - self.min[i] for i, v in enumerate(self.normalized)]
         return self.normalized + ((self.max - self.min) / 2.)
     @normalized_and_offset.setter
     def normalized_and_offset(self, value):
