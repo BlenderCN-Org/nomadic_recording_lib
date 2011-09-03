@@ -1,5 +1,7 @@
 import threading
 
+### testing commits on svn externals
+
 def getbases(startcls, endcls=None, reverse=False):
     if endcls is None:
         endcls = 'object'
