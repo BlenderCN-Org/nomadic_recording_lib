@@ -404,16 +404,19 @@ class DictProperty(dict):
     def _update_value(self, value):
         self.update(value)
     def __setitem__(self, key, item):
+        old = self.items().copy()
         change = self._check_for_change(key, item)
         dict.__setitem__(self, key, item)
         if change:
-            self.parent_property.emit(None)
+            self.parent_property.emit(old)
     def __delitem__(self, key):
+        old = self.items().copy()
         dict.__delitem__(self, key)
-        self.parent_property.emit(None)
+        self.parent_property.emit(old)
     def clear(self, *args):
+        old = self.items().copy()
         super(DictProperty, self).clear(*args)
-        self.parent_property.emit(None)
+        self.parent_property.emit(old)
     def update(self, d):
         for key, val in d.iteritems():
             if self._check_for_change(key, val):
