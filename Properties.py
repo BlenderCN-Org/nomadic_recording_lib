@@ -325,7 +325,7 @@ class ObjProperty(object):
             self.emission_event.set()
             self.emission_event.clear()
         else:
-            for cb in self.callbacks:
+            for cb in self.callbacks.copy():
                 cb(**cb_kwargs)
             if not self.quiet:
                 self.parent_obj.emit('property_changed', **cb_kwargs)
@@ -404,17 +404,17 @@ class DictProperty(dict):
     def _update_value(self, value):
         self.update(value)
     def __setitem__(self, key, item):
-        old = self.items().copy()
+        old = self.copy()
         change = self._check_for_change(key, item)
         dict.__setitem__(self, key, item)
         if change:
             self.parent_property.emit(old)
     def __delitem__(self, key):
-        old = self.items().copy()
+        old = self.copy()
         dict.__delitem__(self, key)
         self.parent_property.emit(old)
     def clear(self, *args):
-        old = self.items().copy()
+        old = self.copy()
         super(DictProperty, self).clear(*args)
         self.parent_property.emit(old)
     def update(self, d):
