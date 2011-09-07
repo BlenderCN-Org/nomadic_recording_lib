@@ -217,7 +217,7 @@ class ObjProperty(object):
         elif isinstance(self.value, list):
             #return [v + ((self.max[i] - self.min[i]) / 2.) for i, v in self.normalized]
             return [v - self.min[i] for i, v in enumerate(self.normalized)]
-        return self.normalized + ((self.max - self.min) / 2.)
+        return self.normalized - self.min
     @normalized_and_offset.setter
     def normalized_and_offset(self, value):
         if isinstance(self.value, dict):
