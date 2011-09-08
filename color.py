@@ -11,20 +11,9 @@ class Color(BaseObject):
     hsv_keys = ['hue', 'sat', 'val']
     _Properties = colorprops
     def __init__(self, **kwargs):
-        self._rgb = [0.0] * 3
-        self._hsv = [0.0] * 3
         super(Color, self).__init__(**kwargs)
         self._color_set_local = False
         self.bind(property_changed=self.on_own_property_changed)
-        
-    def set_value(self, *args, **kwargs):
-        if len(args):
-            if type(args[0]) == list or type(args[0]) == tuple:
-                self._rgb = args[0]
-            else:
-                self._rgb = args
-        else:
-            self.rgb = kwargs
             
     @property
     def rgb(self):
@@ -39,19 +28,14 @@ class Color(BaseObject):
         for key, val in kwargs.iteritems():
             if key in self.color_keys:
                 setattr(self, key, val)
-            #self._rgb[self.color_keys.index(key)] = val
-        #self._hsv = list(colorsys.rgb_to_hsv(*self._rgb))
         self._update_hsv()
         self._color_set_local = False
             
     def set_hsv(self, **kwargs):
         self._color_set_local = True
-        for x, key in enumerate(self.hsv_keys):
-            val = kwargs.get(key)
-            if val is not None and val != getattr(self, key):
-                #self._hsv[x] = kwargs[key]
-                setattr(self, key, kwargs[key])
-        #self._rgb = list(colorsys.hsv_to_rgb(*self._hsv))
+        for key, val in kwargs.iteritems():
+            if key in self.hsv_keys:
+                setattr(self, key, val)
         self._update_rgb()
         self._color_set_local = False
         
