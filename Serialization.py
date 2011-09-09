@@ -25,7 +25,7 @@ class Serializer(object):
         d = self._get_saved_attr(**kwargs)
         d.update(incl_dict)
         jsonpickle.set_encoder_options('simplejson', **json_presets[json_preset])
-        return jsonpickle.encode(d)
+        return jsonpickle.encode(d, unpicklable=False)
         
     def from_json(self, string, **kwargs):
         d = jsonpickle.decode(string)
