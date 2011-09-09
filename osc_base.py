@@ -148,8 +148,10 @@ class OSCHandler(BaseObject, PropertyConnector):
         if method in self.callbacks:
             #print 'osc_callback: ', address, message.getValues()
             self.callbacks[method](**cb_kwargs)
-        elif '*' in self.callbacks:
-            self.callbacks['*'](**cb_kwargs)
+        elif '*' in ''.join(self.callbacks.keys()):
+            for key, cb in self.callbacks.iteritems():
+                if '*' in key:
+                    cb(**cb_kwargs)
         else:
             print 'msg not handled: cb_kwargs = ', cb_kwargs
                     
