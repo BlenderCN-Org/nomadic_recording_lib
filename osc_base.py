@@ -1,5 +1,6 @@
 import sys
 import threading
+import imp
 import datetime
 import math
 import struct
@@ -253,6 +254,7 @@ class OSCNode(BaseObject, dispatch.Receiver):
         self.is_root_node = kwargs.get('root_node', False)
         self.transmit_callback = kwargs.get('transmit_callback')
         if self.is_root_node:
+            self.ui_mode = kwargs.get('ui_mode')
             self.get_epoch_offset_cb = kwargs.get('get_epoch_offset_cb')
             self._dispatch_thread = OSCDispatchThread(osc_tree=self)
             self._dispatch_thread.start()
@@ -421,17 +423,31 @@ class Bundle(osc.Bundle):
         bundleStart, data = osc._stringFromBinary(data)
         if bundleStart != "#bundle":
             raise osc.OscError("Error parsing bundle string")
+        saved_data = data[:]
         bundle = Bundle()
-        bundle.timeTag, data = TimeTagArgument.fromBinary(data)
-        while data:
-            size, data = osc.IntArgument.fromBinary(data)
-            size = size.value
-            if len(data) < size:
-                raise osc.OscError("Unexpected end of bundle: need %d bytes of data" % size)
-            payload = data[:size]
-            bundle.elements.append(_elementFromBinary(payload))
-            data = data[size:]
-        return bundle, ""
+        try:
+            bundle.timeTag, data = TimeTagArgument.fromBinary(data)
+            while data:
+                size, data = osc.IntArgument.fromBinary(data)
+                size = size.value
+                if len(data) < size:
+                    raise osc.OscError("Unexpected end of bundle: need %d bytes of data" % size)
+                payload = data[:size]
+                bundle.elements.append(_elementFromBinary(payload))
+                data = data[size:]
+            return bundle, ""
+        except osc.OscError:
+            data = saved_data
+            bundle.timeTag, data = osc.TimeTagArgument.fromBinary(data)
+            while data:
+                size, data = osc.IntArgument.fromBinary(data)
+                size = size.value
+                if len(data) < size:
+                    raise osc.OscError("Unexpected end of bundle: need %d bytes of data" % size)
+                payload = data[:size]
+                bundle.elements.append(_elementFromBinary(payload))
+                data = data[size:]
+            return bundle, ""
     
 class TimeTagArgument(osc.Argument):
     typeTag = "t"
@@ -469,13 +485,27 @@ def _elementFromBinary(data):
         raise osc.OscError("Error parsing OSC data: " + data)
     return element
 
+def get_ui_module(name):
+    t = imp.find_module(name)
+    module = imp.load_module(name, *t)
+    return module
+
 class OSCDispatchThread(threading.Thread):
+    _ui_mode_dispatch_methods = {'gtk':'gtk_do_dispatch'}
     def __init__(self, **kwargs):
         threading.Thread.__init__(self)
         self.running = threading.Event()
         self.ready_to_dispatch = threading.Event()
         self.bundles = {}
         self.osc_tree = kwargs.get('osc_tree')
+        self.do_dispatch = self._do_dispatch
+        self.ui_module = None
+        ui = self.osc_tree.ui_mode
+        if ui is not None:
+            self.ui_module = get_ui_module(ui)
+            attr = self._ui_mode_dispatch_methods.get(ui)
+            if attr:
+                self.do_dispatch = getattr(self, attr)
         
     def add_bundle(self, bundle, client):
         tt = bundle.timeTag
@@ -510,13 +540,21 @@ class OSCDispatchThread(threading.Thread):
                     bundle, client = self.bundles[dt]
                     del self.bundles[dt]
                     messages = bundle.getMessages()
-                    for m in messages:
-                        self.osc_tree.dispatch(m, client)
+                    self.do_dispatch(messages, client)
                 else:
                     self.ready_to_dispatch.clear()
                     timeout = seconds_from_timedelta(dt - now)
                     self.ready_to_dispatch.wait(timeout)
                     self.ready_to_dispatch.set()
+                    
+    def _do_dispatch(self, messages, client):
+        for m in messages:
+            self.osc_tree.dispatch(m, client)
+            
+    def gtk_do_dispatch(self, messages, client):
+        self.ui_module.gdk.threads_enter()
+        self._do_dispatch(messages, client)
+        self.ui_module.gdk.threads_leave()
                 
     def stop(self):
         self.running.clear()
