@@ -131,13 +131,28 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         Multiple arguments are evaluated.  If an object is given, this will
         search for and unbind any callbacks that belong to that object.
         '''
+        result = False
         for arg in args:
             for prop in self.Properties.itervalues():
-                prop.unbind(arg)
+                r = prop.unbind(arg)
+                if r:
+                    result = True
             if not callable(arg):
-                self.disconnect(obj=arg)
+                r = SignalDispatcher.dispatcher.disconnect(self, obj=arg)
+                if r:
+                    result = True
             elif len(self.find_signal_keys_from_callback(arg)['signals']):
-                self.disconnect(callback=arg)
+                r = SignalDispatcher.dispatcher.disconnect(self, callback=arg)
+                if r:
+                    result = True
+        if not result:
+            print 'could not unbind: ', self, args
+        
+    def disconnect(self, **kwargs):
+        result = SignalDispatcher.dispatcher.disconnect(self, **kwargs)
+        if not result:
+            print 'could not disconnect: ', self, kwargs
+        return result
     
     def add_category(self, category):
         id = category.id

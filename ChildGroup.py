@@ -56,9 +56,10 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         
     def del_child(self, child):
         child.unlink()
-        child.unbind(self.on_child_Index_changed)
         if child.id in self:
             del self[child.id]
+        if not self.ignore_index:
+            child.unbind(self.on_child_Index_changed)
         if child.Index in self.indexed_items:
             del self.indexed_items[child.Index]
             self.emit('child_removed', ChildGroup=self, obj=child, id=child.id)

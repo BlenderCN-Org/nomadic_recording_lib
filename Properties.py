@@ -262,6 +262,7 @@ class ObjProperty(object):
                     t.start()
             
     def unbind(self, cb):
+        result = False
         if not callable(cb):
             ## Assume this is an instance object and attempt to unlink
             ## any methods that belong to it.
@@ -271,14 +272,19 @@ class ObjProperty(object):
                 if getattr(c, 'im_self', None) == obj:
                     found.add(c)
             for realcb in found:
-                self.unbind(realcb)
-            return
+                r = self.unbind(realcb)
+                if r:
+                    result = True
+            return result
         if self.threaded:
             if id(cb) in self.emission_threads:
                 t.stop()
                 del self.emission_threads[id(cb)]
+        if cb in self.callbacks or cb in self.own_callbacks:
+            result = True
         self.callbacks.discard(cb)
         self.own_callbacks.discard(cb)
+        return result
         
     def link(self, prop, key=None):
         '''Link this Property to another Property.

@@ -80,12 +80,12 @@ class dispatcher(object):
         obj = kwargs.get('obj')
         if obj is not None:
             keys = set()
-            print self, ' attempting obj disconnect: ', obj
+            #print self, ' attempting obj disconnect: ', obj
             for e in self._emitters.itervalues():
                 for rkey, r in e.receivers.iteritems():
                     if getattr(r, 'im_self', None) == obj:
                         keys.add(rkey)
-            print 'found keys: ', keys
+            #print 'found keys: ', keys
             for key in keys:
                 self.disconnect(id=key)
             return
@@ -110,7 +110,7 @@ class dispatcher(object):
             return True
         
             
-        print 'could not disconnect: ', self, objID, cb
+        #print 'could not disconnect: ', self, objID, cb
         return False
         
     def find_signal_keys_from_callback(self, cb):
