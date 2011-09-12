@@ -1,4 +1,5 @@
 import threading
+import weakref
 
 ### testing commits on svn externals
 
@@ -141,6 +142,19 @@ class ClsProperty(object):
         #if old != value:
         #    obj.Properties[self.name].emit(old=old)
         
+class MyWVDict(weakref.WeakValueDictionary):
+    def __init__(self, *args, **kwargs):
+        self.name = kwargs.get('name')
+        del kwargs['name']
+        #super(MyWVDict, self).__init__(*args, **kwargs)
+        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+        def remove(wr, selfref=weakref.ref(self)):
+            self = selfref()
+            if self is not None:
+                print 'REMOVE WEAKREF: ', self.name, wr.key
+                del self.data[wr.key]
+        self._remove = remove
+
 class ObjProperty(object):
     '''This object will be added to an instance of a class that contains a
         ClsProperty.  It is used to store the Property value, min and max settings,
@@ -150,8 +164,8 @@ class ObjProperty(object):
     
     '''
     __slots__ = ('name', 'value', 'min', 'max', 'symbol', 
-                 'type', '_type', 'parent_obj', 'quiet', 
-                 'threaded', 'ignore_range', 'own_callbacks', 'callbacks', 
+                 'type', '_type', 'parent_obj', 'quiet', 'weakrefs', '__weakref__', 
+                 'threaded', 'ignore_range', 'own_callbacks',  
                  'linked_properties', 'enable_emission', 'queue_emission', 
                  'emission_event', 'emission_threads')
     def __init__(self, **kwargs):
@@ -171,7 +185,8 @@ class ObjProperty(object):
         self.ignore_range = kwargs.get('ignore_range')
         self.threaded = kwargs.get('threaded')
         self.own_callbacks = set()
-        self.callbacks = set()
+        #self.callbacks = set()
+        self.weakrefs = MyWVDict(name='property ' + self.name)
         self.linked_properties = set()
         if self.threaded:
             self.emission_event = threading.Event()
@@ -254,6 +269,13 @@ class ObjProperty(object):
         if getattr(cb, 'im_self', None) == self.parent_obj:
             self.own_callbacks.add(cb)
         else:
+            wrkey = (cb.im_func, id(cb))
+            self.weakrefs[wrkey] = cb.im_self
+            
+    def old_bind(self, cb):
+        if getattr(cb, 'im_self', None) == self.parent_obj:
+            self.own_callbacks.add(cb)
+        else:
             self.callbacks.add(cb)
             if self.threaded:
                 t = ThreadedEmitter(callback=cb, parent_property=self)
@@ -262,6 +284,37 @@ class ObjProperty(object):
                     t.start()
             
     def unbind(self, cb):
+        result = False
+        if not callable(cb):
+            ## Assume this is an instance object and attempt to unlink
+            ## any methods that belong to it.
+            obj = cb
+            found = set()
+            for wrkey in self.weakrefs.keys()[:]:
+                if self.weakrefs[wrkey] == obj:
+                    found.add(getattr(obj, wrkey[0].func_name))
+            for realcb in found:
+                r = self.unbind(realcb)
+                if r:
+                    result = True
+            return result
+        if self.threaded:
+            if id(cb) in self.emission_threads:
+                t.stop()
+                del self.emission_threads[id(cb)]
+        found = set()
+        for wrkey in self.weakrefs.keys()[:]:
+            if id(cb) in wrkey:
+                found.add(wrkey)
+                result = True
+        for wrkey in found:
+            del self.weakrefs[wrkey]
+        if cb in self.own_callbacks:
+            result = True
+            self.own_callbacks.discard(cb)
+        return result
+            
+    def old_unbind(self, cb):
         result = False
         if not callable(cb):
             ## Assume this is an instance object and attempt to unlink
@@ -331,8 +384,11 @@ class ObjProperty(object):
             self.emission_event.set()
             self.emission_event.clear()
         else:
-            for cb in self.callbacks.copy():
-                cb(**cb_kwargs)
+            for wrkey in self.weakrefs.keys()[:]:
+                f, objID = wrkey
+                f(self.weakrefs[wrkey], **cb_kwargs)
+            #for cb in self.callbacks.copy():
+            #    cb(**cb_kwargs)
             if not self.quiet:
                 self.parent_obj.emit('property_changed', **cb_kwargs)
         for prop, key in self.linked_properties:
