@@ -4,6 +4,7 @@ import SignalDispatcher
 from Serialization import Serializer
 from Properties import ClsProperty
 
+GLOBAL_CONFIG = {}
 
 save_keys = {}
 for key in ['saved_attributes', 'saved_child_classes', 'saved_child_objects']:
@@ -194,5 +195,12 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         self.ChildGroups.update({cg.name:cg})
         setattr(self, cg.name, cg)
         return cg
+        
+    @property
+    def GLOBAL_CONFIG(self):
+        return globals()['GLOBAL_CONFIG']
+    @GLOBAL_CONFIG.setter
+    def GLOBAL_CONFIG(self, value):
+        globals()['GLOBAL_CONFIG'].update(value)
         
 from ChildGroup import ChildGroup

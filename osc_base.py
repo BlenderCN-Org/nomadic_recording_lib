@@ -256,7 +256,6 @@ class OSCNode(BaseObject, dispatch.Receiver):
         self.is_root_node = kwargs.get('root_node', False)
         self.transmit_callback = kwargs.get('transmit_callback')
         if self.is_root_node:
-            self.ui_mode = kwargs.get('ui_mode')
             self.get_epoch_offset_cb = kwargs.get('get_epoch_offset_cb')
             self._dispatch_thread = OSCDispatchThread(osc_tree=self)
             self._dispatch_thread.start()
@@ -502,7 +501,7 @@ class OSCDispatchThread(threading.Thread):
         self.osc_tree = kwargs.get('osc_tree')
         self.do_dispatch = self._do_dispatch
         self.ui_module = None
-        ui = self.osc_tree.ui_mode
+        ui = self.osc_tree.GLOBAL_CONFIG.get('ui_mode')
         if ui is not None:
             self.ui_module = get_ui_module(ui)
             attr = self._ui_mode_dispatch_methods.get(ui)
