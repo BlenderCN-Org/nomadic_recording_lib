@@ -1,10 +1,9 @@
+import UserDict
 import atexit
 
 import SignalDispatcher
 from Serialization import Serializer
 from Properties import ClsProperty
-
-GLOBAL_CONFIG = {}
 
 save_keys = {}
 for key in ['saved_attributes', 'saved_child_classes', 'saved_child_objects']:
@@ -204,3 +203,27 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         globals()['GLOBAL_CONFIG'].update(value)
         
 from ChildGroup import ChildGroup
+
+class _GlobalConfig(BaseObject, UserDict.UserDict):
+    def __init__(self, **kwargs):
+        BaseObject.__init__(self, **kwargs)
+        self.register_signal('update')
+        UserDict.UserDict.__init__(self)
+    def __setitem__(self, key, item):
+        old = self.data.copy()
+        UserDict.UserDict.__setitem__(self, key, item)
+        self.emit('update', key=key, item=item, old=old)
+    def __delitem__(self, key):
+        old = self.data.copy()
+        UserDict.UserDict.__delitem__(self, key)
+        self.emit('update', key=key, old=old)
+    def update(self, d=None, **kwargs):
+        old = self.data.copy()
+        UserDict.UserDict.update(self, d, **kwargs)
+        self.emit('update', old=old)
+    def clear(self):
+        old = self.data.copy()
+        UserDict.UserDict.clear(self)
+        self.emit('update', old=old)
+
+GLOBAL_CONFIG = _GlobalConfig()
