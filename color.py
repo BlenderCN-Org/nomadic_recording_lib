@@ -1,4 +1,5 @@
 import array
+import bisect
 import colorsys
 from BaseObject import BaseObject
 
@@ -88,8 +89,10 @@ class Color(BaseObject):
 arraytype_map = {'c':chr}
 
 class PixelGrid(BaseObject):
+    hsv_keys = ['hue', 'sat', 'val']
     def __init__(self, **kwargs):
         super(PixelGrid, self).__init__(**kwargs)
+        self.pixels_by_hsv = {}
         self.size = kwargs.get('size', (64, 64))
         self.pixels = []
         self.build_grid()
@@ -104,14 +107,27 @@ class PixelGrid(BaseObject):
             line = []
             for col in range(self.num_cols):
                 pixel = Color()
+                pixel.grid_location = {'row':row, 'col':col}
+                self.add_pixel_to_hsv_dict(pixel)
                 line.append(pixel)
                 pixel.bind(property_changed=self.on_pixel_changed)
             self.pixels.append(line)
+        
+    def add_pixel_to_hsv_dict(self, pixel):
+        h, s, v = pixel.hsv_seq
+        if h not in self.pixels_by_hsv:
+            self.pixels_by_hsv[h] = {}
+        if s not in self.pixels_by_hsv[h]:
+            self.pixels_by_hsv[h][s] = {}
+        if v not in self.pixels_by_hsv[h][s]:
+            self.pixels_by_hsv[h][s][v] = []
+        self.pixels_by_hsv[h][s][v].append(pixel)
     
     def clear_grid(self):
         for row in self.pixels:
             for pixel in row:
                 pixel.unbind(self.on_pixel_changed)
+        self.pixels_by_hsv.clear()
         self.pixels = []
                 
     @property
@@ -126,6 +142,24 @@ class PixelGrid(BaseObject):
     def itercols(self):
         return range(self.num_cols)
         
+    def find_pixels_from_hsv(self, hsv):
+        if isinstance(hsv, dict):
+            hsv = [hsv[key] for key in self.hsv_keys]
+        d = self.pixels_by_hsv
+        for i, value in enumerate(hsv):
+            l = sorted(d.keys())
+            index = bisect.bisect_left(l, value)
+            if index == len(l):
+                key = l[index-1]
+            else:
+                key = l[index]
+            if index != 0:
+                last = l[index-1]
+                if value - last < key - value:
+                    key = last
+            d = d[key]
+        return d
+        
     def get_ogl_pixel_data(self, **kwargs):
         color_format = kwargs.get('color_format', 'rgb')
         arraytype = kwargs.get('arraytype', 'c')
@@ -139,5 +173,48 @@ class PixelGrid(BaseObject):
         return a
     
     def on_pixel_changed(self, **kwargs):
-        pass
+        def remove_old_location(pixel, old):
+            h = self.pixels_by_hsv.get(old['hue'])
+            if not h:
+                return
+            s = h.get(old['sat'])
+            if not s:
+                return
+            v = s.get(old['val'])
+            if not v:
+                return
+            if pixel in v:
+                del v[v.index(pixel)]
+            if not len(v):
+                del s[old['val']]
+            if not len(s):
+                del h[old['sat']]
+            if not len(h):
+                del self.pixels_by_hsv[old['hue']]
+        prop = kwargs.get('Property')
+        if prop.name in self.hsv_keys:
+            pixel = kwargs.get('obj')
+            old = kwargs.get('old')
+            oldhsv = pixel.hsv
+            oldhsv[prop.name] = old
+            remove_old_location(pixel, oldhsv)
+            self.add_pixel_to_hsv_dict(pixel)
+            
         
+if __name__ == '__main__':
+    grid = PixelGrid(size=(16, 16))
+    for y, row in enumerate(grid.pixels):
+        for x, pixel in enumerate(row):
+            pixel.red = y * 255. / grid.num_rows
+            pixel.green = (y * -255. / grid.num_rows) + 255
+            pixel.blue = x * 255. / grid.num_cols
+    d = {}
+    for hkey, hval in grid.pixels_by_hsv.iteritems():
+        d[hkey] = {}
+        for skey, sval in hval.iteritems():
+            d[hkey][skey] = {}
+            for vkey, vval in sval.iteritems():
+                d[hkey][skey][vkey] = [p.hsv_seq for p in vval]
+    p = grid.find_pixels_from_hsv([1., 1., 1.])
+    print p[0].hsv
+    
