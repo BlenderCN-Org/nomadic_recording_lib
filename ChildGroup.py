@@ -3,11 +3,13 @@ from osc_base import OSCBaseObject
 
 class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_class_name = 'ChildGroup'
+    _Properties = {'name':dict(type=str)}
     def __init__(self, **kwargs):
-        self.name = kwargs.get('name')
-        if self.name:
-            kwargs.setdefault('osc_address', self.name)
+        name = kwargs.get('name')
+        if name:
+            kwargs.setdefault('osc_address', name)
         OSCBaseObject.__init__(self, **kwargs)
+        self.name = kwargs.get('name')
         self.register_signal('child_added', 'child_removed', 'child_index_changed', 'child_update')
         self.child_class = kwargs.get('child_class')
         self.ignore_index = kwargs.get('ignore_index', False)
