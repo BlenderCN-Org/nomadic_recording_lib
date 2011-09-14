@@ -487,12 +487,16 @@ def _elementFromBinary(data):
     return element
 
 def get_ui_module(name):
+    if name == 'kivy':
+        from kivy.clock import Clock
+        return Clock
     t = imp.find_module(name)
     module = imp.load_module(name, *t)
     return module
 
 class OSCDispatchThread(threading.Thread):
-    _ui_mode_dispatch_methods = {'gtk':'gtk_do_dispatch'}
+    _ui_mode_dispatch_methods = {'gtk':'gtk_do_dispatch', 
+                                 'kivy':'kivy_do_dispatch'}
     def __init__(self, **kwargs):
         threading.Thread.__init__(self)
         self.running = threading.Event()
@@ -501,6 +505,7 @@ class OSCDispatchThread(threading.Thread):
         self.osc_tree = kwargs.get('osc_tree')
         self.do_dispatch = self._do_dispatch
         self.ui_module = None
+        self.kivy_messengers = set()
         ui = self.osc_tree.GLOBAL_CONFIG.get('ui_mode')
         if ui is not None:
             self.ui_module = get_ui_module(ui)
@@ -557,8 +562,25 @@ class OSCDispatchThread(threading.Thread):
         self._do_dispatch(messages, client)
         self.ui_module.gdk.threads_leave()
                 
+    def kivy_do_dispatch(self, messages, client):
+        obj = Messenger(messages=messages, client=client, callback=self._on_kivy_msg_cb)
+        self.kivy_messengers.add(obj)
+        self.ui_module.schedule_once(obj.send, 0)
+        
+    def _on_kivy_msg_cb(self, messenger):
+        self._do_dispatch(messenger.messages, messenger.client)
+        self.kivy_messengers.discard(messenger)
+
     def stop(self):
         self.running.clear()
         self.ready_to_dispatch.set()
                 
             
+
+class Messenger(object):
+    __slots__ = ('messages', 'client', 'callback', '__weakref__')
+    def __init__(self, **kwargs):
+        for key, val in kwargs.iteritems():
+            setattr(self, key, val)
+    def send(self, *args):
+        self.callback(self)
