@@ -123,6 +123,12 @@ class PixelGrid(BaseObject):
             self.pixels_by_hsv[h][s][v] = []
         self.pixels_by_hsv[h][s][v].append(pixel)
     
+    def setattr_all_pixels(self, **kwargs):
+        for row in self.pixels:
+            for pixel in row:
+                for key, val in kwargs.iteritems():
+                    setattr(pixel, key, val)
+    
     def clear_grid(self):
         for row in self.pixels:
             for pixel in row:
