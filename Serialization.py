@@ -56,11 +56,17 @@ class Serializer(object):
                         if isinstance(val, dict):
                             d['saved_children'][attr].update({key:{}})
                             for dkey, dval in val.iteritems():
-                                d['saved_children'][attr][key].update({dkey:dval._get_saved_attr(**kwargs)})
+                                saved = dval._get_saved_attr(**kwargs)
+                                if saved is not False:
+                                    d['saved_children'][attr][key].update({dkey:saved})
                         else:
-                            d['saved_children'][attr].update({key:val._get_saved_attr()})
+                            saved = val._get_saved_attr(**kwargs)
+                            if saved is not False:
+                                d['saved_children'][attr].update({key:saved})
                 else:
-                    d['saved_children'].update({'attr':child_dict._get_saved_attr()})
+                    saved = child_dict._get_saved_attr(**kwargs)
+                    if saved is not False:
+                        d['saved_children'].update({attr:saved})
         return d
         
     def _load_saved_attr(self, d, **kwargs):
