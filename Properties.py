@@ -488,8 +488,27 @@ class DictProperty(dict):
         if key not in self:
             return True
         return value != self[key]
+    
+class SetProperty(set):
+    def __init__(self, value, **kwargs):
+        self.parent_property = kwargs.get('parent_property')
+        super(SetProperty, self).__init__(value)
+    def _update_value(self, value):
+        self.add(value)
+    def add(self, item):
+        old = self.copy()
+        super(SetProperty, self).add(item)
+        self.parent_property.emit(old)
+    def discard(self, item):
+        old = self.copy()
+        super(SetProperty, self).discard(item)
+        self.parent_property.emit(old)
+    def clear(self):
+        old = self.copy()
+        super(SetProperty, self).clear()
+        self.parent_property.emit(old)
         
-EMULATED_TYPES = {list:ListProperty, dict:DictProperty}
+EMULATED_TYPES = {list:ListProperty, dict:DictProperty, set:SetProperty}
     
 class PropertyConnector(object):
     '''Mixin for objects to easily connect to Properties.
