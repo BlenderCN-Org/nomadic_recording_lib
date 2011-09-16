@@ -88,6 +88,7 @@ class OSCBaseObject(BaseObject):
         
         address = kwargs.get('address')
         Property = kwargs.get('Property')
+        all_sessions = kwargs.get('all_sessions', False)
         if Property is not None:
             if type(Property) == str:
                 Property = self.Properties[Property]
@@ -102,6 +103,7 @@ class OSCBaseObject(BaseObject):
         else:
             node = self.osc_node.add_new_node(name=address)
         kwargs.setdefault('osc_node', node)
+        
         objhandler = self.osc_handlers.get(address)
         if not objhandler:
             objhandler = OSCHandler(**kwargs)
@@ -128,6 +130,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         callbacks = kwargs.get('callbacks', {})
         self.add_callbacks(**callbacks)
         self.Property = kwargs.get('Property')
+        self.all_sessions = kwargs.get('all_sessions', False)
         
     def add_callbacks(self, **kwargs):
         self.callbacks.update(kwargs)
@@ -185,7 +188,7 @@ class OSCHandler(BaseObject, PropertyConnector):
             args = value
         else:
             args = [value]
-        msg_kwargs = dict(value=args, address=kwargs.get('address', 'set-value'))
+        msg_kwargs = dict(value=args, address=kwargs.get('address', 'set-value'), all_sessions=self.all_sessions)
         if 'client' in kwargs:
             msg_kwargs['client'] = kwargs['client']
         #print msg_kwargs
