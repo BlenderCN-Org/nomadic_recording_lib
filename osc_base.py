@@ -79,6 +79,9 @@ class OSCBaseObject(BaseObject):
                         None which will use the address of self.osc_node
             'callbacks' : Dict of {'address':callback} to handle. Default is None
                           which disables callback mode and requires parameters below.
+            'Property' : links a Property object to the osc handler so you don't have
+                         to do anything yourself anymore (uses PropertyConnector).
+                         give it a Property object or string of the Property name.
         '''
         if not self.osc_enabled:
             return
