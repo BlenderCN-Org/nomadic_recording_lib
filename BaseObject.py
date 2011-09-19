@@ -42,6 +42,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         for key in save_keys.iterkeys():
             save_dict.update({key:set()})
         self.SettingsProperties = {}
+        self.SettingsPropKeys = []
         self.ChildGroups = {}
         childgroups = {}
         while cls != BaseObject.__bases__[0]:# and getattr(cls, '_saved_class_name', '') != bases_limit:
@@ -60,6 +61,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 if isinstance(prop, ClsProperty):
                     prop.init_instance(self)
             if hasattr(cls, '_SettingsProperties'):
+                self.SettingsPropKeys.extend(cls._SettingsProperties)
                 for propname in cls._SettingsProperties:
                     prop = self.Properties.get(propname)
                     if prop:
@@ -68,7 +70,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             if hasattr(cls, '_ChildGroups'):
                 childgroups.update(cls._ChildGroups)
             cls = cls.__bases__[0]
-            
+        self.SettingsPropKeys = tuple(self.SettingsPropKeys)
         for key, val in save_dict.iteritems():
             if not hasattr(self, key):
                 setattr(self, key, val)
