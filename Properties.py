@@ -151,7 +151,7 @@ class MyWVDict(weakref.WeakValueDictionary):
         def remove(wr, selfref=weakref.ref(self)):
             self = selfref()
             if self is not None:
-                print 'REMOVE PROP WEAKREF: ', self.name, wr.key
+                print 'REMOVE PROP WEAKREF: ', self.name, self.data[wr.key], wr.key
                 del self.data[wr.key]
         self._remove = remove
 
@@ -187,6 +187,7 @@ class ObjProperty(object):
         self.own_callbacks = set()
         #self.callbacks = set()
         self.weakrefs = MyWVDict(name='property ' + self.name)
+        #self.weakrefs = weakref.WeakValueDictionary()
         self.linked_properties = set()
         if self.threaded:
             self.emission_event = threading.Event()
