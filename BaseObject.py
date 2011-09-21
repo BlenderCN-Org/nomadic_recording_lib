@@ -133,8 +133,9 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         Multiple arguments are evaluated.  If an object is given, this will
         search for and unbind any callbacks that belong to that object.
         '''
-        result = False
+        results = []
         for arg in args:
+            result = False
             for prop in self.Properties.itervalues():
                 r = prop.unbind(arg)
                 if r:
@@ -147,8 +148,9 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 r = SignalDispatcher.dispatcher.disconnect(self, callback=arg)
                 if r:
                     result = True
-        if not result:
-            print 'could not unbind: ', self, args
+            results.append(result)
+        if False in results:
+            print 'could not unbind: ', self, zip(args, results)
         
     def disconnect(self, **kwargs):
         result = SignalDispatcher.dispatcher.disconnect(self, **kwargs)
