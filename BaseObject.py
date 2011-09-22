@@ -140,11 +140,12 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 r = prop.unbind(arg)
                 if r:
                     result = True
-            if not callable(arg):
+            if not hasattr(arg, 'im_self'):
                 r = SignalDispatcher.dispatcher.disconnect(self, obj=arg)
                 if r:
                     result = True
-            elif len(self.find_signal_keys_from_callback(arg)['signals']):
+            #elif len(self.find_signal_keys_from_callback(arg)['signals']):
+            else:
                 r = SignalDispatcher.dispatcher.disconnect(self, callback=arg)
                 if r:
                     result = True

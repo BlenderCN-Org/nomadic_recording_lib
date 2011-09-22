@@ -59,6 +59,14 @@ class dispatcher(object):
         return id
         
     def disconnect(self, **kwargs):
+        result = False
+        for e in self._emitters.itervalues():
+            r = e.del_receiver(**kwargs)
+            if r:
+                result = True
+        return result
+        
+    def old_disconnect(self, **kwargs):
         objID = kwargs.get('id')
         cb = kwargs.get('callback')
         obj = kwargs.get('obj')
@@ -145,42 +153,53 @@ class SignalEmitter(object):
         #self.callbacks = set()
         #self.receivers = {}#weakref.WeakValueDictionary()
         #self.recv_threads = {}
-        #self.weakrefs = MyWVDict(name=self.name)
-        self.weakrefs = weakref.WeakValueDictionary()
+        self.weakrefs = MyWVDict(name=self.name)
+        #self.weakrefs = weakref.WeakValueDictionary()
         
     def add_receiver(self, **kwargs):
         cb = kwargs.get('callback')
-        objID = str(id(cb))
+        #objID = str(id(cb))
+        objID = id(cb.im_self)
         wrkey = (cb.im_func, objID)
         self.weakrefs[wrkey] = cb.im_self
         return objID
         
-    def old_add_receiver(self, **kwargs):
+    def del_receiver(self, **kwargs):
+        obj = kwargs.get('obj')
         cb = kwargs.get('callback')
-        objID = str(id(cb))
-        #objID = setID(kwargs.get('id'))
-        self.callbacks.add(cb)
-        self.receivers.update({objID:cb})
-        #self.recv_threads.update({objID:collections.deque()})
-        return objID
-        
-    def del_receiver(self, objID):
-        found = None
-        for key in self.weakrefs:
-            if objID in key:
-                found = key
-                break
-        if found:
-            del self.weakrefs[found]
+        wrkey = kwargs.get('wrkey')
+        if obj is not None:
+            result = False
+            found = set()
+            for wrkey in self.weakrefs.keys():
+                if wrkey[1] == id(obj):
+                    found.add(wrkey)
+            for wrkey in found:
+                r = self.del_receiver(wrkey=wrkey)
+                if r:
+                    result = True
+            return result
+        if cb is not None:
+            wrkey = (cb.im_func, id(cb.im_self))
+            if wrkey in self.weakrefs:
+                del self.weakrefs[wrkey]
+                return True
+        if wrkey is not None:
+            if wrkey not in self.weakrefs:
+                return False
+            del self.weakrefs[wrkey]
             return True
-        return False
-        
-    def old_del_receiver(self, objID):
-        self.callbacks.discard(self.receivers.get(objID))
-        if objID in self.receivers:
-            del self.receivers[objID]
-            return True
-        return False
+            
+#    def del_receiver(self, objID):
+#        found = None
+#        for key in self.weakrefs:
+#            if objID in key:
+#                found = key
+#                break
+#        if found:
+#            del self.weakrefs[found]
+#            return True
+#        return False
             
     def emit(self, *args, **kwargs):
         for key in self.weakrefs.keys()[:]:
