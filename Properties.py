@@ -286,7 +286,7 @@ class ObjProperty(object):
             
     def unbind(self, cb):
         result = False
-        if not callable(cb):
+        if not hasattr(cb, 'im_self'):
             ## Assume this is an instance object and attempt to unlink
             ## any methods that belong to it.
             obj = cb
@@ -305,7 +305,7 @@ class ObjProperty(object):
                 del self.emission_threads[id(cb)]
         found = set()
         for wrkey in self.weakrefs.keys()[:]:
-            if id(cb) in wrkey:
+            if getattr(cb, 'im_func', None) == wrkey[0]:
                 found.add(wrkey)
                 result = True
         for wrkey in found:
