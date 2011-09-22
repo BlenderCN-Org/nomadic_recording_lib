@@ -270,19 +270,8 @@ class ObjProperty(object):
         if getattr(cb, 'im_self', None) == self.parent_obj:
             self.own_callbacks.add(cb)
         else:
-            wrkey = (cb.im_func, id(cb))
+            wrkey = (cb.im_func, id(cb.im_self))
             self.weakrefs[wrkey] = cb.im_self
-            
-    def old_bind(self, cb):
-        if getattr(cb, 'im_self', None) == self.parent_obj:
-            self.own_callbacks.add(cb)
-        else:
-            self.callbacks.add(cb)
-            if self.threaded:
-                t = ThreadedEmitter(callback=cb, parent_property=self)
-                if t.id not in self.emission_threads:
-                    self.emission_threads[t.id] = t
-                    t.start()
             
     def unbind(self, cb):
         result = False
@@ -299,45 +288,13 @@ class ObjProperty(object):
                 if r:
                     result = True
             return result
-        if self.threaded:
-            if id(cb) in self.emission_threads:
-                t.stop()
-                del self.emission_threads[id(cb)]
-        found = set()
-        for wrkey in self.weakrefs.keys()[:]:
-            if getattr(cb, 'im_func', None) == wrkey[0]:
-                found.add(wrkey)
-                result = True
-        for wrkey in found:
+        wrkey = (cb.im_func, id(cb.im_self))
+        if wrkey in self.weakrefs:
             del self.weakrefs[wrkey]
+            result = True
         if cb in self.own_callbacks:
             result = True
             self.own_callbacks.discard(cb)
-        return result
-            
-    def old_unbind(self, cb):
-        result = False
-        if not callable(cb):
-            ## Assume this is an instance object and attempt to unlink
-            ## any methods that belong to it.
-            obj = cb
-            found = set()
-            for c in self.callbacks:
-                if getattr(c, 'im_self', None) == obj:
-                    found.add(c)
-            for realcb in found:
-                r = self.unbind(realcb)
-                if r:
-                    result = True
-            return result
-        if self.threaded:
-            if id(cb) in self.emission_threads:
-                t.stop()
-                del self.emission_threads[id(cb)]
-        if cb in self.callbacks or cb in self.own_callbacks:
-            result = True
-        self.callbacks.discard(cb)
-        self.own_callbacks.discard(cb)
         return result
         
     def link(self, prop, key=None):

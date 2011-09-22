@@ -151,6 +151,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             results.append(result)
         if False in results:
             print 'could not unbind: ', self, zip(args, results)
+        return results
         
     def disconnect(self, **kwargs):
         result = SignalDispatcher.dispatcher.disconnect(self, **kwargs)
