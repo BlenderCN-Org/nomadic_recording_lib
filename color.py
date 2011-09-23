@@ -3,7 +3,8 @@ import bisect
 import colorsys
 from BaseObject import BaseObject
 
-colorprops = dict(zip(['red', 'green', 'blue', 'hue', 'sat', 'val'], [{'default':0.0}]*6))
+colorprops = dict(zip(['red', 'green', 'blue'], [{'default':0., 'min':0., 'max':255.}]*3))
+colorprops.update(dict(zip(['hue', 'sat', 'val'], [{'default':0., 'min':0., 'max':1.}]*3)))
 #for key, val in colorprops.iteritems():
 #    val.update({'fget':'_'.join([key, 'getter'])})
 
