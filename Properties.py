@@ -536,6 +536,8 @@ class PropertyConnector(object):
         '''
         if self.Property is not None:
             if convert_type:
+                if type(value) == float and self.Property.type == int:
+                    value = round(value)
                 value = self.Property.type(value)
             setattr(self.Property.parent_obj, self.Property.name, value)
             
