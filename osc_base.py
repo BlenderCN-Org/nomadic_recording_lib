@@ -56,6 +56,19 @@ class OSCBaseObject(BaseObject):
             
         super(OSCBaseObject, self).__init__(**kwargs)
             
+    def unlink(self):
+        def remove_node(n):
+            if n._callbacks or n._childNodes or not n._parent:
+                return
+            del n._parent._childNodes[n._name]
+        for handler in self.osc_handlers.itervalues():
+            handler.unlink()
+            n = handler.osc_node
+            if n != self.osc_node:
+                remove_node(n)
+        remove_node(self.osc_node)
+        super(OSCBaseObject, self).unlink()
+        
     def set_osc_address(self, address):
         if not self.osc_enabled or address is None:
             return
@@ -132,6 +145,11 @@ class OSCHandler(BaseObject, PropertyConnector):
         self.Property = kwargs.get('Property')
         self.all_sessions = kwargs.get('all_sessions', False)
         
+    def unlink(self):
+        self.Property = None
+        self.remove_callbacks()
+        super(OSCHandler, self).unlink()
+        
     def add_callbacks(self, **kwargs):
         self.callbacks.update(kwargs)
         for key in kwargs.iterkeys():
@@ -140,7 +158,10 @@ class OSCHandler(BaseObject, PropertyConnector):
             
     def remove_callbacks(self):
         for key in self.callbacks.iterkeys():
-            self.osc_node.removeCallback('%s/%s' % (self.address, key), self.handle_message)
+            try:
+                self.osc_node.removeCallback('%s/%s' % (self.address, key), self.handle_message)
+            except:
+                pass
             
     def handle_message(self, message, hostaddr):
         address = message.address
