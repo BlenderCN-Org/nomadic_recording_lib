@@ -101,7 +101,10 @@ class ClsProperty(object):
         obj.Properties[self.name] = ObjProperty(**pkwargs)
         
     def _fget(self, obj):
-        return obj.Properties[self.name].value
+        prop = obj.Properties.get(self.name)
+        if prop is None:
+            return
+        return prop.value
         
     def _fset(self, obj, value):
         value = self.fformat(obj, value)

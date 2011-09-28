@@ -39,6 +39,11 @@ class dispatcher(object):
 #            self._emitters.update({signal_name:SignalEmitter(name=signal_name)})
 #            #self._receivers.update({signal_name:{}})
 
+    def unlink(self):
+        for e in self._emitters.itervalues():
+            for wrkey in e.weakrefs.keys()[:]:
+                e.del_receiver(wrkey=wrkey)
+                
     def search_for_signal_name(self, search_string):
         results = []
         valid = False

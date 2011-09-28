@@ -1,5 +1,6 @@
 import UserDict
 import atexit
+import weakref
 
 import SignalDispatcher
 from Serialization import Serializer
@@ -8,6 +9,23 @@ from Properties import ClsProperty
 save_keys = {}
 for key in ['saved_attributes', 'saved_child_classes', 'saved_child_objects']:
     save_keys.update({key:'_%s' % (key)})
+
+class MyWVDict(weakref.WeakValueDictionary):
+    def __init__(self, *args, **kwargs):
+        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+        def remove(wr, selfref=weakref.ref(self)):
+            self = selfref()
+            if self is not None:
+                print 'REMOVE BASEOBJECT: ', wr.key
+                del self.data[wr.key]
+                print 'len = ', len(self.data)
+        self._remove = remove
+    def __setitem__(self, key, value):
+        weakref.WeakValueDictionary.__setitem__(self, key, value)
+        #print 'ADD BASEOBJECT: ', value
+        print 'add len = ', len(self.data)
+
+lots_of_baseobjects = MyWVDict()
 
 class BaseObject(SignalDispatcher.dispatcher, Serializer):
     '''Base class for everything.  Too many things to document.
@@ -114,6 +132,11 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         if f:
             atexit.register(f)
             
+        #lots_of_baseobjects[(id(self), self.__class__)] = self
+        
+    #def __del__(self):
+    #    print self, ' delete'
+        
     def bind(self, **kwargs):
         '''Binds Properties and/or signals to the given callbacks.
         Bindings are made by keyword arguments.
@@ -182,6 +205,14 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     def unlink(self):
         for category in self.categories.copy().values():
             category.del_member(self)
+        SignalDispatcher.dispatcher.unlink(self)
+        #self.Properties.clear()
+        for prop in self.Properties.itervalues():
+            prop.own_callbacks.clear()
+            prop.weakrefs.clear()
+            #prop.value = None
+            prop.parent_obj = None
+            
             
     def _Index_validate(self, value):
         if not hasattr(self, 'ChildGroup_parent'):
