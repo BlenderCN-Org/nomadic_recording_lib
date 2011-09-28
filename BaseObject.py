@@ -52,6 +52,10 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 cls = cls.__bases__[0]
         return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
         
+    @staticmethod
+    def collect_garbage():
+        garbage_collector.queue_collection.set()
+        
     def __init__(self, **kwargs):
         self.Properties = {}
         self._Index_validate_default = True
@@ -214,7 +218,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             prop.weakrefs.clear()
             #prop.value = None
             prop.parent_obj = None
-        garbage_collector.queue_collection.set()
+        self.collect_garbage()
             
     def _Index_validate(self, value):
         if not hasattr(self, 'ChildGroup_parent'):
