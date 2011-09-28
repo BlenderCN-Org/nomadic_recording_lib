@@ -147,16 +147,21 @@ class ClsProperty(object):
         
 class MyWVDict(weakref.WeakValueDictionary):
     def __init__(self, *args, **kwargs):
-        self.name = kwargs.get('name')
-        del kwargs['name']
+        self.printstring = kwargs.get('printstring', '')
+        if 'printstring' in kwargs:
+            del kwargs['printstring']
         #super(MyWVDict, self).__init__(*args, **kwargs)
         weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
         def remove(wr, selfref=weakref.ref(self)):
             self = selfref()
             if self is not None:
-                print 'REMOVE PROP WEAKREF: ', self.name, self.data[wr.key], wr.key
                 del self.data[wr.key]
+                print 'REMOVE: ', len(self.data), self.printstring, wr.key
         self._remove = remove
+    def __setitem__(self, key, value):
+        weakref.WeakValueDictionary.__setitem__(self, key, value)
+        print 'ADD: ', len(self.data), self.printstring, key
+        
 
 class ObjProperty(object):
     '''This object will be added to an instance of a class that contains a
@@ -189,13 +194,13 @@ class ObjProperty(object):
         self.threaded = kwargs.get('threaded')
         self.own_callbacks = set()
         #self.callbacks = set()
-        self.weakrefs = MyWVDict(name='property ' + self.name)
-        #self.weakrefs = weakref.WeakValueDictionary()
+        #self.weakrefs = MyWVDict(printstring='property weakref' + self.name)
+        self.weakrefs = weakref.WeakValueDictionary()
         self.linked_properties = set()
         if self.threaded:
             self.emission_event = threading.Event()
             self.emission_threads = {}
-    
+        
     @property
     def range(self):
         return [self.min, self.max]

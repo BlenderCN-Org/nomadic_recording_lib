@@ -158,8 +158,8 @@ class SignalEmitter(object):
         #self.callbacks = set()
         #self.receivers = {}#weakref.WeakValueDictionary()
         #self.recv_threads = {}
-        self.weakrefs = MyWVDict(name=self.name)
-        #self.weakrefs = weakref.WeakValueDictionary()
+        #self.weakrefs = MyWVDict(name=self.name)
+        self.weakrefs = weakref.WeakValueDictionary()
         
     def add_receiver(self, **kwargs):
         cb = kwargs.get('callback')

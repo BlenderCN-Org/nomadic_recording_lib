@@ -1,3 +1,5 @@
+import threading
+import gc
 import UserDict
 import atexit
 import weakref
@@ -25,7 +27,7 @@ class MyWVDict(weakref.WeakValueDictionary):
         #print 'ADD BASEOBJECT: ', value
         print 'add len = ', len(self.data)
 
-lots_of_baseobjects = MyWVDict()
+#lots_of_baseobjects = MyWVDict()
 
 class BaseObject(SignalDispatcher.dispatcher, Serializer):
     '''Base class for everything.  Too many things to document.
@@ -212,7 +214,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             prop.weakrefs.clear()
             #prop.value = None
             prop.parent_obj = None
-            
+        garbage_collector.queue_collection.set()
             
     def _Index_validate(self, value):
         if not hasattr(self, 'ChildGroup_parent'):
@@ -264,3 +266,36 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
         self.emit('update', old=old)
 
 GLOBAL_CONFIG = _GlobalConfig()
+
+
+class GCCollectThread(threading.Thread):
+    def __init__(self, **kwargs):
+        threading.Thread.__init__(self)
+        self.running = threading.Event()
+        self.wait_time = kwargs.get('wait_time', 1.)
+        self.wait_for_collection = threading.Event()
+        self.queue_collection = threading.Event()
+        self.collecting = threading.Event()
+    def run(self):
+        self.running.set()
+        while self.running.isSet():
+            self.queue_collection.wait()
+            if self.running.isSet():
+                self.queue_collection.clear()
+                self.wait_for_collection.wait(self.wait_time)
+                if not self.queue_collection.isSet():
+                    self.do_collect()
+                    self.queue_collection.clear()
+                self.wait_for_collection.clear()
+    def stop(self):
+        self.running.clear()
+        self.wait_for_collection.set()
+        self.queue_collection.set()
+    def do_collect(self):
+        self.collecting.set()
+        r = gc.collect()
+        print 'gc result: ',  r
+        self.collecting.clear()
+        
+garbage_collector = GCCollectThread()
+garbage_collector.start()
