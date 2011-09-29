@@ -3,88 +3,112 @@ import bisect
 import colorsys
 from BaseObject import BaseObject
 
-colorprops = dict(zip(['red', 'green', 'blue'], [{'default':0., 'min':0., 'max':255.}]*3))
-colorprops.update(dict(zip(['hue', 'sat', 'val'], [{'default':0., 'min':0., 'max':1.}]*3)))
+rgb_keys = ['red', 'green', 'blue']
+hsv_keys = ['hue', 'sat', 'val']
+colorprops = dict(zip(rgb_keys + hsv_keys, [{'default':0., 'min':0., 'max':1.}]*6))
+colorprops.update(dict(zip(['rgb', 'hsv'], [dict(default=dict(zip(keys, [0.]*3)), 
+                                            min=dict(zip(keys, [0.]*3)), 
+                                            max=dict(zip(keys, [1.]*3)), 
+                                            quiet=True) for keys in [rgb_keys, hsv_keys]])))
 #for key, val in colorprops.iteritems():
 #    val.update({'fget':'_'.join([key, 'getter'])})
 
 class Color(BaseObject):
-    color_keys = ['red', 'green', 'blue']
-    hsv_keys = ['hue', 'sat', 'val']
+    #color_keys = ['red', 'green', 'blue']
+    #hsv_keys = ['hue', 'sat', 'val']
     _Properties = colorprops
     def __init__(self, **kwargs):
         super(Color, self).__init__(**kwargs)
-        self._color_set_local = False
-        self.bind(property_changed=self.on_own_property_changed)
+        #self._color_set_local = False
+        self._rgb_set_local = False
+        self._hsv_set_local = False
+        self.bind(rgb=self._on_rgb_set, 
+                  hsv=self._on_hsv_set, 
+                  property_changed=self.on_own_property_changed)
             
+#    @property
+#    def rgb(self):
+#        return dict(zip(self.color_keys, [getattr(self, key) for key in self.color_keys]))
+#        #return dict(zip(self.color_keys, self._rgb))
+#    @rgb.setter
+#    def rgb(self, value):
+#        self.set_rgb(**value)
+        
+#    def set_rgb(self, **kwargs):
+#        self._color_set_local = True
+#        for key, val in kwargs.iteritems():
+#            if key in self.color_keys:
+#                setattr(self, key, val)
+#        self._update_hsv()
+#        self._color_set_local = False
+#            
+#    def set_hsv(self, **kwargs):
+#        self._color_set_local = True
+#        for key, val in kwargs.iteritems():
+#            if key in self.hsv_keys:
+#                setattr(self, key, val)
+#        self._update_rgb()
+#        self._color_set_local = False
+#        
+#    def _update_rgb(self):
+#        rgb = colorsys.hsv_to_rgb(*[getattr(self, key) for key in self.hsv_keys])
+#        for i, val in enumerate(rgb):
+#            setattr(self, self.color_keys[i], val * 255)
+#            
+#    def _update_hsv(self):
+#        hsv = colorsys.rgb_to_hsv(*[getattr(self, key) / 255. for key in self.color_keys])
+#        for i, val in enumerate(hsv):
+#            setattr(self, self.hsv_keys[i], val)
+        
+#    @property
+#    def hsv(self):
+#        return dict(zip(self.hsv_keys, self.hsv_seq))
+#    @hsv.setter
+#    def hsv(self, value):
+#        self.set_hsv(**value)
+        
     @property
-    def rgb(self):
-        return dict(zip(self.color_keys, [getattr(self, key) for key in self.color_keys]))
-        #return dict(zip(self.color_keys, self._rgb))
-    @rgb.setter
-    def rgb(self, value):
-        self.set_rgb(**value)
-        
-    def set_rgb(self, **kwargs):
-        self._color_set_local = True
-        for key, val in kwargs.iteritems():
-            if key in self.color_keys:
-                setattr(self, key, val)
-        self._update_hsv()
-        self._color_set_local = False
-            
-    def set_hsv(self, **kwargs):
-        self._color_set_local = True
-        for key, val in kwargs.iteritems():
-            if key in self.hsv_keys:
-                setattr(self, key, val)
-        self._update_rgb()
-        self._color_set_local = False
-        
-    def _update_rgb(self):
-        rgb = colorsys.hsv_to_rgb(*[getattr(self, key) for key in self.hsv_keys])
-        for i, val in enumerate(rgb):
-            setattr(self, self.color_keys[i], val * 255)
-            
-    def _update_hsv(self):
-        hsv = colorsys.rgb_to_hsv(*[getattr(self, key) / 255. for key in self.color_keys])
-        for i, val in enumerate(hsv):
-            setattr(self, self.hsv_keys[i], val)
-        
-    @property
-    def hsv(self):
-        return dict(zip(self.hsv_keys, self.hsv_seq))
-    @hsv.setter
-    def hsv(self, value):
-        self.set_hsv(**value)
-        
+    def rgb_seq(self):
+        rgb = self.rgb
+        return list((rgb[key] for key in rgb_keys))
     @property
     def hsv_seq(self):
-        return [getattr(self, key) for key in self.hsv_keys]
+        hsv = self.hsv
+        return list((hsv[key] for key in hsv_keys))
         
-#    def red_getter(self):
-#        return self._rgb[0]
-#    def green_getter(self):
-#        return self._rgb[1]
-#    def blue_getter(self):
-#        return self._rgb[2]
-#    def hue_getter(self):
-#        return self._hsv[0]
-#    def sat_getter(self):
-#        return self._hsv[1]
-#    def val_getter(self):
-#        return self._hsv[2]
+    def _on_rgb_set(self, **kwargs):
+        print 'rgb = ', self.rgb
+        for key, val in self.rgb.iteritems():
+            setattr(self, key, val)
+        if self._rgb_set_local:
+            return
+        self._hsv_set_local = True
+        self.hsv = dict(zip(hsv_keys, colorsys.rgb_to_hsv(*self.rgb_seq)))
+        self._hsv_set_local = False
+        
+    def _on_hsv_set(self, **kwargs):
+        print 'hsv = ', self.hsv
+        for key, val in self.hsv.iteritems():
+            setattr(self, key, val)
+        if self._hsv_set_local:
+            return
+        self._rgb_set_local = True
+        self.rgb = dict(zip(rgb_keys, colorsys.hsv_to_rgb(*self.hsv_seq)))
+        self._rgb_set_local = False
         
     def on_own_property_changed(self, **kwargs):
-        if self._color_set_local:
-            return
+        #if self._color_set_local:
+        #    return
         prop = kwargs.get('Property')
-        if prop.name in self.color_keys:
+        value = kwargs.get('value')
+        if prop.name in rgb_keys and not self._rgb_set_local:
             #i = self.color_keys.index(prop.name)
             #self._rgb[i] = prop.value
-            self.set_rgb(**{prop.name:prop.value})
-        elif prop.name in self.hsv_keys:
-            self.set_hsv(**{prop.name:prop.value})
+            #self.set_rgb(**{prop.name:prop.value})
+            self.rgb[prop.name] = value
+        elif prop.name in hsv_keys and not self._hsv_set_local:
+            #self.set_hsv(**{prop.name:prop.value})
+            self.hsv[prop.name] = value
             
 
 arraytype_map = {'c':chr}
