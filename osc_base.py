@@ -58,9 +58,8 @@ class OSCBaseObject(BaseObject):
             
     def unlink(self):
         def remove_node(n):
-            if n._callbacks or n._childNodes or not n._parent:
-                return
-            del n._parent._childNodes[n._name]
+            if n._parent is not None:
+                n._parent.removeNode(n._name)
         if self.osc_enabled:
             for handler in self.osc_handlers.itervalues():
                 handler.unlink()
@@ -270,7 +269,7 @@ class OSCNode(BaseObject, dispatch.Receiver):
         #super(OSCNode, self).__init__()
         BaseObject.__init__(self, **kwargs)
         dispatch.Receiver.__init__(self)
-        self.register_signal('child_added')
+        self.register_signal('child_added', 'child_removed')
         
         if 'name' in kwargs:
             self.setName(kwargs.get('name'))
@@ -289,11 +288,20 @@ class OSCNode(BaseObject, dispatch.Receiver):
             self._dispatch_thread.start()
         
     def unlink(self):
+        for c in self._childNodes.itervalues():
+            c.unbind(self)
         super(OSCNode, self).unlink()
+        
+    def unlink_all(self, direction='up'):
+        self.unlink()
         if self.is_root_node:
             self._dispatch_thread.stop()
-        else:
-            self._parent.unlink()
+        if direction == 'up' and not self.is_root_node:
+            self._parent.unlink_all(direction)
+        elif direction == 'down':
+            for c in self._childNodes.itervalues():
+                c.unlink_all(direction)
+        
         
     @property
     def oscMaster(self):
@@ -349,7 +357,11 @@ class OSCNode(BaseObject, dispatch.Receiver):
                 return node
             if name in self._childNodes:
                 return self._childNodes[name]
-            return OSCNode(name=name, parent=self)
+            new_node = OSCNode(name=name, parent=self)
+            new_node.bind(child_added=self._on_childNode_child_added, 
+                          child_removed=self._on_childNode_child_removed)
+            self.emit('child_added', node=self, name=name)
+            return new_node
         if self._parent is not None:
             return self._parent.add_new_node(**kwargs)
         return None
@@ -411,7 +423,39 @@ class OSCNode(BaseObject, dispatch.Receiver):
         
     def addNode(self, name, instance):
         super(OSCNode, self).addNode(name, OSCNode())
-        self.emit('child_added')
+        self._childNodes[name].bind(child_added=self._on_childNode_child_added, 
+                                    child_removed=self._on_childNode_child_removed)
+        self.emit('child_added', node=self, name=name)
+        
+    def removeNode(self, name):
+        node = self._childNodes.get(name)
+        if not node:
+            return False
+        for cname in node._childNodes.keys()[:]:
+            node.removeNode(cname)
+        print 'removeNode: ', self, name
+        node.removeCallbacks()
+        
+    def _checkRemove(self):
+        has_parent = self._parent is not None
+        if has_parent and self._name in self._parent._childNodes:
+            dispatch.Receiver._checkRemove(self)
+        if has_parent and self._name not in self._parent._childNodes:
+             self._parent.unbind(self)
+             self.unlink()
+             self._parent.emit('child_removed', node=self._parent, name=self._name)
+            
+    def _on_childNode_child_added(self, **kwargs):
+        #if not self._parent:
+        #    return
+        #print self, 'added', kwargs
+        self.emit('child_added', **kwargs)
+        
+    def _on_childNode_child_removed(self, **kwargs):
+        #if not self._parent:
+        #    return
+        #print self, 'removed', kwargs
+        self.emit('child_removed', **kwargs)
     
     def dispatch(self, element, client):
         if isinstance(element, osc.Bundle):
@@ -535,7 +579,7 @@ class OSCDispatchThread(threading.Thread):
         self.ui_module = None
         self.kivy_messengers = set()
         ui = self.osc_tree.GLOBAL_CONFIG.get('ui_mode')
-        if ui is not None:
+        if ui is not None and ui != 'none':
             self.ui_module = get_ui_module(ui)
             attr = self._ui_mode_dispatch_methods.get(ui)
             if attr:
