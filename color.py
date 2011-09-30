@@ -77,7 +77,7 @@ class Color(BaseObject):
         return list((hsv[key] for key in hsv_keys))
         
     def _on_rgb_set(self, **kwargs):
-        print 'rgb = ', self.rgb
+        #print 'rgb = ', self.rgb
         for key, val in self.rgb.iteritems():
             setattr(self, key, val)
         if self._rgb_set_local:
@@ -87,7 +87,7 @@ class Color(BaseObject):
         self._hsv_set_local = False
         
     def _on_hsv_set(self, **kwargs):
-        print 'hsv = ', self.hsv
+        #print 'hsv = ', self.hsv
         for key, val in self.hsv.iteritems():
             setattr(self, key, val)
         if self._hsv_set_local:

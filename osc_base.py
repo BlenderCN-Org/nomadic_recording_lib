@@ -433,7 +433,7 @@ class OSCNode(BaseObject, dispatch.Receiver):
             return False
         for cname in node._childNodes.keys()[:]:
             node.removeNode(cname)
-        print 'removeNode: ', self, name
+        #print 'removeNode: ', self, name
         node.removeCallbacks()
         
     def _checkRemove(self):
