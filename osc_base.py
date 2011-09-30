@@ -630,9 +630,9 @@ class OSCDispatchThread(threading.Thread):
             self.osc_tree.dispatch(m, client)
             
     def gtk_do_dispatch(self, messages, client):
-        self.ui_module.gdk.threads_enter()
+        #self.ui_module.gdk.threads_enter()
         self._do_dispatch(messages, client)
-        self.ui_module.gdk.threads_leave()
+        #self.ui_module.gdk.threads_leave()
                 
     def kivy_do_dispatch(self, messages, client):
         obj = Messenger(messages=messages, client=client, callback=self._on_kivy_msg_cb)
