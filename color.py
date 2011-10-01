@@ -78,8 +78,8 @@ class Color(BaseObject):
         
     def _on_rgb_set(self, **kwargs):
         #print 'rgb = ', self.rgb
-        for key, val in self.rgb.iteritems():
-            setattr(self, key, val)
+        #for key, val in self.rgb.iteritems():
+        #    setattr(self, key, val)
         if self._rgb_set_local:
             return
         self._hsv_set_local = True
@@ -88,8 +88,8 @@ class Color(BaseObject):
         
     def _on_hsv_set(self, **kwargs):
         #print 'hsv = ', self.hsv
-        for key, val in self.hsv.iteritems():
-            setattr(self, key, val)
+        #for key, val in self.hsv.iteritems():
+        #    setattr(self, key, val)
         if self._hsv_set_local:
             return
         self._rgb_set_local = True
@@ -97,6 +97,7 @@ class Color(BaseObject):
         self._rgb_set_local = False
         
     def on_own_property_changed(self, **kwargs):
+        return
         #if self._color_set_local:
         #    return
         prop = kwargs.get('Property')
