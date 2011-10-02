@@ -197,7 +197,7 @@ class ObjProperty(object):
         #self.weakrefs = MyWVDict(printstring='property weakref' + self.name)
         self.weakrefs = weakref.WeakValueDictionary()
         self.linked_properties = set()
-        self.emission_lock = threading.Lock()
+        self.emission_lock = threading.RLock()
         self.emission_event = threading.Event()
         if self.threaded:
             self.emission_threads = {}
@@ -277,18 +277,18 @@ class ObjProperty(object):
             
     def get_lock(self, *args, **kwargs):
         def do_call(cb, *args, **kwargs):
-            if not l:
-                self.emission_lock.acquire()
-            cb(*args, **kwargs)
-            self.emission_lock.release()
-        l = self.emission_lock.acquire(blocking=False)
-        if not l:
-            t = threading.Thread(target=do_call, args=args, kwargs=kwargs)
+            with self.emission_lock:
+                cb(*args, **kwargs)
+        if self.emission_lock._is_owned():
+            t = threading.Thread(target=do_call, args=args, kwargs=kwargs, daemon=False)
             t.start()
             return
         do_call(*args, **kwargs)
         
     def bind(self, cb):
+        #if not self.emission_lock._is_owned() and self.emission_lock._RLock__owner != threading._get_ident():
+        #    self.get_lock(self.bind, cb)
+        #    return
         if getattr(cb, 'im_self', None) == self.parent_obj:
             self.own_callbacks.add(cb)
         else:
@@ -296,7 +296,9 @@ class ObjProperty(object):
             self.weakrefs[wrkey] = cb.im_self
             
     def unbind(self, cb):
-        #with self.emission_lock:
+        #if not self.emission_lock._is_owned() and self.emission_lock._RLock__owner != threading._get_ident():
+        #    self.get_lock(self.unbind, cb)
+        #    return
         result = False
         if not hasattr(cb, 'im_self'):
             ## Assume this is an instance object and attempt to unlink
@@ -357,22 +359,24 @@ class ObjProperty(object):
         if not self.enable_emission:
             self.queue_emission = True
             return
-        with self.emission_lock:
-            value = getattr(self.parent_obj, self.name)
-            cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
-            self.emission_event.set()
-            for cb in self.own_callbacks:
-                cb(**cb_kwargs)
-            for wrkey in self.weakrefs.keys()[:]:
-                f, objID = wrkey
-                f(self.weakrefs[wrkey], **cb_kwargs)
-            #for cb in self.callbacks.copy():
-            #    cb(**cb_kwargs)
-            if not self.quiet:
-                self.parent_obj.emit('property_changed', **cb_kwargs)
-            for prop, key in self.linked_properties:
-                self.update_linked_property(prop, key)
-            self.emission_event.clear()
+        #if not self.emission_lock._is_owned() and self.emission_lock._RLock__owner != threading._get_ident():
+        #    self.get_lock(self.emit, old)
+        #    return
+        value = getattr(self.parent_obj, self.name)
+        cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
+        self.emission_event.set()
+        for cb in self.own_callbacks.copy():
+            cb(**cb_kwargs)
+        for wrkey in self.weakrefs.keys()[:]:
+            f, objID = wrkey
+            f(self.weakrefs[wrkey], **cb_kwargs)
+        #for cb in self.callbacks.copy():
+        #    cb(**cb_kwargs)
+        if not self.quiet:
+            self.parent_obj.emit('property_changed', **cb_kwargs)
+        for prop, key in self.linked_properties:
+            self.update_linked_property(prop, key)
+        self.emission_event.clear()
             
 class ThreadedEmitter(threading.Thread):
     def __init__(self, **kwargs):
