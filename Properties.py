@@ -275,38 +275,50 @@ class ObjProperty(object):
             self.emit(old)
         self.queue_emission = False
             
+    def get_lock(self, *args, **kwargs):
+        def do_call(cb, *args, **kwargs):
+            if not l:
+                self.emission_lock.acquire()
+            cb(*args, **kwargs)
+            self.emission_lock.release()
+        l = self.emission_lock.acquire(blocking=False)
+        if not l:
+            t = threading.Thread(target=do_call, args=args, kwargs=kwargs)
+            t.start()
+            return
+        do_call(*args, **kwargs)
+        
     def bind(self, cb):
-        with self.emission_lock:
-            if getattr(cb, 'im_self', None) == self.parent_obj:
-                self.own_callbacks.add(cb)
-            else:
-                wrkey = (cb.im_func, id(cb.im_self))
-                self.weakrefs[wrkey] = cb.im_self
+        if getattr(cb, 'im_self', None) == self.parent_obj:
+            self.own_callbacks.add(cb)
+        else:
+            wrkey = (cb.im_func, id(cb.im_self))
+            self.weakrefs[wrkey] = cb.im_self
             
     def unbind(self, cb):
-        with self.emission_lock:
-            result = False
-            if not hasattr(cb, 'im_self'):
-                ## Assume this is an instance object and attempt to unlink
-                ## any methods that belong to it.
-                obj = cb
-                found = set()
-                for wrkey in self.weakrefs.keys()[:]:
-                    if self.weakrefs[wrkey] == obj:
-                        found.add(getattr(obj, wrkey[0].func_name))
-                for realcb in found:
-                    r = self.unbind(realcb)
-                    if r:
-                        result = True
-                return result
-            wrkey = (cb.im_func, id(cb.im_self))
-            if wrkey in self.weakrefs:
-                del self.weakrefs[wrkey]
-                result = True
-            if cb in self.own_callbacks:
-                result = True
-                self.own_callbacks.discard(cb)
+        #with self.emission_lock:
+        result = False
+        if not hasattr(cb, 'im_self'):
+            ## Assume this is an instance object and attempt to unlink
+            ## any methods that belong to it.
+            obj = cb
+            found = set()
+            for wrkey in self.weakrefs.keys()[:]:
+                if self.weakrefs[wrkey] == obj:
+                    found.add(getattr(obj, wrkey[0].func_name))
+            for realcb in found:
+                r = self.unbind(realcb)
+                if r:
+                    result = True
             return result
+        wrkey = (cb.im_func, id(cb.im_self))
+        if wrkey in self.weakrefs:
+            del self.weakrefs[wrkey]
+            result = True
+        if cb in self.own_callbacks:
+            result = True
+            self.own_callbacks.discard(cb)
+        return result
         
     def link(self, prop, key=None):
         '''Link this Property to another Property.
