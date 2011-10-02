@@ -359,24 +359,23 @@ class ObjProperty(object):
         if not self.enable_emission:
             self.queue_emission = True
             return
-        #if not self.emission_lock._is_owned() and self.emission_lock._RLock__owner != threading._get_ident():
-        #    self.get_lock(self.emit, old)
-        #    return
         value = getattr(self.parent_obj, self.name)
         cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
-        self.emission_event.set()
         for cb in self.own_callbacks.copy():
             cb(**cb_kwargs)
-        for wrkey in self.weakrefs.keys()[:]:
-            f, objID = wrkey
-            f(self.weakrefs[wrkey], **cb_kwargs)
-        #for cb in self.callbacks.copy():
-        #    cb(**cb_kwargs)
-        if not self.quiet:
-            self.parent_obj.emit('property_changed', **cb_kwargs)
+        if self.threaded:
+            self.emission_event.set()
+            self.emission_event.clear()
+        else:
+            for wrkey in self.weakrefs.keys()[:]:
+                f, objID = wrkey
+                f(self.weakrefs[wrkey], **cb_kwargs)
+            #for cb in self.callbacks.copy():
+            #    cb(**cb_kwargs)
+            if not self.quiet:
+                self.parent_obj.emit('property_changed', **cb_kwargs)
         for prop, key in self.linked_properties:
             self.update_linked_property(prop, key)
-        self.emission_event.clear()
             
 class ThreadedEmitter(threading.Thread):
     def __init__(self, **kwargs):
