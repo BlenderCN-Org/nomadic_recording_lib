@@ -1,5 +1,7 @@
 import UserDict
 import jsonpickle
+if jsonpickle.__version__ != '0.3.1':
+    raise
 
 from Properties import EMULATED_TYPES
 
