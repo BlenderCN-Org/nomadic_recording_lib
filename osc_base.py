@@ -95,6 +95,7 @@ class OSCBaseObject(BaseObject):
             'Property' : links a Property object to the osc handler so you don't have
                          to do anything yourself anymore (uses PropertyConnector).
                          give it a Property object or string of the Property name.
+            'request_initial_value' : bool
         '''
         if not self.osc_enabled:
             return
@@ -136,6 +137,7 @@ class OSCHandler(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
         super(OSCHandler, self).__init__()
         self.callbacks = {}
+        self.request_initial_value = kwargs.get('request_initial_value')
         self.address = kwargs.get('address')
         #self.callbacks = kwargs.get('callbacks')
         self.osc_node = kwargs.get('osc_node')
@@ -190,7 +192,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         self.Property_set_by_osc = False
         self.add_callbacks(**{'set-value':self.on_osc_Property_value_changed, 
                               'current-value':self.on_osc_Property_value_requested})
-        if not self.osc_node.oscMaster:
+        if not self.osc_node.oscMaster and self.request_initial_value:
             self.request_Property_value()
                 
     def on_Property_value_changed(self, **kwargs):
