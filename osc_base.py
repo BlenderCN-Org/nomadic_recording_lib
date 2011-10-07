@@ -145,6 +145,8 @@ class OSCHandler(BaseObject, PropertyConnector):
         callbacks = kwargs.get('callbacks', {})
         self.add_callbacks(**callbacks)
         self.Property = kwargs.get('Property')
+        self.send_root_address = kwargs.get('send_root_address')
+        self.send_client = kwargs.get('send_client')
         self.all_sessions = kwargs.get('all_sessions', False)
         
     def unlink(self):
@@ -214,6 +216,10 @@ class OSCHandler(BaseObject, PropertyConnector):
         msg_kwargs = dict(value=args, address=kwargs.get('address', 'set-value'), all_sessions=self.all_sessions)
         if 'client' in kwargs:
             msg_kwargs['client'] = kwargs['client']
+        elif self.send_client is not None:
+            msg_kwargs['client'] = self.send_client
+        if self.send_root_address is not None:
+            msg_kwargs['root_address'] = self.send_root_address
         #print msg_kwargs
         self.osc_node.send_message(**msg_kwargs)
             
