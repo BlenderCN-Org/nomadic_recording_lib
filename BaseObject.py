@@ -298,7 +298,7 @@ class GCCollectThread(threading.Thread):
     def do_collect(self):
         self.collecting.set()
         r = gc.collect()
-        print 'gc result: ',  r
+        #print 'gc result: ',  r
         self.collecting.clear()
         
 garbage_collector = GCCollectThread()

@@ -406,6 +406,8 @@ class ListProperty(list):
     def __init__(self, initlist=None, **kwargs):
         self.parent_property = kwargs.get('parent_property')
         super(ListProperty, self).__init__(initlist)
+    def copy(self):
+        return self[:]
     def _update_value(self, value):
         for i, item in enumerate(value):
             if i <= len(self):

@@ -151,7 +151,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         
     def unlink(self):
         self.Property = None
-        self.remove_callbacks()
+        #self.remove_callbacks()
         super(OSCHandler, self).unlink()
         
     def add_callbacks(self, **kwargs):
@@ -161,11 +161,13 @@ class OSCHandler(BaseObject, PropertyConnector):
             #print self.osc_node._name, '%s/%s' % (self.address, key)
             
     def remove_callbacks(self):
-        for key in self.callbacks.iterkeys():
+        for key in self.callbacks.keys()[:]:
             try:
                 self.osc_node.removeCallback('%s/%s' % (self.address, key), self.handle_message)
+                print self.address, ' callback removed: ', key
+                del self.callbacks[key]
             except:
-                pass
+                print self.address, ' could not remove callback: ', key
             
     def handle_message(self, message, hostaddr):
         address = message.address
@@ -296,8 +298,11 @@ class OSCNode(BaseObject, dispatch.Receiver):
             self._dispatch_thread.start()
         
     def unlink(self):
-        for c in self._childNodes.itervalues():
-            c.unbind(self)
+#        for c in self._childNodes.itervalues():
+#            if not isinstance(c, OSCNode):
+#                continue
+#            #c.unlink()
+#            c.unbind(self)
         super(OSCNode, self).unlink()
         
     def unlink_all(self, direction='up'):
@@ -441,17 +446,21 @@ class OSCNode(BaseObject, dispatch.Receiver):
             return False
         for cname in node._childNodes.keys()[:]:
             node.removeNode(cname)
-        #print 'removeNode: ', self, name
         node.removeCallbacks()
+        
+            #node.removeAllCallbacks()
+        #node.unbind(self)
+        #print 'removeNode: ', self, name
+        #node.removeCallbacks()
         
     def _checkRemove(self):
         has_parent = self._parent is not None
         if has_parent and self._name in self._parent._childNodes:
             dispatch.Receiver._checkRemove(self)
         if has_parent and self._name not in self._parent._childNodes:
-             self._parent.unbind(self)
-             self.unlink()
-             self._parent.emit('child_removed', node=self._parent, name=self._name)
+            #self._parent.unbind(self)
+            #self.unlink()
+            self._parent.emit('child_removed', node=self._parent, name=self._name)
             
     def _on_childNode_child_added(self, **kwargs):
         #if not self._parent:
