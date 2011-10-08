@@ -562,6 +562,9 @@ class PropertyConnector(object):
                 value to the type associated with the Property. default is False
         '''
         if self.Property is not None:
+            if self.Property.parent_obj is None:
+                self.Property = None
+                return
             if convert_type:
                 if type(value) == float and self.Property.type == int:
                     value = round(value)
@@ -573,6 +576,9 @@ class PropertyConnector(object):
         Property, if there is one attached.
         '''
         if self.Property is not None:
+            if self.Property.parent_obj is None:
+                self.Property = None
+                return
             return getattr(self.Property.parent_obj, self.Property.name)
             
     def on_Property_value_changed(self, **kwargs):
