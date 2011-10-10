@@ -144,10 +144,10 @@ class OSCHandler(BaseObject, PropertyConnector):
         #self.osc_node.addCallback(self.address+'/*', self.handle_message)
         callbacks = kwargs.get('callbacks', {})
         self.add_callbacks(**callbacks)
-        self.Property = kwargs.get('Property')
         self.send_root_address = kwargs.get('send_root_address')
         self.send_client = kwargs.get('send_client')
         self.all_sessions = kwargs.get('all_sessions', False)
+        self.Property = kwargs.get('Property')
         
     def unlink(self):
         self.Property = None
@@ -204,7 +204,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         
     def send_Property_value_to_osc(self, **kwargs):
         if self.Property_set_by_osc:
-            self.Property_set_by_osc = False
+            #self.Property_set_by_osc = False
             return
         value = self.get_Property_value()
         if isinstance(value, dict):
@@ -478,10 +478,10 @@ class OSCNode(BaseObject, dispatch.Receiver):
         if isinstance(element, osc.Bundle):
             self.dispatch_thread.add_bundle(element, client)
         else:
-            try:
-                super(OSCNode, self).dispatch(element, client)
-            except:
-                print 'could not dispatch stuff:\n%s\n%s %s' % (sys.exc_info(), element.address, element.getValues())
+            #try:
+            super(OSCNode, self).dispatch(element, client)
+            #except:
+            #    print 'could not dispatch stuff:\n%s\n%s %s' % (sys.exc_info(), element.address, element.getValues())
             
 
 class Bundle(osc.Bundle):
