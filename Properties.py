@@ -408,6 +408,13 @@ class ListProperty(list):
         super(ListProperty, self).__init__(initlist)
     def copy(self):
         return self[:]
+    def clear(self):
+        old = self[:]
+        self.parent_property.enable_emission = False
+        while len(self):
+            item = self.pop()
+        self.parent_property.enable_emission = True
+        self.parent_property.emit(old)
     def _update_value(self, value):
         for i, item in enumerate(value):
             if i <= len(self):
