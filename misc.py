@@ -2,6 +2,7 @@ import subprocess
 import os.path
 import threading
 import uuid
+import bisect
 
 from BaseObject import BaseObject
 from RepeatTimer import RepeatTimer
@@ -110,3 +111,38 @@ def parse_csv(filename):
                 d[keys[i]].append(item)
     file.close()
     return d
+
+
+class Interpolator(object):
+    def __init__(self, **kwargs):
+        self.data = {}
+        self.x_keys = []
+        points = kwargs.get('points')
+        if points is not None:
+            for point in points:
+                self.add_point(*point)
+        
+    def add_point(self, x, y):
+        #x = self.datatype(x)
+        #y = self.datatype(y)
+        self.data[x] = y
+        if x in self.x_keys:
+            return
+        self.x_keys = sorted(self.data.keys())
+        
+    def solve_y(self, x):
+        keys = self.x_keys
+        data = self.data
+        if x in keys:
+            return data[x]
+        if not len(keys):
+            return False
+        i = bisect.bisect_left(keys, x)
+        if i == 0:
+            return data[keys[0]]
+        if i >= len(keys):
+            return data[keys[i-1]]
+        _x = [keys[i-1], keys[i]]
+        _y = [data[key] for key in _x]
+        return _y[0] + (_y[1] - _y[0]) * ((x - _x[0]) / (_x[1] - _x[0]))
+        
