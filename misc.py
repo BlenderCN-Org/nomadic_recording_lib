@@ -112,6 +112,20 @@ def parse_csv(filename):
     file.close()
     return d
 
+def find_nearest_items(iterable, value):
+    if not len(iterable):
+        return False
+    if len(iterable) == 1:
+        index = [0, 0]
+        return (index, [iterable[x] for x in index])
+    i = bisect.bisect_left(iterable, value)
+    if i == 0:
+        index = [i, i]
+    elif i >= len(iterable):
+        index = [i - 1, i - 1]
+    else:
+        index = [i - 1, i]
+    return (index, [iterable[x] for x in index])
 
 class Interpolator(object):
     def __init__(self, **kwargs):
@@ -135,14 +149,18 @@ class Interpolator(object):
         data = self.data
         if x in keys:
             return data[x]
-        if not len(keys):
+#        if not len(keys):
+#            return False
+#        i = bisect.bisect_left(keys, x)
+#        if i == 0:
+#            return data[keys[0]]
+#        if i >= len(keys):
+#            return data[keys[i-1]]
+        index, _x = find_nearest_items(keys, x)
+        if _x is False:
             return False
-        i = bisect.bisect_left(keys, x)
-        if i == 0:
-            return data[keys[0]]
-        if i >= len(keys):
-            return data[keys[i-1]]
-        _x = [keys[i-1], keys[i]]
+        #_x = [keys[i-1], keys[i]]
         _y = [data[key] for key in _x]
         return _y[0] + (_y[1] - _y[0]) * ((x - _x[0]) / (_x[1] - _x[0]))
+        
         
