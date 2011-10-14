@@ -1,7 +1,3 @@
-import os.path
-import datetime
-import tarfile
-from cStringIO import StringIO
 import UserDict
 import jsonpickle
 if jsonpickle.__version__ != '0.3.1':
@@ -108,59 +104,4 @@ class Serializer(object):
                 return cls(deserialize=d)
         return False
 
-def build_datetime_string(fmt_str, dt=None):
-    if dt is None:
-        dt = datetime.datetime.now()
-        
-    
-class FileSection(object):
-    def init_filesection(self, **kwargs):
-        if not hasattr(self, 'filesection_path'):
-            self.filesection_path = kwargs.get('filesection_path', '/')
-        if not hasattr(self, 'filesection_filename'):
-            self.filesection_filename = kwargs.get('filesection_filename')
-        if not hasattr(self, 'filesection_datetime_format'):
-            self.filesection_datetime_format = '%Y%m%d-%H:%M:%S'
-        attrs = ['file_created', 'file_modified']
-        self.saved_attributes |= set(attrs)
-        for attr in attrs:
-            if not hasattr(self, attr):
-                setattr(self, attr, None)
-        self.filesection_initialized = True
-        
-    @property
-    def filesection_tarname(self):
-        self.filesection_check_init()
-        return os.path.join(self.filesection_path, self.filesection_filename)
-        
-    def filesection_check_init(self):
-        if not getattr(self, 'filesection_initialized', False):
-            self.init_filesection()
-        
-    def filesection_open_archive(self, filename, mode):
-        self.filesection_check_init()
-        tar = tarfile.open(filename, mode)
-        return tar
-        
-    def filesection_build_file(self, tar, **kwargs):
-        self.filesection_check_init()
-        if self.file_created is None:
-            self.file_created = build_datetime_string(self.filesection_datetime_format)
-            self.file_modified = self.file_created
-        if self.file_modified is None:
-            self.file_modified = build_datetime_string(self.filesection_datetime_format)
-        js = self.to_json(**kwargs)
-        tinf = tarfile.TarInfo(self.filesection_tarname)
-        sio = StringIO(js)
-        tar.addfile(tinf, fileobj=sio)
-        #sio.close()
-        
-    def filesection_load_file(self, tar, **kwargs):
-        self.filesection_check_init()
-        js = ''
-        file = tar.extractfile(self.filesection_tarname)
-        for line in file:
-            js += line
-        file.close()
-        self.from_json(js)
-        
+
