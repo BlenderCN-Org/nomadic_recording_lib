@@ -227,11 +227,11 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         
     def add_child_object(self, kwargs):
         kwargs.setdefault('root_category', self.root_category)
-        if self.osc_enabled:
+        if getattr(self, 'osc_enabled', False):
             kwargs.setdefault('osc_parent_node', self.osc_node)
             
     def add_ChildGroup(self, **kwargs):
-        if self.osc_enabled:
+        if getattr(self, 'osc_enabled', False):
             kwargs.setdefault('osc_parent_node', self.osc_node)
         cg = ChildGroup(**kwargs)
         self.ChildGroups.update({cg.name:cg})

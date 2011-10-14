@@ -12,44 +12,18 @@ from Serialization import json_presets
 def build_datetime_string(fmt_str, dt=None):
     if dt is None:
         dt = datetime.datetime.now()
-        
+    return dt.strftime(fmt_str)
 
-class Archive(BaseObject):
-    def __init__(self, **kwargs):
-        super(Archive, self).__init__(**kwargs)
-        self.members = {}
-    def add_member(self, **kwargs):
-        member = ArchiveMember(**kwargs)
-        self.members[member.name] = member
-    def save(self, filename, members=None):
-        if members is None:
-            members = self.members.keys()
-        tar = tarfile.open(filename, 'w:gz')
-        files = []
-        for key in members:
-            member = self.members[key]
-            file, tinf = member.save()
-            files.append(file)
-            tar.addfile(tinf, fileobj=file)
-        tar.close()
-        for file in files:
-            file.close()
-    def load(self, filename, members=None):
-        if members is None:
-            members = self.members.keys()
-        tar = tarfile.open(filename, 'r:gz')
-        for key in members:
-            self.members[key].load(tar)
-        tar.close()
-        
 class ArchiveMember(BaseObject):
     _saved_class_name = 'ArchiveMember'
     _saved_attributes = ['filename', 'file_created', 'file_modified']
     def __init__(self, **kwargs):
         super(ArchiveMember, self).__init__(**kwargs)
+        self.saved_attributes.discard('Index')
         self.name = kwargs.get('name')
         self.path = kwargs.get('path', '/')
         self.filename = kwargs.get('filename')
+        self.id = kwargs.get('id', self.full_path)
         self.serialize_obj = kwargs.get('serialize_obj', {})
         self.serialize_kwargs = kwargs.get('serialize_kwargs', {})
         self.deserialize_kwargs = kwargs.get('deserialize_kwargs', {})
@@ -95,6 +69,36 @@ class ArchiveMember(BaseObject):
             d['serialize_obj'][key] = obj._get_saved_attr(**skwargs)
         jsonpickle.set_encoder_options('simplejson', **json_presets[self.json_preset])
         return jsonpickle.encode(d, unpicklable=False)
+        
+
+class Archive(BaseObject):
+    _ChildGroups = {'members':{'child_class':ArchiveMember}}
+    def __init__(self, **kwargs):
+        super(Archive, self).__init__(**kwargs)
+    def add_member(self, **kwargs):
+        self.members.add_child(**kwargs)
+    def save(self, filename, members=None):
+        if members is None:
+            members = self.members.keys()
+        tar = tarfile.open(filename, 'w:gz')
+        files = []
+        for key in members:
+            member = self.members[key]
+            file, tinf = member.save()
+            files.append(file)
+            tar.addfile(tinf, fileobj=file)
+        tar.close()
+        for file in files:
+            file.close()
+    def load(self, filename, members=None):
+        if members is None:
+            members = [self.members.indexed_items[i].id for i in sorted(self.members.indexed_items.keys())]
+        tar = tarfile.open(filename, 'r:gz')
+        for key in members:
+            self.members[key].load(tar)
+        tar.close()
+        
+
 
 class FileSection(object):
     def init_filesection(self, **kwargs):
