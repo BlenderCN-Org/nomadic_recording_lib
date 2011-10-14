@@ -1,5 +1,6 @@
-import subprocess
+import sys
 import os.path
+import subprocess
 import threading
 import uuid
 import bisect
@@ -161,6 +162,7 @@ class Interpolator(object):
             return False
         #_x = [keys[i-1], keys[i]]
         _y = [data[key] for key in _x]
+        if _y[0] == _y[1]:
+            return _y[0]
         return _y[0] + (_y[1] - _y[0]) * ((x - _x[0]) / (_x[1] - _x[0]))
-        
         
