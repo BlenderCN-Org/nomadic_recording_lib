@@ -8,6 +8,42 @@ import SignalDispatcher
 from Serialization import Serializer
 from Properties import ClsProperty
 
+class GCCollectThread(threading.Thread):
+    def __init__(self, **kwargs):
+        threading.Thread.__init__(self)
+        self.running = threading.Event()
+        self.wait_time = kwargs.get('wait_time', 1.)
+        self.wait_for_collection = threading.Event()
+        self.queue_collection = threading.Event()
+        self.enable_collection = threading.Event()
+        self.collecting = threading.Event()
+    def run(self):
+        self.running.set()
+        self.enable_collection.set()
+        while self.running.isSet():
+            self.queue_collection.wait()
+            if self.running.isSet():
+                #self.queue_collection.clear()
+                self.wait_for_collection.wait(self.wait_time)
+                self.enable_collection.wait()
+                if self.queue_collection.isSet():
+                    self.do_collect()
+                    self.queue_collection.clear()
+                self.wait_for_collection.clear()
+    def stop(self):
+        self.running.clear()
+        self.enable_collection.set()
+        self.wait_for_collection.set()
+        self.queue_collection.set()
+    def do_collect(self):
+        self.collecting.set()
+        r = gc.collect()
+        #print 'gc result: ',  r
+        self.collecting.clear()
+        
+garbage_collector = GCCollectThread()
+garbage_collector.start()
+
 save_keys = {}
 for key in ['saved_attributes', 'saved_child_classes', 'saved_child_objects']:
     save_keys.update({key:'_%s' % (key)})
@@ -53,8 +89,18 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
         
     @staticmethod
-    def collect_garbage():
+    def collect_garbage(timeout=True):
         garbage_collector.queue_collection.set()
+        if not timeout:
+            garbage_collector.wait_for_collection.set()
+    @staticmethod
+    def pause_garbage_collection():
+        garbage_collector.enable_collection.clear()
+    @staticmethod
+    def resume_garbage_collection():
+        garbage_collector.enable_collection.set()
+        
+        
         
     def __init__(self, **kwargs):
         self.Properties = {}
@@ -271,35 +317,3 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
 
 GLOBAL_CONFIG = _GlobalConfig()
 
-
-class GCCollectThread(threading.Thread):
-    def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
-        self.running = threading.Event()
-        self.wait_time = kwargs.get('wait_time', 1.)
-        self.wait_for_collection = threading.Event()
-        self.queue_collection = threading.Event()
-        self.collecting = threading.Event()
-    def run(self):
-        self.running.set()
-        while self.running.isSet():
-            self.queue_collection.wait()
-            if self.running.isSet():
-                self.queue_collection.clear()
-                self.wait_for_collection.wait(self.wait_time)
-                if not self.queue_collection.isSet():
-                    self.do_collect()
-                    self.queue_collection.clear()
-                self.wait_for_collection.clear()
-    def stop(self):
-        self.running.clear()
-        self.wait_for_collection.set()
-        self.queue_collection.set()
-    def do_collect(self):
-        self.collecting.set()
-        r = gc.collect()
-        #print 'gc result: ',  r
-        self.collecting.clear()
-        
-garbage_collector = GCCollectThread()
-garbage_collector.start()
