@@ -234,15 +234,20 @@ class ObjProperty(object):
     @property
     def normalized_and_offset(self):
         if isinstance(self.value, dict):
-            d = self.normalized
-            for key in d.iterkeys():
-                #d[key] = d[key] + ((self.max[key] - self.min[key]) / 2.)
-                d[key] = d[key] - self.min[key]
+            d = {}
+            for key, val in self.value.iteritems():
+                d[key] = (val - self.min[key]) / (self.max[key] - self.min[key])
             return d
+#            d = self.normalized
+#            for key in d.iterkeys():
+#                #d[key] = d[key] + ((self.max[key] - self.min[key]) / 2.)
+#                d[key] = d[key] - self.min[key]
+#            return d
         elif isinstance(self.value, list):
             #return [v + ((self.max[i] - self.min[i]) / 2.) for i, v in self.normalized]
-            return [v - self.min[i] for i, v in enumerate(self.normalized)]
-        return self.normalized - self.min
+            return [(v - self.min[i]) / (self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
+            #return [v - self.min[i] for i, v in enumerate(self.normalized)]
+        return (self.value - self.min) / (self.max - self.min)
     @normalized_and_offset.setter
     def normalized_and_offset(self, value):
         if isinstance(self.value, dict):
@@ -499,6 +504,8 @@ class SetProperty(set):
         old = self.copy()
         super(SetProperty, self).clear()
         self.parent_property.emit(old)
+    def copy(self):
+        return set(self)
         
 EMULATED_TYPES = {list:ListProperty, dict:DictProperty, set:SetProperty}
     
