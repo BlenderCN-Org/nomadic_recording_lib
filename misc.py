@@ -14,6 +14,17 @@ def setID(id):
         #id = id.urn
     return id
     
+def hexstr(string, obj=None):
+    outstr = ''
+    if isinstance(string, str):
+        l = [ord(char) for char in string]
+    else:
+        l = string
+        
+    for i in l:
+        outstr += '$%X ' % i
+    return outstr
+    
 popen_kwargs = dict(shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, 
                     stderr=subprocess.STDOUT, close_fds=True)
 def get_processes(keyfield=None):
