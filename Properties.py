@@ -35,6 +35,8 @@ class ClsProperty(object):
         'max' : if not None, this will be used set the maximum allowed value.
             This attribute can also be modified on an instance of the Property.
             Currently, this has only been tested with int and float types. default is None
+        'entries' : a sequence containing possible values.  if present, this will
+            prevent anything other than the contents from being set.
         'ignore_range' : bool, whether to use the 'min' and 'max' attributes to
             verify value range, regardless of whether they are set as None. default is False
         'symbol' : str, string that can be used to format the value for output.
@@ -73,6 +75,7 @@ class ClsProperty(object):
         self.default_value = kwargs.get('default')
         self.min = kwargs.get('min')
         self.max = kwargs.get('max')
+        self.entries = kwargs.get('entries')
         self.symbol = kwargs.get('symbol', '')
         self.type = kwargs.get('type', type(self.default_value))
         self.quiet = kwargs.get('quiet', False)
@@ -108,6 +111,8 @@ class ClsProperty(object):
         
     def _fset(self, obj, value):
         value = self.fformat(obj, value)
+        if self.entries is not None and value not in self.entries:
+            return
         if self._validate_type(obj, value) and self.fvalidate(obj, value):
             obj.Properties[self.name].set_value(value)
             
