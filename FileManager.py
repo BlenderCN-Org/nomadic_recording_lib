@@ -14,6 +14,7 @@ class FileManager(BaseObject, Config):
     def __init__(self, **kwargs):
         BaseObject.__init__(self, **kwargs)
         Config.__init__(self, **kwargs)
+        self._default_filetype = None
         self._mimetypes = mimetypes.MimeTypes()
         self.filetypes = {}
         filetype_data = kwargs.get('filetype_data', [])
@@ -35,6 +36,20 @@ class FileManager(BaseObject, Config):
         if not file:
             return
         return os.path.dirname(file)
+        
+    @property
+    def default_filetype(self):
+        if self._default_filetype is None:
+            if len(self.filetypes) == 1:
+                self._default_filetype = self.filetypes.values()[0].id
+            for ft in self.filetypes.itervalues():
+                if ft.is_main_filetype:
+                    self._default_filetype = ft.id
+                    break
+        return self.filetypes.get(self._default_filetype)
+    @default_filetype.setter
+    def default_filetype(self, value):
+        self._default_filetype = value
     
     def load_file(self, **kwargs):
         filename = kwargs.get('filename')
@@ -136,6 +151,8 @@ class FileManager(BaseObject, Config):
             if mtype is not None:
                 ft.mimetype = mtype
         self.filetypes[ft.id] = ft
+        if ft.is_main_filetype:
+            self.default_filetype = ft.id
         return ft
 
 class FileType(object):
