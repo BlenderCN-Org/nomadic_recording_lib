@@ -10,7 +10,7 @@ def build_conf_filename():
 class Config(object):
     def __init__(self, **kwargs):
         self._conf_filename = kwargs.get('_conf_filename', build_conf_filename())
-        self._confsection = kwargs.get('confsection', self.__class__._confsection)
+        self._confsection = kwargs.get('confsection', getattr(self.__class__, '_confsection', None))
         self._save_config_file = kwargs.get('_save_config_file', True)
         #self.section = kwargs.get('section')
         #self.items = kwargs.get('items')
@@ -24,7 +24,27 @@ class Config(object):
         if items is None:
             return default
         for itemkey in items.iterkeys():
-            if ',' in items[itemkey]:
+            value = items[itemkey]
+            dict_chars = '{:}'
+            if False not in [c in items[itemkey] for c in dict_chars]:
+                ## a possible dictionary repr
+                try:
+                    d = eval(items[itemkey])
+                    items[itemkey] = d
+                except:
+                    pass
+#                s = items[itemkey].split('{')[1]
+#                s = s.split('}')[0]
+#                if ',' not in s:
+#                    s += ','
+#                d = {}
+#                for ditem in s.split(','):
+#                    if ':' not in ditem:
+#                        continue
+#                    dkey, dval = ditem.split(':')
+#                    d[dkey] = dval
+#                items[itemkey] = d
+            elif ',' in items[itemkey]:
                 items[itemkey] = items[itemkey].split(',')
 #        for itemkey in items.iterkeys():
 #            item = items[itemkey]
@@ -37,7 +57,7 @@ class Config(object):
         return items
     def update_conf(self, **kwargs):
         for key, val in kwargs.iteritems():
-            if type(val) == list or type(val) == tuple:
+            if isinstance(val, list) or isinstance(val, tuple):
                 slist = [str(element) for element in val]
                 if len(slist) == 1:
                     s = slist[0] + ','
