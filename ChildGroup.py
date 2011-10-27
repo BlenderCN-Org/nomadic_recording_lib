@@ -83,9 +83,10 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         return type(index) == int and index not in self.indexed_items
         
     def clear(self):
-        for c in self.itervalues():
-            c.unbind(self.on_child_Index_changed)
-        self.indexed_items.clear()
+        for c in self.values()[:]:
+            self.del_child(c)
+            #c.unbind(self.on_child_Index_changed)
+        #self.indexed_items.clear()
         super(ChildGroup, self).clear()
         
     def on_child_Index_changed(self, **kwargs):
