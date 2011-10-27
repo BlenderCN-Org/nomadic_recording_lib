@@ -219,29 +219,29 @@ class ObjProperty(object):
         if isinstance(self.value, dict):
             d = {}
             for key, val in self.value.iteritems():
-                d[key] = val / (self.max[key] - self.min[key])
+                d[key] = val / float(self.max[key] - self.min[key])
             return d
         elif isinstance(self.value, list):
-            return [v / (self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
-        return self.value / (self.max - self.min)
+            return [v / float(self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
+        return self.value / float(self.max - self.min)
     @normalized.setter
     def normalized(self, value):
         if isinstance(self.value, dict):
             value = value.copy()
             for key in value.iterkeys():
-                value[key] = value[key] * (self.max[key] - self.min[key])
+                value[key] = value[key] * float(self.max[key] - self.min[key])
             self.set_value(value)
         elif isinstance(self.value, list):
-            value = [v * (self.max[i] - self.min[i]) for i, v in enumerate(value)]
+            value = [v * float(self.max[i] - self.min[i]) for i, v in enumerate(value)]
             self.set_value(value)
         else:
-            self.set_value(value * (self.max - self.min))
+            self.set_value(self.type(value * float(self.max - self.min)))
     @property
     def normalized_and_offset(self):
         if isinstance(self.value, dict):
             d = {}
             for key, val in self.value.iteritems():
-                d[key] = (val - self.min[key]) / (self.max[key] - self.min[key])
+                d[key] = (val - self.min[key]) / float(self.max[key] - self.min[key])
             return d
 #            d = self.normalized
 #            for key in d.iterkeys():
@@ -250,26 +250,26 @@ class ObjProperty(object):
 #            return d
         elif isinstance(self.value, list):
             #return [v + ((self.max[i] - self.min[i]) / 2.) for i, v in self.normalized]
-            return [(v - self.min[i]) / (self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
+            return [(v - self.min[i]) / float(self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
             #return [v - self.min[i] for i, v in enumerate(self.normalized)]
-        return (self.value - self.min) / (self.max - self.min)
+        return (self.value - self.min) / float(self.max - self.min)
     @normalized_and_offset.setter
     def normalized_and_offset(self, value):
         if isinstance(self.value, dict):
             value = value.copy()
             for key in value.iterkeys():
-                value[key] = (value[key] * (self.max[key] - self.min[key])) + self.min[key]
+                value[key] = (value[key] * float(self.max[key] - self.min[key])) + self.min[key]
                 #value[key] = value[key] - ((self.max[key] - self.min[key]) / 2.)
             #self.normalized = value
             self.set_value(value)
         elif isinstance(self.value, list):
-            value = [(v * (self.max[i] - self.min[i])) + self.min[i] for i, v in enumerate(value)]
+            value = [(v * float(self.max[i] - self.min[i])) + self.min[i] for i, v in enumerate(value)]
             self.set_value(value)
             #value = [v - ((self.max[i] - self.min[i]) / 2.) for i, v in enumerate(value)]
             #self.normalized = value
         else:
             #self.normalized = value - ((self.max - self.min) / 2.)
-            self.set_value((value * (self.max - self.min)) + self.min)
+            self.set_value(self.type((value * float(self.max - self.min)) + self.min))
         
     def set_value(self, value):
         self.enable_emission = False
