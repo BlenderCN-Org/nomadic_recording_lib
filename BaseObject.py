@@ -131,8 +131,10 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 if isinstance(prop, ClsProperty):
                     prop.init_instance(self)
             if hasattr(cls, '_SettingsProperties'):
-                self.SettingsPropKeys.extend(cls._SettingsProperties)
-                for propname in cls._SettingsProperties:
+                spropkeys = cls._SettingsProperties[:]
+                spropkeys.reverse()
+                self.SettingsPropKeys.extend(spropkeys)
+                for propname in spropkeys:
                     prop = self.Properties.get(propname)
                     if prop:
                         self.SettingsProperties.update({propname:prop})
@@ -140,6 +142,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             if hasattr(cls, '_ChildGroups'):
                 childgroups.update(cls._ChildGroups)
             cls = cls.__bases__[0]
+        self.SettingsPropKeys.reverse()
         self.SettingsPropKeys = tuple(self.SettingsPropKeys)
         for key, val in save_dict.iteritems():
             if not hasattr(self, key):
