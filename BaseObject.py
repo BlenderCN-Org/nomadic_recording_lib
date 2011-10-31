@@ -300,7 +300,7 @@ class GCCollectThread(threading.Thread):
         old = kwargs.get('old')
         gc_enable = GLOBAL_CONFIG.get(self.GLOBAL_CONFIG_KEY)
         if gc_enable and not self.running.isSet() and not self.stopped.isSet():
-            self.run()
+            self.start()
         if not gc_enable and self.running.isSet():
             self.stop()
     def run(self):
