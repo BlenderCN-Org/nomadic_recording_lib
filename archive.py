@@ -48,7 +48,10 @@ class ArchiveMember(BaseObject):
         
     def load(self, tar):
         js = ''
-        file = tar.extractfile(self.full_path)
+        try:
+            file = tar.extractfile(self.full_path)
+        except KeyError:
+            return
         for line in file:
             js += line
         file.close()
