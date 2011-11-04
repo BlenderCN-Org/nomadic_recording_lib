@@ -69,7 +69,7 @@ class Sequencer(BaseObject):
     _mbt_keys = ['measure', 'beat', 'tick', 'total_beats']
     _Properties = {'tempo':dict(default=120., min=30., max=300.), 
                    'playing':dict(default=False), 
-                   'tick_resolution':dict(default=240), 
+                   'tick_resolution':dict(default=120), 
                    'position_mbt':dict(default=dict(zip(_mbt_keys, [1]*4)), quiet=True), 
                    'position_seconds':dict(default=0., quiet=True)}
     _SettingsProperties = ['tempo', 'tick_resolution']
@@ -77,9 +77,12 @@ class Sequencer(BaseObject):
         super(Sequencer, self).__init__(**kwargs)
         self.time_signature_divisor = 4
         self.beats_per_measure = 4
-        self.clock = MasterClock()
+        tick_int = bpm_to_seconds(self.tempo) / self.tick_resolution
+        clock_int = tick_int / 4
+        self.clock = MasterClock(tick_interval=tick_int, clock_interval=clock_int)
         self.clock.start()
-        self.clock.add_raw_tick_callback(self.on_clock_tick)
+        #self.clock.add_raw_tick_callback(self.on_clock_tick)
+        self.clock.add_callback(self.on_clock_tick)
         
     def play(self, **kwargs):
         if self.playing:
@@ -121,7 +124,7 @@ class Sequencer(BaseObject):
         #    mbt['beat'] = int(beats)
         mbt['tick'] = int((beats - int(beats)) * self.tick_resolution)
         mbt['total_beats'] = beats
-        print mbt
+        #print mbt
         return mbt
         
     
