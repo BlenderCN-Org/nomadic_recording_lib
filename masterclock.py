@@ -8,7 +8,7 @@ class MasterClock(object):
     def __init__(self, **kwargs):
         self.clock_interval = kwargs.get('clock_interval', .01)
         self.tick_interval = kwargs.get('tick_interval', .04)
-        self.tick_granularity = len(str(self.tick_interval).split('.')[1])
+        #self.tick_granularity = len(str(self.tick_interval).split('.')[1])
         self.seconds = None
         callbacks = kwargs.get('callbacks', [])
         self.running = False
@@ -18,6 +18,7 @@ class MasterClock(object):
         self.callbacks = set()
         self.callbacks_to_delete = set()
         self.callback_threads = {}
+        self.raw_tick_callbacks = set()
         #self.callback_triggers = {}
         for cb in callbacks:
             self.add_callback(cb)
@@ -62,12 +63,19 @@ class MasterClock(object):
     def del_callback(self, callback):
         self.callbacks_to_delete.add(callback)
         
+    def add_raw_tick_callback(self, cb):
+        self.raw_tick_callbacks.add(cb)
+        
+    def del_raw_tick_callback(self, cb):
+        self.callbacks_to_delete.add(cb)
+        
     def _do_remove_callbacks(self):
         for cb in self.callbacks_to_delete:
             self.callbacks.discard(cb)
             if cb in self.callback_threads:
                 self.callback_threads[cb].stop()
                 del self.callback_threads[cb]
+            self.raw_tick_callbacks.discard(cb)
                 #del self.callback_triggers[cb]
         #if len(self.callbacks) == 0:
         #    self.stop()
@@ -84,7 +92,6 @@ class MasterClock(object):
         self.now = datetime.datetime.now()
         seconds = self.calc_seconds(self.now)
         self.clock_seconds = seconds
-        #tick_seconds = round(self.clock_seconds, self.tick_granularity)
         self._do_remove_callbacks()
         if self.seconds is None:
             cs = seconds - int(seconds)
@@ -93,19 +100,14 @@ class MasterClock(object):
                 if ts >= cs:
                     self.seconds = int(seconds) + ts
                     break
-        elif seconds < self.seconds + self.tick_interval:
+        for cb in self.raw_tick_callbacks:
+            cb(self, seconds)
+        if self.seconds is not None and seconds < self.seconds + self.tick_interval:
             return
-        
-        #self.seconds = round(seconds, self.tick_granularity)
         if self.seconds is None:
             return
         self.seconds += self.tick_interval
-        #self.ticks += 1
-        #for cb in self.callbacks:
-        #    cb(self)#ticks=self.ticks, seconds=(self.ticks * self.interval) / 1000, clock=self)
-        
         self.do_callbacks()
-        #return self.running
         
     def _build_timer(self):
         self.timer = Ticker(interval=self.clock_interval, callback=self.on_timer)
