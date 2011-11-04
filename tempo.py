@@ -104,7 +104,7 @@ class Sequencer(BaseObject):
     def calc_position(self, seconds):
         total_seconds = seconds - self.start_time
         beats = total_seconds / (60. / self.tempo)
-        offset = beats + self.start_mbt['total_beats']
+        offset = beats + self.start_mbt['total_beats'] - 1
         self.mbt_set_local = True
         self.Properties['position_mbt'].set_value(self.calc_mbt(offset))
         self.mbt_set_local = False
