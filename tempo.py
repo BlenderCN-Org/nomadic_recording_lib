@@ -3,6 +3,7 @@ import datetime
 
 from BaseObject import BaseObject
 from masterclock import MasterClock
+from incrementor import Incrementor
 
 
 def seconds_to_bpm(seconds):
@@ -131,139 +132,24 @@ class Sequencer(BaseObject):
         mbt['total_beats'] = beats
         #print ':'.join(['%03d' % (mbt[key]) for key in ['measure', 'beat', 'tick']])
         return mbt
-        
-class MidiTimeObj(BaseObject):
-    _Properties = {'value':dict(default=0, min=0, max=9999, quiet=True)}
-    def __init__(self, **kwargs):
-        super(MidiTimeObj, self).__init__(**kwargs)
-        self.name = kwargs.get('name')
-        self.children = {}
-        self.register_signal('bounds_reached')
-        if hasattr(self, '_resolution'):
-            self.set_range(min=0, max=self._resolution - 1)
-        self.parent = kwargs.get('parent')
-        if self.parent is not None:
-            self.parent.bind(bounds_reached=self.on_parent_bounds_reached)
-        self.value_set_local = False
-        self.bind(value=self._on_value_set)
-    def add_child(self, cls, name, **kwargs):
-        kwargs.setdefault('parent', self)
-        kwargs.setdefault('name', name)
-        obj = cls(**kwargs)
-        self.children[name] = obj
-        return obj
-    def get_values(self):
-        d = self.get_all_obj()
-        keys = d.keys()
-        return dict(zip(keys, [d[key].value + 1 for key in keys]))
-    def set_values(self, **kwargs):
-        d = self.get_all_obj()
-        for key, val in kwargs.iteritems():
-            if key not in d:
-                continue
-            d[key].value = val - 1
-    def get_all_obj(self, **kwargs):
-        d = kwargs.get('d')
-        if d is None:
-            root = self.get_root_obj()
-            d = {}
-            kwargs['d'] = d
-            root.get_all_obj(d=d)
-            return d
-        d[self.name] = self
-        for key, val in self.children.iteritems():
-            val.get_all_obj(d=d)
-    def get_root_obj(self):
-        if self.parent is not None:
-            return self.parent.get_root_obj()
-        return self
-    def get_root_sum(self, **kwargs):
-        root_prop = kwargs.get('root_prop')
-        if root_prop is None:
-            root = self.get_root_obj()
-            rp = root.Properties['value']
-            kwargs.update({'root_prop':rp, 'value':rp.value})
-            return root.get_root_sum(**kwargs)
-        myval = self.value
-        for child in self.children.itervalues():
-            myval = myval + child.get_root_sum(**kwargs)
-        if self.parent is not None:
-            d = self.parent.get_range()
-            myval = myval * (d['max'] - d['min'] + 1)
-        return myval
-    def set_root_sum(self, value):
-        if self.parent is not None:
-            self.parent.set_root_sum(value)
-            return
-        self.reset_values()
-        for i in range(value):
-            self += 1
-    def reset_values(self, **kwargs):
-        root = kwargs.get('root')
-        if root is None:
-            root = self.get_root_obj()
-            kwargs['root'] = root
-            root.reset_values(**kwargs)
-            return
-        self.value_set_local = True
-        self.value = self.get_range()['min']
-        self.value_set_local = False
-        for child in self.children.itervalues():
-            child.reset_values(**kwargs)
-    def set_range(self, **kwargs):
-        for key in ['min', 'max']:
-            if key in kwargs:
-                setattr(self.Properties['value'], key, kwargs[key])
-    def get_range(self):
-        return dict(zip(['min', 'max'], self.Properties['value'].range))
-    def __add__(self, value):
-        prop = self.Properties['value']
-        newval = prop.value + value
-        if newval > prop.max:
-            newval = newval - (prop.max + 1)
-            self.emit('bounds_reached', mode='add')
-        self.value_set_local = True
-        self.value = newval
-        self.value_set_local = False
-        return self
-    def __sub__(self, value):
-        prop = self.Properties['value']
-        newval = prop.value - value
-        if newval < prop.min:
-            newval = newval + prop.max
-            self.emit('bounds_reached', mode='sub')
-        self.value_set_local = True
-        self.value = newval
-        self.value_set_local = False
-        return self
-    def on_parent_bounds_reached(self, **kwargs):
-        mode = kwargs.get('mode')
-        if mode == 'add':
-            self += 1
-        elif mode == 'sub':
-            self -= 1
-    def _on_value_set(self, **kwargs):
-        if self.value_set_local:
-            return
-        old = kwargs.get('old')
-        value = kwargs.get('value')
-        
+
     
-class MidiTick(MidiTimeObj):
+class MidiTick(Incrementor):
     _resolution = 120
     def __init__(self, **kwargs):
         kwargs.setdefault('name', 'tick')
         super(MidiTick, self).__init__(**kwargs)
-        self.add_child(MidiBeat, 'beat')
+        self.add_child('beat', MidiBeat)
     
-class MidiBeat(MidiTimeObj):
+class MidiBeat(Incrementor):
     _resolution = 4
     def __init__(self, **kwargs):
         super(MidiBeat, self).__init__(**kwargs)
-        self.add_child(MidiMeasure, 'measure')
+        self.add_child('measure', MidiMeasure)
         
-class MidiMeasure(MidiTimeObj):
+class MidiMeasure(Incrementor):
     pass
+    
     
 class TestWindow(object):
     def __init__(self, **kwargs):
