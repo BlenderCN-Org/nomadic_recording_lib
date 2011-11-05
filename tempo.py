@@ -271,6 +271,7 @@ class TestWindow(object):
         self.win = gtk.Window()
         self.val_lbls = {}
         vbox = gtk.VBox()
+        mbtobj = self.seq.TickObj.get_all_obj()
         for key in Sequencer._mbt_keys:
             hbox = gtk.HBox()
             namelbl = gtk.Label(key)
@@ -279,6 +280,8 @@ class TestWindow(object):
             hbox.pack_start(val_lbl)
             self.val_lbls[key] = val_lbl
             vbox.pack_start(hbox)
+            if key in mbtobj:
+                mbtobj[key].bind(value=self.on_mbtobj_value_set)
         hbox = gtk.HBox()
         for key in ['Play', 'Stop', 'test']:
             btn = gtk.Button(label=key)
@@ -286,19 +289,23 @@ class TestWindow(object):
             hbox.pack_start(btn)
         vbox.pack_start(hbox)
         self.win.add(vbox)
-        self.seq.bind(position_mbt=self.on_mbt_set)
+        #self.seq.bind(position_mbt=self.on_mbt_set)
         self.win.show_all()
     def on_mbt_set(self, **kwargs):
         value = kwargs.get('value')
         for key in Sequencer._mbt_keys:
             self.val_lbls[key].set_text('%03d' % (value[key]))
+    def on_mbtobj_value_set(self, **kwargs):
+        obj = kwargs.get('obj')
+        self.val_lbls[obj.name].set_text('%03d' % (obj.value + 1))
     def on_btns_clicked(self, btn, key):
         if key == 'Play':
             self.seq.play()
         elif key == 'Stop':
             self.seq.stop()
         else:
-            print self.seq.TickObj.get_root_sum()
+            print 'vals: ', self.seq.TickObj.get_values()
+            print 'sum: ', self.seq.TickObj.get_root_sum()
 if __name__ == '__main__':
     import gtk
     gtk.gdk.threads_init()
@@ -316,6 +323,6 @@ if __name__ == '__main__':
     tick.set_root_sum(v)
     v = tick.get_root_sum()
     print 'new sum: ', v
-    
-    #w = TestWindow(seq=seq)
-    #gtk.main()
+    tick.reset_values()
+    w = TestWindow(seq=seq)
+    gtk.main()
