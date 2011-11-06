@@ -130,6 +130,13 @@ class Frame(Incrementor):
         super(Frame, self).__init__(**kwargs)
         self.add_child('second', Second)
         
+class Microsecond(Incrementor):
+    _resolution = 10 ** 6
+    def __init__(self, **kwargs):
+        kwargs.setdefault('name', 'microsecond')
+        super(Microsecond, self).__init__(**kwargs)
+        self.add_child('second', Second)
+        
 class Millisecond(Incrementor):
     _resolution = 1000
     def __init__(self, **kwargs):
@@ -153,13 +160,38 @@ class Hour(Incrementor):
     pass
     
 if __name__ == '__main__':
-    ms = Millisecond()
-    print 'start sum: ', ms.get_root_sum()
-    print 'start vals: ', ms.get_values()
+    import threading
+    import datetime
+    import time
+    class TestThread(threading.Thread):
+        def run(self):
+            tick = threading.Event()
+            ms = Microsecond()
+            self.ms = ms
+            #ms.bind(value=self.on_ms)
+            all_obj = ms.get_all_obj()
+            all_obj['second'].bind(value=self.on_second)
+            timeout = .01
+            #incr = ms.resolution * timeout
+            self.starttime = time.time()
+            startdt = datetime.datetime.fromtimestamp(self.starttime)
+            while True:
+                tick.wait(timeout)
+                now = datetime.datetime.now()
+                self.now = time.time()
+                td = now - startdt
+                all_obj['hour'].value = td.seconds / 3600
+                all_obj['minute'].value = (td.seconds % 3600) / 60
+                all_obj['second'].value = td.seconds % 60
+                all_obj['microsecond'].value = td.microseconds
+                #elapsed = td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6
+                #ms += elapsed
+                #lasttime = now
+        def on_ms(self, **kwargs):
+            print 'microsecond: ', kwargs.get('value')
+        def on_second(self, **kwargs):
+            print 'seconds=%s, values=%s' % (self.now - self.starttime, self.ms.get_values())
+    t = TestThread()
+    t.start()
     
-    for i in range(335235):
-        ms += 1
-        
-    print 'end sum: ', ms.get_root_sum()
-    print 'end vals: ', ms.get_values()
     
