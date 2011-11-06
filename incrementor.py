@@ -124,6 +124,11 @@ class Incrementor(BaseObject):
     def _on_resolution_set(self, **kwargs):
         self.set_range(min=0, max=self.resolution - 1)
         
+class Frame(Incrementor):
+    def __init__(self, **kwargs):
+        kwargs.setdefault('resolution', 30)
+        super(Frame, self).__init__(**kwargs)
+        self.add_child('second', Second)
         
 class Millisecond(Incrementor):
     _resolution = 1000
