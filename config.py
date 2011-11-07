@@ -15,11 +15,14 @@ class Config(object):
         #self.section = kwargs.get('section')
         #self.items = kwargs.get('items')
         self._confparser = SafeConfigParser()
-        self._confparser.read(self._conf_filename)
+        self._read_conf_file()
         if self._confparser.has_section(self._confsection) is False:
             self._confparser.add_section(self._confsection)
             self.write_conf()
+    def _read_conf_file(self):
+        self._confparser.read(self._conf_filename)
     def get_conf(self, key=None, default=None):
+        self._read_conf_file()
         items = dict(self._confparser.items(self._confsection))
         if items is None:
             return default
@@ -56,6 +59,7 @@ class Config(object):
             return items.get(key, default)
         return items
     def update_conf(self, **kwargs):
+        self._read_conf_file()
         for key, val in kwargs.iteritems():
             if isinstance(val, list) or isinstance(val, tuple):
                 slist = [str(element) for element in val]
@@ -70,6 +74,7 @@ class Config(object):
             self._confparser.set(self._confsection, key, s)
         self.write_conf()
     def remove_conf_options(self, options=None):
+        self._read_conf_file()
         items = dict(self._confparser.items(self._confsection))
         if options is None:
             options = items.keys()
