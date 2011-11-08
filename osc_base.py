@@ -612,7 +612,7 @@ class OSCDispatchThread(threading.Thread):
         self.ui_module = None
         self.kivy_messengers = set()
         ui = self.osc_tree.GLOBAL_CONFIG.get('ui_mode')
-        if ui is not None and ui != 'none':
+        if ui is not None and ui != 'text':
             self.ui_module = get_ui_module(ui)
             attr = self._ui_mode_dispatch_methods.get(ui)
             if attr:
