@@ -16,11 +16,12 @@
 
 import sys
 import datetime
+import time
 import threading
 
 MIDNIGHT = datetime.time()
 
-class MasterClock(object):
+class DatetimeClock(object):
     def __init__(self, **kwargs):
         self.clock_interval = kwargs.get('clock_interval', .01)
         self.tick_interval = kwargs.get('tick_interval', .04)
@@ -45,21 +46,14 @@ class MasterClock(object):
         td = dt - midnight
         return td.seconds + (td.microseconds / float(10**6))
         
-    @property
-    def fps(self):
-        return 1.0 / (self.interval / 1000.)
+    def get_now(self):
+        return datetime.datetime.now()
+        
     def start(self):
         self.stop()
-#        now = datetime.datetime.now()
-#        midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-#        td = now - midnight
-#        sec = td.seconds + (td.microseconds / float(10**6))
-#        self.ticks = sec * 1000 / self.interval
-#        self.ticks += 1
         self.running = True
         self._build_timer()
         
-        #return self.timer_id
     def stop(self):
         self.running = False
         self._kill_timer()
@@ -105,7 +99,7 @@ class MasterClock(object):
             cb(self, seconds)
             
     def on_timer(self, *args):
-        self.now = datetime.datetime.now()
+        self.now = self.get_now()
         seconds = self.calc_seconds(self.now)
         self.clock_seconds = seconds
         self._do_remove_callbacks()
@@ -137,6 +131,11 @@ class MasterClock(object):
             self.timer.stop()
             self.timer = None
         
+class ClockWithoutDatetime(DatetimeClock):
+    def get_now(self):
+        return time.time()
+    def calc_seconds(self, seconds):
+        return seconds
 
 class Ticker(threading.Thread):
     def __init__(self, **kwargs):
@@ -186,3 +185,78 @@ class ThreadedCallback(threading.Thread):
         self._trigger_event.set()
         
 
+#MasterClock = DatetimeClock
+MasterClock = ClockWithoutDatetime
+
+
+if __name__ == '__main__':
+    class Tester(object):
+        def __init__(self, name, clock, duration=5):
+            self.name = name
+            self.clock = clock
+            self.duration = duration
+            self.starttime = None
+            self.clockstart = None
+            self.tickstart = None
+            self.stopping = False
+            self.clock_data = []
+            self.tick_data = []
+            self.clock.add_raw_tick_callback(self.on_raw_tick)
+            self.clock.add_callback(self.on_tick)
+            self.clock.start()
+        def on_raw_tick(self, clock, seconds):
+            now = time.time()
+            if self.starttime is None:
+                self.starttime = now
+                self.clockstart = seconds
+            if self.stopping:
+                return
+            time_elapsed = now - self.starttime
+            clock_elapsed = seconds - self.clockstart
+            self.clock_data.append([time_elapsed, clock_elapsed])
+            #print 'time=%010.6f, clock=%010.6f, diff=%010.6f' % (time_elapsed, clock_elapsed, time_elapsed - clock_elapsed)
+            if time_elapsed < self.duration:
+                return
+            self.stop()
+        def on_tick(self, clock, seconds):
+            now = time.time()
+            if self.tickstart is None:
+                self.tickstart = now
+                self.firsttick = seconds
+            time_elapsed = now - self.tickstart
+            tickoffset = seconds - self.firsttick
+            self.tick_data.append([time_elapsed, tickoffset])
+        def stop(self):
+            def calc_diff(l):
+                return [item[0] - item[1] for item in l]
+            def calc_avg(l):
+                s = 0
+                for num in l:
+                    s += num
+                return s / len(l)
+            self.stopping = True
+            self.clock_diff = calc_diff(self.clock_data)
+            self.clock_avg = calc_avg(self.clock_diff)
+            self.tick_diff = calc_diff(self.tick_data)
+            self.tick_avg = calc_avg(self.tick_diff)
+            keys = ['data', 'diff', 'avg']
+            self.all_data = {'clock':{}, 'tick':{}}
+            for key, val in self.all_data.iteritems():
+                attrkeys = ['_'.join([key, attr]) for attr in keys]
+                val.update(dict(zip(attrkeys, [getattr(self, akey) for akey in attrkeys])))
+            self.clock.stop()
+    cdata = []
+    c = DatetimeClock()
+    t = Tester('master', c)
+    c.timer.join()
+    cdata.append(t.all_data)
+    c = ClockWithoutDatetime()
+    t = Tester('nodattime', c)
+    c.timer.join()
+    cdata.append(t.all_data)
+    print 'clock_avg: ', ['%010.8f' % (data['clock']['clock_avg']) for data in cdata]
+    print 'tick_avg: ', ['%010.8f' % (data['tick']['tick_avg']) for data in cdata]
+    print 'clock_min: ', ['%010.8f' % (min([diff for diff in data['clock']['clock_diff']])) for data in cdata]
+    print 'clock_max: ', ['%010.8f' % (max([diff for diff in data['clock']['clock_diff']])) for data in cdata]
+    print 'tick_min:  ', ['%010.8f' % (min([diff for diff in data['tick']['tick_diff']])) for data in cdata]
+    print 'tick_max:  ', ['%010.8f' % (max([diff for diff in data['tick']['tick_diff']])) for data in cdata]
