@@ -7,6 +7,7 @@ from FileManager import FileManager as _FileManager
 from color import Color as _Color
 from scaler import Scaler as _Scaler
 from archive import Archive as _Archive
+from masterclock import MasterClock as _MasterClock
 from misc import *
 
 BaseObject = _BaseObject
@@ -18,3 +19,4 @@ FileManager = _FileManager
 Color = _Color
 Scaler = _Scaler
 Archive = _Archive
+MasterClock = _MasterClock
