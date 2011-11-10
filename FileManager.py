@@ -136,6 +136,8 @@ class FileManager(BaseObject, Config):
             for key in keys[self.max_recent_files:]:
                 file = self.recent_files[key]
                 dt = self.files_by_path.get(file)
+                if dt is None:
+                    continue
                 if dt == key:
                     del self.files_by_path[file]
                 del self.recent_files[key]
