@@ -8,6 +8,7 @@ from color import Color as _Color
 from scaler import Scaler as _Scaler
 from archive import Archive as _Archive
 from masterclock import MasterClock as _MasterClock
+from scheduler import Scheduler as _Scheduler
 from misc import *
 
 BaseObject = _BaseObject
@@ -20,3 +21,4 @@ Color = _Color
 Scaler = _Scaler
 Archive = _Archive
 MasterClock = _MasterClock
+Scheduler = _Scheduler
