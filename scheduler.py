@@ -38,12 +38,13 @@ class Scheduler(threading.Thread):
                     timeout, t = self.time_to_next_item()
                     #print '%011.8f, %011.8f' % (timeout, t)
                     if timeout <= 0:
-                        self.process_item(t)
+                        #self.process_item(t)
+                        self.process_next_item()
                         self.waiting.set()
                     else:
                         self.waiting.clear()
                         self.next_timeout = timeout
-                        print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
+                        #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
                 
     def process_item(self, time):
         t, item = self.queue.pop(time)
@@ -51,7 +52,10 @@ class Scheduler(threading.Thread):
         
     def process_next_item(self):
         #now = self.now()
-        t, item = self.queue.pop()
+        queue = self.queue.pop()
+        if not queue:
+            return
+        t, item = queue
         #print 'scheduler processing: t=%010.8f, now=%010.8f, diff=%010.8f' % (t, now, t - now)
         self._do_callback(item, t)
         
@@ -85,6 +89,9 @@ class TimeQueue(object):
         if t is None:
             return t
         data = self.data.get(t)
+        if data is None:
+            self.times.discard(t)
+            return None
         item = data.pop()
         if not len(data):
             del self.data[t]
