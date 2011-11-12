@@ -12,12 +12,6 @@ class LTCGenerator(BaseObject):
             cls = NonDropFrame
         self.frame_obj = cls(framerate=self.framerate)
         self.datablock = LTCDataBlock(framerate=self.framerate, frame_obj=self.frame_obj)
-        d = self.frame_obj.get_all_obj()
-        d['minute'].value = 1
-        d['hour'].value = 2
-        d['second'].value = 40
-        d['frame'].value = 19
-        print self.datablock.build_data()
         
     def build_datablock(self, **kwargs):
         pass
@@ -55,7 +49,7 @@ class LTCDataBlock(object):
     def __init__(self, **kwargs):
         self.framerate = kwargs.get('framerate')
         self.frame_obj = kwargs.get('frame_obj')
-        self.tc_data = self.frame_obj.get_values()
+        self.all_frame_obj = self.frame_obj.get_all_obj()
         self.fields = {}
         self.fields_by_name = {}
         for key, cls in FIELD_CLASSES.iteritems():
@@ -70,21 +64,24 @@ class LTCDataBlock(object):
                     self.fields[startbit] = field
                     self.fields_by_name[field.name] = field
                     
+    @property
+    def tc_data(self):
+        fobj = self.all_frame_obj
+        keys = fobj.keys()[:]
+        return dict(zip(keys, [fobj[key].value for key in keys]))
+        
     def build_data(self):
         i = 0
-        a = array.array('B')
+        l = []
         for bit, field in self.fields.iteritems():
             value = field.get_value()
             i += value << field.start_bit
-            b = bin(value)[2:]
-            l = [int(c) for c in b]
-            l.reverse()
-            a.extend(l)
+            l.extend(field.get_list_value())
         s = bin(i)[2:]
         if s.count('0') % 2 == 1:
             i += 1 << self.fields['ParityBit'].start_bit
-            a[self.Fields['ParityBit'].start_bit] = 1
-        return a
+            l[self.Fields['ParityBit'].start_bit] = True
+        return l
         
 class Field(object):
     def __init__(self, **kwargs):
@@ -94,6 +91,10 @@ class Field(object):
             self.start_bit = self._start_bit
         else:
             self.start_bit = kwargs.get('start_bit')
+        if hasattr(self, '_bit_length'):
+            self.bit_length = self._bit_length
+        else:
+            self.bit_length = 1
     def get_shifted_value(self):
         value = self.get_value()
         return value << self.start_bit
@@ -101,6 +102,14 @@ class Field(object):
         value = self.value_source()
         value = self.calc_value(value)
         return value
+    def get_list_value(self):
+        value = self.get_value()
+        l = [bool(int(c)) for c in bin(value)[2:]]
+        l.reverse()
+        while len(l) < self.bit_length:
+            l.append(False)
+        return l
+        
     def value_source(self):
         return 0
     def calc_value(self, value):
@@ -130,7 +139,7 @@ class DropFlag(Field):
         return 0
     
 class ColorFlag(Field):
-    _start_bit_= 11
+    _start_bit = 11
     
 class SecondUnits(Field):
     _start_bit = 16
@@ -218,4 +227,10 @@ FIELD_CLASSES = _GET_FIELD_CLASSES()
 
 if __name__ == '__main__':
     tcgen = LTCGenerator()
+    d = tcgen.frame_obj.get_all_obj()
+    d['minute'].value = 1
+    d['hour'].value = 2
+    d['second'].value = 40
+    d['frame'].value = 19
+    print tcgen.datablock.build_data()
     bob

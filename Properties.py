@@ -383,6 +383,8 @@ class ObjProperty(object):
         if not self.enable_emission:
             self.queue_emission = True
             return
+        if not hasattr(self.parent_obj, self.name):
+            return
         value = getattr(self.parent_obj, self.name)
         cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
         for cb in self.own_callbacks.copy():
