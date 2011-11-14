@@ -1,11 +1,29 @@
 import array
+
 from BaseObject import BaseObject
 import incrementor
+
+def biphase_encode(data, num_samples, max_value):
+    samples_per_period = num_samples / len(data) / 4
+    min_value = max_value * -1
+    a = array.array('h')
+    for value in data:
+        if value:
+            l = [max_value, min_value, max_value, min_value]
+        else:
+            l = [max_value, max_value, min_value, min_value]
+        for v in l:
+            a.extend([v] * samples_per_period)
+    return a
+    
 
 class LTCGenerator(BaseObject):
     def __init__(self, **kwargs):
         self.framerate = kwargs.get('framerate', 29.97)
         self.samplerate = kwargs.get('samplerate', 48000)
+        self.bitdepth = kwargs.get('bitdepth', 16)
+        self.max_sampleval = 1 << (self.bitdepth - 2)
+        self.samples_per_frame = self.samplerate / int(round(self.framerate))
         if type(self.framerate) == float:
             cls = DropFrame
         else:
@@ -14,7 +32,12 @@ class LTCGenerator(BaseObject):
         self.datablock = LTCDataBlock(framerate=self.framerate, frame_obj=self.frame_obj)
         
     def build_datablock(self, **kwargs):
-        pass
+        return self.datablock.build_data()
+        
+    def build_audio_data(self, **kwargs):
+        data = self.build_datablock()
+        a = biphase_encode(data, self.samples_per_frame, self.max_sampleval)
+        return a
         
 class DropFrame(incrementor.Incrementor):
     def __init__(self, **kwargs):
@@ -23,18 +46,42 @@ class DropFrame(incrementor.Incrementor):
         self.drop_period = int((res - fr) * 100)
         self.drop_count = 0
         self.framerate = fr
+        self._enable_drop = False
         kwargs['resolution'] = res
         kwargs['name'] = 'frame'
         super(DropFrame, self).__init__(**kwargs)
-        self.add_child('second', incrementor.Second)
-        self.bind(bounds_reached=self._on_own_bounds_reached)
+        self.add_child('second', DropFrameSecond)
         
-    def _on_own_bounds_reached(self, **kwargs):
-        if self.drop_count == self.drop_period - 1:
-            self.resolution = self.resolution - 1
-            self.drop_count = 0
+    @property
+    def enable_drop(self):
+        return self._enable_drop
+    @enable_drop.setter
+    def enable_drop(self, value):
+        if value == self.enable_drop:
+            return
+        self._enable_drop = value
+        print 'enable_drop: ', value
+        
+    def _on_value_set(self, **kwargs):
+        if not self.enable_drop:
+            return
+        value = kwargs.get('value')
+        if value in [0, 1]:
+            self.value = 2
+        
+class DropFrameSecond(incrementor.Second):
+    def __init__(self, **kwargs):
+        super(DropFrameSecond, self).__init__(**kwargs)
+        self.children['minute'].bind(value=self._on_minute_value_set)
+    def check_for_drop(self):
+        if self.children['minute'].value % 10 != 0:
+            self.parent.enable_drop = True
         else:
-            self.drop_count += 1
+            self.parent.enable_drop = False
+    def _on_value_set(self, **kwargs):
+        self.check_for_drop()
+    def _on_minute_value_set(self, **kwargs):
+        self.check_for_drop()
     
 class NonDropFrame(incrementor.Incrementor):
     def __init__(self, **kwargs):
@@ -226,11 +273,20 @@ def _GET_FIELD_CLASSES():
 FIELD_CLASSES = _GET_FIELD_CLASSES()
 
 if __name__ == '__main__':
+    import time
     tcgen = LTCGenerator()
     d = tcgen.frame_obj.get_all_obj()
-    d['minute'].value = 1
-    d['hour'].value = 2
-    d['second'].value = 40
-    d['frame'].value = 19
-    print tcgen.datablock.build_data()
-    bob
+    #d['minute'].value = 1
+    #d['hour'].value = 2
+    d['second'].value = 58
+    d['frame'].value = 28
+    keys = ['hour', 'minute', 'second', 'frame']
+    values = tcgen.frame_obj.get_values()
+    print ':'.join(['%02d' % (values[key]) for key in keys])
+    for i in range(61):
+        tcgen.frame_obj += 1
+        values = tcgen.frame_obj.get_values()
+        print ':'.join(['%02d' % (values[key]) for key in keys]), '   ', i
+    a = tcgen.build_audio_data()
+    print a
+    

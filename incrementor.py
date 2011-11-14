@@ -30,7 +30,8 @@ class Incrementor(BaseObject):
             self.parent.bind(bounds_reached=self.on_parent_bounds_reached)
         self.value_set_local = False
         self.bind(value=self._on_value_set, 
-                  resolution=self._on_resolution_set)
+                  resolution=self._on_resolution_set, 
+                  bounds_reached=self._on_own_bounds_reached)
         res = kwargs.get('resolution', getattr(self, '_resolution', None))
         if res is not None:
             self.resolution = res
@@ -110,7 +111,7 @@ class Incrementor(BaseObject):
         prop = self.Properties['value']
         newval = prop.value + value
         if newval > prop.max:
-            newval = newval - (prop.max + 1)
+            newval = newval - (prop.max + 1) + prop.min
             self.emit('bounds_reached', mode='add')
         self.value_set_local = True
         self.value = newval
@@ -139,6 +140,8 @@ class Incrementor(BaseObject):
         value = kwargs.get('value')
     def _on_resolution_set(self, **kwargs):
         self.set_range(min=0, max=self.resolution - 1)
+    def _on_own_bounds_reached(self, **kwargs):
+        pass
         
 class Frame(Incrementor):
     def __init__(self, **kwargs):
