@@ -80,7 +80,8 @@ class ClsProperty(object):
             default is None
     '''
     
-    _obj_property_attrs = ['name', 'min', 'max', 'symbol', 'type', 'quiet', 'ignore_range', 'threaded']
+    _obj_property_attrs = ['name', 'min', 'max', 'symbol', 'type', 'quiet', 
+                           'ignore_range', 'entries', 'threaded']
     def __init__(self, **kwargs):
         self.cls = kwargs.get('cls')
         self.name = kwargs.get('name')
@@ -190,7 +191,7 @@ class ObjProperty(object):
         Currently, only list and dict types are supported.
     
     '''
-    __slots__ = ('name', 'value', 'min', 'max', 'symbol', 
+    __slots__ = ('name', 'value', 'min', 'max', 'symbol', 'entries', 
                  'type', '_type', 'parent_obj', 'quiet', 'weakrefs', '__weakref__', 
                  'threaded', 'ignore_range', 'own_callbacks',  
                  'linked_properties', 'enable_emission', 'queue_emission', 
@@ -210,6 +211,7 @@ class ObjProperty(object):
         self.parent_obj = kwargs.get('obj')
         self.quiet = kwargs.get('quiet')
         self.ignore_range = kwargs.get('ignore_range')
+        self.entries = kwargs.get('entries')
         self.threaded = kwargs.get('threaded')
         self.own_callbacks = set()
         #self.callbacks = set()
