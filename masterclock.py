@@ -64,6 +64,8 @@ class DatetimeClock(object):
         if not threaded:
             self.callbacks.add(callback)
             return
+        if callback in self.callback_threads:
+            return
         t = ThreadedCallback(clock=self, callback=callback)
         #e = t.trigger
         self.callback_threads[callback] = t
