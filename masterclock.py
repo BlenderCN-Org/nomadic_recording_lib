@@ -119,7 +119,10 @@ class DatetimeClock(object):
         if self.seconds is None:
             return
         self.seconds += self.tick_interval
-        self.do_callbacks()
+        try:
+            self.do_callbacks()
+        except:
+            print sys.exc_info()
         
     def _build_timer(self):
         self.timer = Ticker(interval=self.clock_interval, callback=self.on_timer)
@@ -172,18 +175,19 @@ class ThreadedCallback(threading.Thread):
         self.clock = kwargs.get('clock')
         self.callback = kwargs.get('callback')
     def run(self):
+        clock = self.clock
         self.running.set()
         while self.running.isSet():
             self._trigger_event.wait()
             if self.running.isSet():
-                self.callback(self.clock, self.seconds)
+                self.callback(clock, clock.seconds)
             self._trigger_event.clear()
     def stop(self):
         self.running.clear()
         self._trigger_event.set()
     def trigger(self, clock, seconds):
         #print seconds
-        self.seconds = seconds
+        #self.seconds = seconds
         self._trigger_event.set()
         
 
