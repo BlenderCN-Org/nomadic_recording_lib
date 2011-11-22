@@ -22,7 +22,7 @@ import weakref
 
 import SignalDispatcher
 from Serialization import Serializer
-from Properties import ClsProperty
+import Properties
 
 save_keys = {}
 for key in ['saved_attributes', 'saved_child_classes', 'saved_child_objects']:
@@ -63,7 +63,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                         p_kwargs = val.copy()
                         p_kwargs.setdefault('name', key)
                         p_kwargs['cls'] = cls
-                        property = ClsProperty(**p_kwargs)
+                        property = Properties.ClsProperty(**p_kwargs)
                         setattr(cls, property.name, property)
                 cls = cls.__bases__[0]
         return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
@@ -108,7 +108,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                     save_dict[key] |= set(getattr(cls, val))
             for propname in getattr(cls, '_Properties', {}).iterkeys():
                 prop = getattr(cls, propname)
-                if isinstance(prop, ClsProperty):
+                if isinstance(prop, Properties.ClsProperty):
                     prop.init_instance(self)
             if hasattr(cls, '_SettingsProperties'):
                 spropkeys = cls._SettingsProperties[:]
@@ -280,24 +280,74 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
     def __init__(self, **kwargs):
         BaseObject.__init__(self, **kwargs)
         self.register_signal('update')
+        self.ObjProperties = {}
         UserDict.UserDict.__init__(self)
-    def __setitem__(self, key, item):
+    def __setitem__(self, key, item, emit_update=True):
         old = self.data.copy()
+        item = self._check_for_emulated_type(key, item)
+        if item == '__OBJPROPERTY_UPDATED__':
+            return
         UserDict.UserDict.__setitem__(self, key, item)
-        self.emit('update', key=key, item=item, old=old)
+        if emit_update:
+            self.emit('update', key=key, item=item, old=old)
     def __delitem__(self, key):
         old = self.data.copy()
+        self._remove_emulated_property(key)
         UserDict.UserDict.__delitem__(self, key)
         self.emit('update', key=key, old=old)
+    def __setattr__(self, name, value):
+        if hasattr(self, 'data') and name in self.data:
+            self[name] = value
+            return
+        object.__setattr__(self, name, value)
+    def __getattr__(self, name):
+        if hasattr(self, 'data') and name in self.data:
+            return self[name]
+        return object.__getattr__(self, name)
     def update(self, d=None, **kwargs):
         old = self.data.copy()
-        UserDict.UserDict.update(self, d, **kwargs)
+        newd = {}
+        if d is not None:
+            newd.update(d.copy())
+        newd.update(kwargs.copy())
+        for key, item in newd.iteritems():
+            self.__setitem__(key, item, emit_update=False)
+        #UserDict.UserDict.update(self, d, **kwargs)
         self.emit('update', old=old)
     def clear(self):
         old = self.data.copy()
+        for key in self.ObjProperties.keys()[:]:
+            self._remove_emulated_property(key)
         UserDict.UserDict.clear(self)
         self.emit('update', old=old)
-
+    def _check_for_emulated_type(self, key, item):
+        prop = self.ObjProperties.get(key)
+        if prop:
+            prop.set_value(item)
+            return '__OBJPROPERTY_UPDATED__'
+        emtype = Properties.EMULATED_TYPES.get(type(item))
+        if emtype is None:
+            return item
+        prop = Properties.ObjProperty(name=key, value=item, type=type(item), parent_obj=self, quiet=True)
+        newitem = prop.value
+        self.ObjProperties[key] = prop
+        prop.bind(self._on_emulated_property_update)
+        return prop.value
+    def _on_emulated_property_update(self, **kwargs):
+        prop = kwargs.get('Property')
+        key = prop.name
+        prop_old = kwargs.get('old')
+        old = self.data.copy()
+        old[key] = prop_old
+        self.emit('update', key=key, item=prop.value, old=old)
+        print 'emu_prop: ', key, prop.value, old
+    def _remove_emulated_property(self, key):
+        prop = self.ObjProperties.get(key)
+        if prop is None:
+            return
+        prop.unbind(self._on_emulated_property_update)
+        del self.ObjProperties[key]
+        
 GLOBAL_CONFIG = _GlobalConfig()
 
 class GCCollectThread(threading.Thread):

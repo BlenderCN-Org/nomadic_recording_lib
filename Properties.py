@@ -15,6 +15,7 @@
 # Copyright (c) 2010 - 2011 Matthew Reid
 
 import threading
+import collections
 import weakref
 
 def getbases(startcls, endcls=None, reverse=False):
@@ -529,8 +530,47 @@ class SetProperty(set):
         self.parent_property.emit(old)
     def copy(self):
         return set(self)
+    
+class DequeProperty(collections.deque):
+    def __init__(self, value, **kwargs):
+        self.parent_property = kwargs.get('parent_property')
+        super(DequeProperty, self).__init__(value)
+    def append(self, value):
+        old = self.copy()
+        super(DequeProperty, self).append(value)
+        self.parent_property.emit(old)
+    def appendleft(self, value):
+        old = self.copy()
+        super(DequeProperty, self).appendleft(value)
+        self.parent_property.emit(old)
+    def extend(self, value):
+        old = self.copy()
+        super(DequeProperty, self).extend(value)
+        self.parent_property.emit(old)
+    def extendleft(self, value):
+        old = self.copy()
+        super(DequeProperty, self).extendleft(value)
+        self.parent_property.emit(old)
+    def pop(self, *args):
+        old = self.copy()
+        super(DequeProperty, self).pop(*args)
+        self.parent_property.emit(old)
+    def popleft(self, *args):
+        old = self.copy()
+        super(DequeProperty, self).popleft(*args)
+        self.parent_property.emit(old)
+    def clear(self):
+        old = self.copy()
+        super(DequeProperty, self).clear()
+        self.parent_property.emit(old)
+    def remove(self):
+        old = self.copy()
+        super(DequeProperty, self).remove()
+        self.parent_property.emit(old)
+    def copy(self):
+        return list(self)[:]
         
-EMULATED_TYPES = {list:ListProperty, dict:DictProperty, set:SetProperty}
+EMULATED_TYPES = {list:ListProperty, dict:DictProperty, set:SetProperty, collections.deque:DequeProperty}
     
 class PropertyConnector(object):
     '''Mixin for objects to easily connect to Properties.
