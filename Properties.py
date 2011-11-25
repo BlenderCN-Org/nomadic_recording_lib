@@ -224,15 +224,14 @@ class ObjProperty(object):
         if self.threaded:
             self.emission_threads = {}
         
-    @property
-    def range(self):
+    def _get_range(self):
         return [self.min, self.max]
-    @range.setter
-    def range(self, value):
+    def _set_range(self, value):
         self.min, self.max = value
+    
+    range = property(_get_range, _set_range)
         
-    @property
-    def normalized(self):
+    def _get_normalized(self):
         if isinstance(self.value, dict):
             d = {}
             for key, val in self.value.iteritems():
@@ -241,8 +240,7 @@ class ObjProperty(object):
         elif isinstance(self.value, list):
             return [v / float(self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
         return self.value / float(self.max - self.min)
-    @normalized.setter
-    def normalized(self, value):
+    def _set_normalized(self, value):
         if isinstance(self.value, dict):
             value = value.copy()
             for key in value.iterkeys():
@@ -253,8 +251,10 @@ class ObjProperty(object):
             self.set_value(value)
         else:
             self.set_value(self.type(value * float(self.max - self.min)))
-    @property
-    def normalized_and_offset(self):
+    
+    normalized = property(_get_normalized, _set_normalized)
+    
+    def _get_normalized_and_offset(self):
         if isinstance(self.value, dict):
             d = {}
             for key, val in self.value.iteritems():
@@ -270,8 +270,7 @@ class ObjProperty(object):
             return [(v - self.min[i]) / float(self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
             #return [v - self.min[i] for i, v in enumerate(self.normalized)]
         return (self.value - self.min) / float(self.max - self.min)
-    @normalized_and_offset.setter
-    def normalized_and_offset(self, value):
+    def _set_normalized_and_offset(self, value):
         if isinstance(self.value, dict):
             value = value.copy()
             for key in value.iterkeys():
@@ -287,7 +286,9 @@ class ObjProperty(object):
         else:
             #self.normalized = value - ((self.max - self.min) / 2.)
             self.set_value(self.type((value * float(self.max - self.min)) + self.min))
-        
+    
+    normalized_and_offset = property(_get_normalized_and_offset, _set_normalized_and_offset)
+    
     def set_value(self, value):
         self.enable_emission = False
         if self._type is not None:
@@ -589,13 +590,11 @@ class PropertyConnector(object):
             one if it exists.  If None is given, it simply detaches.
     '''
     
-    @property
-    def Property(self):
+    def _get_Property(self):
         if not hasattr(self, '_Property'):
             self._Property = None
         return self._Property
-    @Property.setter
-    def Property(self, value):
+    def _set_Property(self, value):
         '''This descriptor attaches the given Property object and detaches
         the current one if it exists.  If None is given, it simply detaches.
         For convenience, a list or tuple can be given with an object and the
@@ -611,7 +610,9 @@ class PropertyConnector(object):
             self._Property = value
             if value is not None:
                 self.attach_Property(value)
-                
+    
+    Property = property(_get_Property, _set_Property)
+    
     def unlink_Property(self, prop):
         '''unlinks the current Property.  Don't call directly, 
         instead use 'self.Property = None'.  This can be extended by subclasses
