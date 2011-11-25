@@ -30,58 +30,16 @@ colorprops.update(dict(zip(['rgb', 'hsv'], [dict(default=dict(zip(keys, [0.]*3))
 #    val.update({'fget':'_'.join([key, 'getter'])})
 
 class Color(BaseObject):
-    #color_keys = ['red', 'green', 'blue']
-    #hsv_keys = ['hue', 'sat', 'val']
     _Properties = colorprops
     def __init__(self, **kwargs):
         super(Color, self).__init__(**kwargs)
-        #self._color_set_local = False
         self._rgb_set_local = False
         self._hsv_set_local = False
+        self._rgb_props_set_local = False
+        self._hsv_props_set_local = False
         self.bind(rgb=self._on_rgb_set, 
                   hsv=self._on_hsv_set, 
                   property_changed=self.on_own_property_changed)
-            
-#    @property
-#    def rgb(self):
-#        return dict(zip(self.color_keys, [getattr(self, key) for key in self.color_keys]))
-#        #return dict(zip(self.color_keys, self._rgb))
-#    @rgb.setter
-#    def rgb(self, value):
-#        self.set_rgb(**value)
-        
-#    def set_rgb(self, **kwargs):
-#        self._color_set_local = True
-#        for key, val in kwargs.iteritems():
-#            if key in self.color_keys:
-#                setattr(self, key, val)
-#        self._update_hsv()
-#        self._color_set_local = False
-#            
-#    def set_hsv(self, **kwargs):
-#        self._color_set_local = True
-#        for key, val in kwargs.iteritems():
-#            if key in self.hsv_keys:
-#                setattr(self, key, val)
-#        self._update_rgb()
-#        self._color_set_local = False
-#        
-#    def _update_rgb(self):
-#        rgb = colorsys.hsv_to_rgb(*[getattr(self, key) for key in self.hsv_keys])
-#        for i, val in enumerate(rgb):
-#            setattr(self, self.color_keys[i], val * 255)
-#            
-#    def _update_hsv(self):
-#        hsv = colorsys.rgb_to_hsv(*[getattr(self, key) / 255. for key in self.color_keys])
-#        for i, val in enumerate(hsv):
-#            setattr(self, self.hsv_keys[i], val)
-        
-#    @property
-#    def hsv(self):
-#        return dict(zip(self.hsv_keys, self.hsv_seq))
-#    @hsv.setter
-#    def hsv(self, value):
-#        self.set_hsv(**value)
         
     @property
     def rgb_seq(self):
@@ -93,9 +51,10 @@ class Color(BaseObject):
         return list((hsv[key] for key in hsv_keys))
         
     def _on_rgb_set(self, **kwargs):
-        #print 'rgb = ', self.rgb
-        #for key, val in self.rgb.iteritems():
-        #    setattr(self, key, val)
+        self._rgb_props_set_local = True
+        for key, val in self.rgb.iteritems():
+            setattr(self, key, val)
+        self._rgb_props_set_local = False
         if self._rgb_set_local:
             return
         self._hsv_set_local = True
@@ -103,9 +62,10 @@ class Color(BaseObject):
         self._hsv_set_local = False
         
     def _on_hsv_set(self, **kwargs):
-        #print 'hsv = ', self.hsv
-        #for key, val in self.hsv.iteritems():
-        #    setattr(self, key, val)
+        self._hsv_props_set_local = True
+        for key, val in self.hsv.iteritems():
+            setattr(self, key, val)
+        self._hsv_props_set_local = False
         if self._hsv_set_local:
             return
         self._rgb_set_local = True
@@ -113,18 +73,11 @@ class Color(BaseObject):
         self._rgb_set_local = False
         
     def on_own_property_changed(self, **kwargs):
-        return
-        #if self._color_set_local:
-        #    return
         prop = kwargs.get('Property')
         value = kwargs.get('value')
-        if prop.name in rgb_keys and not self._rgb_set_local:
-            #i = self.color_keys.index(prop.name)
-            #self._rgb[i] = prop.value
-            #self.set_rgb(**{prop.name:prop.value})
+        if prop.name in rgb_keys and not self._rgb_props_set_local:
             self.rgb[prop.name] = value
-        elif prop.name in hsv_keys and not self._hsv_set_local:
-            #self.set_hsv(**{prop.name:prop.value})
+        elif prop.name in hsv_keys and not self._hsv_props_set_local:
             self.hsv[prop.name] = value
             
 
