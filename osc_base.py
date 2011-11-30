@@ -651,7 +651,10 @@ class OSCDispatchThread(threading.Thread):
                     bundle, client = self.bundles[dt]
                     del self.bundles[dt]
                     messages = bundle.getMessages()
-                    self.do_dispatch(messages, client)
+                    try:
+                        self.do_dispatch(messages, client)
+                    except:
+                        pass
                 else:
                     self.ready_to_dispatch.clear()
                     timeout = seconds_from_timedelta(dt - now)
