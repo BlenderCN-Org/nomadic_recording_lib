@@ -43,7 +43,7 @@ class TapTempo(BaseObject):
             clock = MasterClock()
             clock.start()
             self._clock_is_local = True
-        self.clock = clock()
+        self.clock = clock
         self.last_taps = collections.deque()
         self.bind(tap=self._on_tap)
         
@@ -55,7 +55,9 @@ class TapTempo(BaseObject):
     def _on_tap(self, **kwargs):
         if not kwargs.get('value'):
             return
-        self.last_taps.append(self.clock.clock_seconds)
+        now = self.clock.get_now()
+        seconds = self.clock.calc_seconds(now)
+        self.last_taps.append(seconds)
         self.tap = False
         if len(self.last_taps) >= self._minimum_tap_count:
             self.calculate_tempo()
@@ -79,7 +81,7 @@ class TapTempo(BaseObject):
         if remove_tap is not None:
             del self.last_taps[remove_tap]
             return self.calculate_tempo()
-        avg = tapsum / len(self.last_taps)
+        avg = tapsum / (len(self.last_taps) - 1)
         self.tempo = seconds_to_bpm(avg)
 
 class Sequencer(BaseObject):
