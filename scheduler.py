@@ -45,7 +45,11 @@ class Scheduler(threading.Thread):
                         self.waiting.clear()
                         self.next_timeout = timeout
                         #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
-                
+            
+    def stop(self):
+        self.running.clear()
+        self.waiting.set()
+        
     def process_item(self, time):
         t, item = self.queue.pop(time)
         self._do_callback(item, time)
