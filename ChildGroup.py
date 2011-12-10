@@ -89,7 +89,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         return super(ChildGroup, self).get(key)
         
     def find_max_index(self):
-        if len(self) == 0:
+        if len(self) ==0 or len(self.indexed_items) == 0:
             return 0
         return max(self.indexed_items.keys())
         
