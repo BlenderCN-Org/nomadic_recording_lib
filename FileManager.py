@@ -111,6 +111,7 @@ class FileManager(BaseObject, Config):
         self.update_recent_files()
         
     def update_recent_files(self):
+        self.search_for_same_files()
         self.remove_old_files()
         self.remove_invalid_files()
         self.remove_conf_options()
@@ -124,9 +125,30 @@ class FileManager(BaseObject, Config):
         for s, file in d.iteritems():
             dt = datetime.datetime.strptime(s, self.datetime_fmt)
             self.recent_files[dt] = file
-            self.files_by_path[file] = dt
+            olddt = self.files_by_path.get(file)
+            if olddt is None or olddt < dt:
+                if olddt in self.recent_files:
+                    del self.recent_files[olddt]
+                self.files_by_path[file] = dt
+        self.search_for_same_files()
         self.remove_invalid_files()
         self.remove_old_files()
+    
+    def search_for_same_files(self):
+        d = {}
+        for dt, file in self.recent_files.iteritems():
+            if file not in d:
+                d[file] = set()
+            d[file].add(dt)
+        for file, dtset in d.iteritems():
+            if len(dtset) == 1:
+                continue
+            recent = max(dtset)
+            for dt in reversed(sorted(dtset)):
+                if dt == recent:
+                    continue
+                del self.recent_files[dt]
+            self.files_by_path[file] = recent
         
     def remove_old_files(self):
         if len(self.recent_files) > self.max_recent_files:
