@@ -35,6 +35,9 @@ class Incrementor(BaseObject):
         res = kwargs.get('resolution', getattr(self, '_resolution', None))
         if res is not None:
             self.resolution = res
+        children = kwargs.get('children', {})
+        for key, val in children.iteritems():
+            self.add_child(key, **val)
     def add_child(self, name, cls=None, **kwargs):
         if cls is None:
             cls = Incrementor
@@ -109,23 +112,25 @@ class Incrementor(BaseObject):
         return dict(zip(['min', 'max'], self.Properties['value'].range))
     def __add__(self, value):
         prop = self.Properties['value']
-        newval = prop.value + value
-        if newval > prop.max:
-            newval = newval - (prop.max + 1) + prop.min
-            self.emit('bounds_reached', mode='add')
-        self.value_set_local = True
-        self.value = newval
-        self.value_set_local = False
+        for i in range(value):
+            newval = prop.value + 1
+            if newval > prop.max:
+                newval = newval - (prop.max + 1) + prop.min
+                self.emit('bounds_reached', mode='add')
+            self.value_set_local = True
+            self.value = newval
+            self.value_set_local = False
         return self
     def __sub__(self, value):
         prop = self.Properties['value']
-        newval = prop.value - value
-        if newval < prop.min:
-            newval = newval + prop.max
-            self.emit('bounds_reached', mode='sub')
-        self.value_set_local = True
-        self.value = newval
-        self.value_set_local = False
+        for i in range(value):
+            newval = prop.value - 1
+            if newval < prop.min:
+                newval = newval + prop.max
+                self.emit('bounds_reached', mode='sub')
+            self.value_set_local = True
+            self.value = newval
+            self.value_set_local = False
         return self
     def on_parent_bounds_reached(self, **kwargs):
         mode = kwargs.get('mode')
@@ -143,6 +148,69 @@ class Incrementor(BaseObject):
     def _on_own_bounds_reached(self, **kwargs):
         pass
         
+class IncrementorGroup(BaseObject):
+    def __init__(self, **kwargs):
+        self.root_incrementor = None
+        self.all_incrementors = {}
+        super(IncrementorGroup, self).__init__(**kwargs)
+        self.register_signal('value_update')
+        incrementors = kwargs.get('incrementors', {})
+        for key, val in incrementors.iteritems():
+            self.add_incrementor(key, **val)
+    def add_incrementor(self, name, cls=None, **kwargs):
+        if self.root_incrementor is not None:
+            return
+        if cls is None:
+            cls = Incrementor
+        kwargs.setdefault('name', name)
+        obj = cls(**kwargs)
+        allobj = obj.get_all_obj()
+        # This ensures that there are no existing objects in the tree
+        if len(set(allobj.keys()) & set(self.all_incrementors.keys())):
+            return
+        #self.root_incrementors[name] = obj
+        self.root_incrementor = obj
+        self.all_incrementors.update(allobj)
+        for incr in allobj.itervalues():
+            incr.bind(value=self._on_incrementor_value_update)
+        return obj
+    def get_incrementor(self, name):
+        return self.all_incrementors.get(name)
+    def __add__(self, value):
+        if self.root_incrementor is not None:
+            if isinstance(value, IncrementorGroup):
+                self.__convert_incr_group(mode='add', incr_group=value)
+            else:
+                self.root_incrementor += value
+        return self
+    def __sub__(self, value):
+        if self.root_incrementor is not None:
+            if isinstance(value, IncrementorGroup):
+                self.__convert_incr_group(mode='sub', incr_group=value)
+            else:
+                self.root_incrementor -= value
+        return self
+    def _on_incrementor_value_update(self, **kwargs):
+        obj = kwargs.get('obj')
+        kwargs['name'] = obj.name
+        self.emit('value_update', **kwargs)
+    def __convert_incr_group(self, **kwargs):
+        ## TODO: make this do stuff
+        pass
+    def __getattr__(self, name):
+        if hasattr(self, 'all_incrementors'):
+            incr = self.all_incrementors.get(name)
+            if incr is not None:
+                return incr.value
+        return super(IncrementorGroup, self).__getattr__(name)
+    def __setattr__(self, name, value):
+        if hasattr(self, 'all_incrementors'):
+            incr = self.all_incrementors.get(name)
+            if incr is not None:
+                incr.value = value
+                return
+        super(IncrementorGroup, self).__setattr__(name, value)
+    
 class Frame(Incrementor):
     def __init__(self, **kwargs):
         kwargs.setdefault('resolution', 30)
@@ -185,6 +253,35 @@ if __name__ == '__main__':
     class TestThread(threading.Thread):
         def run(self):
             tick = threading.Event()
+            incrgroup = self.incrgroup
+            incrgroup.bind(value_update=self.on_value_update)
+            timeout = .001
+            #incr = ms.resolution * timeout
+            starttime = datetime.datetime.now()
+            self.starttime = starttime
+            self.now = starttime
+            print starttime
+            for key in ['hour', 'minute', 'second', 'microsecond']:
+                value = getattr(starttime, key)
+                if key == 'microsecond':
+                    value = int(value * .001) + 1
+                    key = 'millisecond'
+                setattr(incrgroup, key, value)
+            while True:
+                tick.wait(timeout)
+                self.now = datetime.datetime.now()
+                incrgroup += 1
+        def on_value_update(self, **kwargs):
+            name = kwargs.get('name')
+            if name == 'millisecond':
+                return
+            keys = ['hour', 'minute', 'second', 'millisecond']
+            print zip(keys, [getattr(self.incrgroup, key) for key in keys]), name, '\n'
+            s = self.now.strftime('%H:%M:%S')
+            print '%s.%s' % (s, self.now.microsecond * .001)
+    class oldTestThread(threading.Thread):
+        def run(self):
+            tick = threading.Event()
             ms = Microsecond()
             self.ms = ms
             #ms.bind(value=self.on_ms)
@@ -210,7 +307,14 @@ if __name__ == '__main__':
             print 'microsecond: ', kwargs.get('value')
         def on_second(self, **kwargs):
             print 'seconds=%s, values=%s' % (self.now - self.starttime, self.ms.get_values())
+    hour = {'resolution':60}
+    minute = {'resolution':60, 'children':{'hour':hour}}
+    sec = {'resolution':60, 'children':{'minute':minute}}
+    ms = {'resolution':1000, 'children':{'second':sec}}
+    d = {'millisecond':ms}
+    incrgroup = IncrementorGroup(incrementors=d)
     t = TestThread()
+    t.incrgroup = incrgroup
     t.start()
     
     

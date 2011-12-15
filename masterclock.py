@@ -19,14 +19,17 @@ import datetime
 import time
 import threading
 
+from incrementor import IncrementorGroup
+
 MIDNIGHT = datetime.time()
 
-class DatetimeClock(object):
+class BaseClock(object):
     def __init__(self, **kwargs):
         self.clock_interval = kwargs.get('clock_interval', .01)
         self.tick_interval = kwargs.get('tick_interval', .04)
         #self.tick_granularity = len(str(self.tick_interval).split('.')[1])
         self.seconds = None
+        self.starttime = None
         callbacks = kwargs.get('callbacks', [])
         self.running = False
         self.timer_id = None
@@ -40,14 +43,6 @@ class DatetimeClock(object):
         for cb in callbacks:
             self.add_callback(cb)
         #self.ticks = 0
-
-    def calc_seconds(self, dt):
-        midnight = datetime.datetime.combine(dt.date(), datetime.time())
-        td = dt - midnight
-        return td.seconds + (td.microseconds / float(10**6))
-        
-    def get_now(self):
-        return datetime.datetime.now()
         
     def start(self):
         self.stop()
@@ -114,18 +109,24 @@ class DatetimeClock(object):
                     break
         for cb in self.raw_tick_callbacks:
             cb(self, seconds)
-        if self.seconds is not None and seconds < self.seconds + self.tick_interval:
+        tickseconds = self.seconds
+        if tickseconds is not None and seconds < tickseconds + self.tick_interval:
             return
-        if self.seconds is None:
+        if tickseconds is None:
             return
-        self.seconds += self.tick_interval
+        self.do_tick_increment()
         try:
             self.do_callbacks()
         except:
             print sys.exc_info()
         
+    def do_tick_increment(self):
+        self.seconds += self.tick_interval
+        
     def _build_timer(self):
         self.timer = Ticker(interval=self.clock_interval, callback=self.on_timer)
+        self.starttime = self.get_now()
+        self.now = self.starttime
         self.timer.start()
         
     def _kill_timer(self):
@@ -135,13 +136,60 @@ class DatetimeClock(object):
         if self.timer is not None:
             self.timer.stop()
             self.timer = None
+            
+class DatetimeClock(BaseClock):
+    def calc_seconds(self, dt):
+        midnight = datetime.datetime.combine(dt.date(), datetime.time())
+        td = dt - midnight
+        return td.seconds + (td.microseconds / float(10**6))
+    def get_now(self):
+        return datetime.datetime.now()
         
-class ClockWithoutDatetime(DatetimeClock):
+class SysTimeClock(BaseClock):
     def get_now(self):
         return time.time()
     def calc_seconds(self, seconds):
         return seconds
-
+        
+class IncrementorClock(SysTimeClock):
+    time_struct_keys = {'tm_sec':'second', 'tm_min':'minute', 'tm_hour':'hour'}
+    def __init__(self, **kwargs):
+        incrementor_group = kwargs.get('incrementor_group')
+        if not incrementor_group:
+            hour = {'resolution':60}
+            minute = {'resolution':60, 'children':{'hour':hour}}
+            sec = {'resolution':60, 'children':{'minute':minute}}
+            ms = {'resolution':100, 'children':{'second':sec}}
+            d = {'millisecond':ms}
+            incrementor_group = IncrementorGroup(incrementors=d)
+        self.incrementor_group = incrementor_group
+        root = incrementor_group.root_incrementor
+        tickint = 1. / root.resolution
+        kwargs['tick_interval'] = tickint
+        kwargs['clock_interval'] = tickint
+        super(IncrementorClock, self).__init__(**kwargs)
+#    @property
+#    def seconds(self):
+#        return self.incrementor_group.root_incrementor.get_root_sum()
+#    @seconds.setter
+#    def seconds(self, value):
+#        if value is None:
+#            return
+#        self.incrementor_group.root_incrementor.set_root_sum(value)
+    def do_tick_increment(self):
+        #self.incrementor_group.root_incrementor += 1
+        now = self.now
+        start = self.starttime
+        self.seconds = now - start
+        tstruct = time.localtime(now)
+        incrgroup = self.incrementor_group
+        root = incrgroup.root_incrementor
+        root.value = int(round(now - (int(now)) * root.resolution))
+        
+        for tmkey, inckey in self.time_struct_keys.iteritems():
+            value = getattr(tstruct, tmkey)
+            setattr(incrgroup, inckey, value)
+        
 class Ticker(threading.Thread):
     def __init__(self, **kwargs):
         threading.Thread.__init__(self)
@@ -152,13 +200,19 @@ class Ticker(threading.Thread):
         self.ticking = threading.Event()
         
     def run(self):
-        self.running.set()
-        while self.running.isSet():
-            if not self.running.isSet():
+        interval = self.interval
+        callback = self.callback
+        running = self.running
+        waiting = self.waiting
+        ticking = self.ticking
+        running.set()
+        while running.isSet():
+            if not running.isSet():
                 return
-            self.waiting.wait(self.interval)
-            self.ticking.set()
-            self.callback()
+            #waiting.wait(interval)
+            time.sleep(interval)
+            ticking.set()
+            callback()
             
     def stop(self):
         self.running.clear()
@@ -192,8 +246,8 @@ class ThreadedCallback(threading.Thread):
         
 
 #MasterClock = DatetimeClock
-MasterClock = ClockWithoutDatetime
-
+MasterClock = SysTimeClock
+#MasterClock = IncrementorClock
 
 if __name__ == '__main__':
     class Tester(object):
@@ -252,12 +306,16 @@ if __name__ == '__main__':
                 val.update(dict(zip(attrkeys, [getattr(self, akey) for akey in attrkeys])))
             self.clock.stop()
     cdata = []
-    c = DatetimeClock()
-    t = Tester('master', c)
+    #c = DatetimeClock()
+    #t = Tester('master', c)
+    #c.timer.join()
+    #cdata.append(t.all_data)
+    c = SysTimeClock()
+    t = Tester('nodattime', c)
     c.timer.join()
     cdata.append(t.all_data)
-    c = ClockWithoutDatetime()
-    t = Tester('nodattime', c)
+    c = IncrementorClock()
+    t = Tester('incrementor', c)
     c.timer.join()
     cdata.append(t.all_data)
     print 'clock_avg: ', ['%010.8f' % (data['clock']['clock_avg']) for data in cdata]
