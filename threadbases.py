@@ -16,8 +16,11 @@
 
 import threading
 import collections
+import weakref
 
 from BaseObject import BaseObject
+from osc_base import OSCBaseObject
+from misc import setID
 
 class Event(BaseObject, threading.Event):
     _Properties = {'state':dict(default=False)}
@@ -59,8 +62,57 @@ class ChannelEvent(BaseObject):
     def _off_event_state_set(self, **kwargs):
         pass
 
-class BaseThread(BaseObject, threading.Thread):
+_THREADS = weakref.WeakValueDictionary()
+
+def add_call_to_thread(call, *args, **kwargs):
+    obj = getattr(call, 'im_self', None)
+    if not isinstance(obj, BaseThread):
+        return False
+    obj.insert_threaded_call(call, *args, **kwargs)
+    return True
+
+class BaseThread(OSCBaseObject, threading.Thread):
     def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
-        BaseObject.__init__(self, **kwargs)
+        thread_id = setID(kwargs.get('thread_id'))
+        if thread_id in _THREADS:
+            raise
+        self._thread_id = thread_id
+        _THREADS[thread_id] = self
+        threading.Thread.__init__(self, name=thread_id)
+        OSCBaseObject.__init__(self, **kwargs)
+        self._running = Event()
+        self._stopped = Event()
+        self._threaded_call_ready = Event()
+        self._threaded_call_timeout = kwargs.get('threaded_call_timeout', .1)
+        self._threaded_calls_queue = collections.deque()
+    def insert_threaded_call(self, call, *args, **kwargs):
+        args = tuple(args)
+        kwargs = kwargs.copy()
+        self._threaded_calls_queue.append((call, args, kwargs))
+        self._threaded_call_ready.set()
+    def run(self):
+        running = self._running
+        call_ready = self._threaded_call_ready
+        call_timeout = self._threaded_call_timeout
+        do_calls = self._do_threaded_calls
+        loop_iteration = self._thread_loop_iteration
+        running.set()
+        while running.is_set():
+            loop_iteration()
+            call_ready.wait(call_timeout)
+            do_calls()
+        self._stopped.set()
+    def stop(self):
+        self._running.clear()
+        self._threaded_calls_queue.clear()
+        self._threaded_call_ready.set()
+    def _thread_loop_iteration(self):
+        pass
+    def _do_threaded_calls(self):
+        queue = self._threaded_calls_queue
+        if not len(queue):
+            self._threaded_call_ready.clear()
+            return
+        call, args, kwargs = queue.popleft()
+        call(*args, **kwargs)
         
