@@ -20,22 +20,23 @@ import weakref
 
 from BaseObject import BaseObject
 from osc_base import OSCBaseObject
-from misc import setID
+from misc import setID, iterbases
 
-class Event(BaseObject, threading.Event):
+class Event(BaseObject, threading._Event):
     _Properties = {'state':dict(default=False)}
     def __init__(self, **kwargs):
-        threading.Event.__init__(self)
+        threading._Event.__init__(self)
         BaseObject.__init__(self, **kwargs)
+        self.name = kwargs.get('name')
         self._state_set_local = False
         self.bind(state=self._on_state_set)
     def set(self):
-        threading.Event.set(self)
+        threading._Event.set(self)
         self._state_set_local = True
         self.state = True
         self._state_set_local = False
     def clear(self):
-        threading.Event.clear(self)
+        threading._Event.clear(self)
         self._state_set_local = True
         self.state = False
         self._state_set_local = False
@@ -72,6 +73,10 @@ def add_call_to_thread(call, *args, **kwargs):
     return True
 
 class BaseThread(OSCBaseObject, threading.Thread):
+    _Events = {'_running':{}, 
+               '_stopped':{}, 
+               '_threaded_call_ready':{}, 
+               '_threaded_call_timeout':{}}
     def __init__(self, **kwargs):
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
@@ -80,9 +85,16 @@ class BaseThread(OSCBaseObject, threading.Thread):
         _THREADS[thread_id] = self
         threading.Thread.__init__(self, name=thread_id)
         OSCBaseObject.__init__(self, **kwargs)
-        self._running = Event()
-        self._stopped = Event()
-        self._threaded_call_ready = Event()
+        self.Events = {}
+        for cls in iterbases(self, 'OSCBaseObject'):
+            if not hasattr(cls, '_Events'):
+                continue
+            for key, val in cls._Events.iteritems():
+                ekwargs = val.copy()
+                ekwargs.setdefault('name', key)
+                e = Event(**ekwargs)
+                self.Events[e.name] = e
+                setattr(self, e.name, e)
         self._threaded_call_timeout = kwargs.get('threaded_call_timeout', .1)
         self._threaded_calls_queue = collections.deque()
     def insert_threaded_call(self, call, *args, **kwargs):
@@ -116,3 +128,6 @@ class BaseThread(OSCBaseObject, threading.Thread):
         call, args, kwargs = queue.popleft()
         call(*args, **kwargs)
         
+if __name__ == '__main__':
+    testthread = BaseThread(thread_id='test')
+    

@@ -30,6 +30,15 @@ def setID(id):
         #id = id.urn
     return id
     
+    
+def iterbases(obj, lastclass='object'):
+    if type(lastclass) == type:
+        lastclass = lastclass.__name__
+    cls = obj.__class__
+    while cls.__name__ != lastclass:
+        yield cls
+        cls = cls.__bases__[0]
+        
 def hexstr(string, obj=None):
     outstr = ''
     if isinstance(string, str):
