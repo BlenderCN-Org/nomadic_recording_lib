@@ -210,23 +210,23 @@ class TestWindow(object):
         else:
             print 'vals: ', self.seq.TickObj.get_values()
             print 'sum: ', self.seq.TickObj.get_root_sum()
-if __name__ == '__main__':
-    import gtk
-    gtk.gdk.threads_init()
-    seq = Sequencer()
-    tick = seq.TickObj
-    v = tick.get_root_sum()
-    print 'start sum: ', v
-    print 'start vals: ', tick.get_values()
-    for i in range(120):
-        tick += 1
-    print 'new vals: ', tick.get_values()
-    v = tick.get_root_sum()
-    print 'tickobj sum: ', v
-    print tick.get_values()
-    tick.set_root_sum(v)
-    v = tick.get_root_sum()
-    print 'new sum: ', v
-    tick.reset_values()
-    w = TestWindow(seq=seq)
-    gtk.main()
+#if __name__ == '__main__':
+#    import gtk
+#    gtk.gdk.threads_init()
+#    seq = Sequencer()
+#    tick = seq.TickObj
+#    v = tick.get_root_sum()
+#    print 'start sum: ', v
+#    print 'start vals: ', tick.get_values()
+#    for i in range(120):
+#        tick += 1
+#    print 'new vals: ', tick.get_values()
+#    v = tick.get_root_sum()
+#    print 'tickobj sum: ', v
+#    print tick.get_values()
+#    tick.set_root_sum(v)
+#    v = tick.get_root_sum()
+#    print 'new sum: ', v
+#    tick.reset_values()
+#    w = TestWindow(seq=seq)
+#    gtk.main()

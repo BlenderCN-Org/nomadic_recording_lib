@@ -114,10 +114,14 @@ class BaseThread(OSCBaseObject, threading.Thread):
             call_ready.wait(call_timeout)
             do_calls()
         self._stopped.set()
-    def stop(self):
+    def stop(self, wait_for_queues=True):
         self._running.clear()
-        self._threaded_calls_queue.clear()
-        self._threaded_call_ready.set()
+        if not wait_for_queues:
+            self._threaded_calls_queue.clear()
+            self._threaded_call_ready.set()
+        else:
+            if not len(self._threaded_calls_queue):
+                self._threaded_call_ready.set()
     def _thread_loop_iteration(self):
         pass
     def _do_threaded_calls(self):
@@ -129,5 +133,11 @@ class BaseThread(OSCBaseObject, threading.Thread):
         call(*args, **kwargs)
         
 if __name__ == '__main__':
-    testthread = BaseThread(thread_id='test')
-    
+    class TestThread(BaseThread):
+        def test_call(self, **kwargs):
+            print 'thread_id=%s, current_thread=%s, kwargs=%s' % (self._thread_id, threading.current_thread().name, kwargs)
+    testthread = TestThread(thread_id='test')
+    testthread.start()
+    for i in range(5):
+        add_call_to_thread(testthread.test_call, i=i)
+    testthread.stop()
