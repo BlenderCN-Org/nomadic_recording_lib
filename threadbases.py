@@ -23,11 +23,13 @@ from osc_base import OSCBaseObject
 from misc import setID, iterbases
 
 class Event(BaseObject, threading._Event):
-    _Properties = {'state':dict(default=False)}
+    _Properties = {'state':dict(default=False), 
+                   'wait_timeout':dict(type=float)}
     def __init__(self, **kwargs):
         threading._Event.__init__(self)
         BaseObject.__init__(self, **kwargs)
         self.name = kwargs.get('name')
+        self.wait_timeout = kwargs.get('wait_timeout')
         self._state_set_local = False
         self.bind(state=self._on_state_set)
     def set(self):
@@ -40,6 +42,10 @@ class Event(BaseObject, threading._Event):
         self._state_set_local = True
         self.state = False
         self._state_set_local = False
+    def wait(self, timeout=None):
+        if timeout is None:
+            timeout = self.wait_timeout
+        threading._Event.wait(self, timeout)
     def _on_state_set(self, **kwargs):
         if self._state_set_local:
             return
@@ -75,8 +81,7 @@ def add_call_to_thread(call, *args, **kwargs):
 class BaseThread(OSCBaseObject, threading.Thread):
     _Events = {'_running':{}, 
                '_stopped':{}, 
-               '_threaded_call_ready':{}, 
-               '_threaded_call_timeout':{}}
+               '_threaded_call_ready':dict(wait_timeout=.1)}
     def __init__(self, **kwargs):
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
@@ -86,6 +91,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         threading.Thread.__init__(self, name=thread_id)
         OSCBaseObject.__init__(self, **kwargs)
         self.Events = {}
+        timed_events = []
         for cls in iterbases(self, 'OSCBaseObject'):
             if not hasattr(cls, '_Events'):
                 continue
@@ -94,24 +100,37 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 ekwargs.setdefault('name', key)
                 e = Event(**ekwargs)
                 self.Events[e.name] = e
+                if e.wait_timeout is not None:
+                    timed_events.append(e.name)
                 setattr(self, e.name, e)
-        self._threaded_call_timeout = kwargs.get('threaded_call_timeout', .1)
+        timed_events.reverse()
+        self.timed_events = timed_events
         self._threaded_calls_queue = collections.deque()
+        self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
     def insert_threaded_call(self, call, *args, **kwargs):
         args = tuple(args)
         kwargs = kwargs.copy()
         self._threaded_calls_queue.append((call, args, kwargs))
-        self._threaded_call_ready.set()
+        self._cancel_event_timeouts()
+    def _cancel_event_timeouts(self, events=None):
+        if events is None:
+            events = self.timed_events
+        for key in events:
+            e = self.Events.get(key)
+            if not e:
+                continue
+            e.set()        
     def run(self):
         running = self._running
         call_ready = self._threaded_call_ready
-        call_timeout = self._threaded_call_timeout
+        disable_call_waits = self.disable_threaded_call_waits
         do_calls = self._do_threaded_calls
         loop_iteration = self._thread_loop_iteration
         running.set()
         while running.is_set():
             loop_iteration()
-            call_ready.wait(call_timeout)
+            if not disable_call_waits:
+                call_ready.wait()
             do_calls()
         self._stopped.set()
     def stop(self, wait_for_queues=True):
@@ -122,6 +141,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         else:
             if not len(self._threaded_calls_queue):
                 self._threaded_call_ready.set()
+            self._cancel_event_timeouts()
     def _thread_loop_iteration(self):
         pass
     def _do_threaded_calls(self):

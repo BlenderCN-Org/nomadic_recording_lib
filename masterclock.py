@@ -18,13 +18,23 @@ import sys
 import datetime
 import time
 import threading
+import weakref
 
+from threadbases import BaseThread
 from incrementor import IncrementorGroup
 
 MIDNIGHT = datetime.time()
 
+_CLOCKS = weakref.WeakValueDictionary()
+
 class BaseClock(object):
     def __init__(self, **kwargs):
+        if not len(_CLOCKS):
+            i = 0
+        else:
+            i = max(_CLOCKS.keys()) + 1
+        self.clock_index = i
+        _CLOCKS[i] = self
         self.clock_interval = kwargs.get('clock_interval', .01)
         self.tick_interval = kwargs.get('tick_interval', .04)
         #self.tick_granularity = len(str(self.tick_interval).split('.')[1])
@@ -124,7 +134,7 @@ class BaseClock(object):
         self.seconds += self.tick_interval
         
     def _build_timer(self):
-        self.timer = Ticker(interval=self.clock_interval, callback=self.on_timer)
+        self.timer = Ticker(interval=self.clock_interval, callback=self.on_timer, clock=self)
         self.starttime = self.get_now()
         self.now = self.starttime
         self.timer.start()
@@ -190,7 +200,33 @@ class IncrementorClock(SysTimeClock):
             value = getattr(tstruct, tmkey)
             setattr(incrgroup, inckey, value)
         
-class Ticker(threading.Thread):
+class Ticker(BaseThread):
+    _Events = {'ticking':{}}
+    _Properties = {'interval':dict(type=float)}
+    def __init__(self, **kwargs):
+        clock = kwargs.get('clock')
+        kwargs['thread_id'] = '%s-%s_Ticker' % (clock.__class__.__name__, clock.clock_index)
+        kwargs['disable_threaded_call_waits'] = True
+        super(Ticker, self).__init__(**kwargs)
+        self.bind(interval=self._on_interval_set)
+        self.interval = kwargs.get('interval')
+        self.callback = kwargs.get('callback', self._default_callback)
+        #self._threaded_call_ready.wait_timeout = None
+        
+    def _thread_loop_iteration(self):
+        time.sleep(self.interval)
+        self.ticking.set()
+        self.callback()
+        self.ticking.clear()
+        
+    def _on_interval_set(self, **kwargs):
+        pass
+        #self._threaded_call_ready.wait_timeout = self.interval
+        
+    def _default_callback(self):
+        pass
+        
+class oldTicker(threading.Thread):
     def __init__(self, **kwargs):
         threading.Thread.__init__(self)
         self.interval = kwargs.get('interval')
@@ -221,7 +257,16 @@ class Ticker(threading.Thread):
         pass
         
 
-class ThreadedCallback(threading.Thread):
+class ThreadedCallback(BaseThread):
+    def __init__(self, **kwargs):
+        self.clock = kwargs.get('clock')
+        self.callback = kwargs.get('callback')
+        kwargs['thread_id'] = '%s-%s_ThreadedCallback-%s' % (self.clock.__class__.__name__, self.clock.clock_index, str(self.callback))
+        super(ThreadedCallback, self).__init__(**kwargs)
+    def trigger(self, clock, seconds):
+        self.insert_threaded_call(self.callback, clock, clock.seconds)
+        
+class oldThreadedCallback(threading.Thread):
     def __init__(self, **kwargs):
         threading.Thread.__init__(self)
         self.running = threading.Event()

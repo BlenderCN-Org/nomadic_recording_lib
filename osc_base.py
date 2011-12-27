@@ -599,6 +599,7 @@ def get_ui_module(name):
     module = imp.load_module(name, *t)
     return module
 
+## TODO: make this use the threadbases.BaseThread class
 class OSCDispatchThread(threading.Thread):
     _ui_mode_dispatch_methods = {'gtk':'gtk_do_dispatch', 
                                  'kivy':'kivy_do_dispatch'}

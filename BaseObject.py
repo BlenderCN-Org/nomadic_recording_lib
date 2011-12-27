@@ -350,26 +350,41 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
         
 GLOBAL_CONFIG = _GlobalConfig()
 
-class GCCollectThread(threading.Thread):
+from threadbases import BaseThread
+
+class GCCollectThread(BaseThread):
     GLOBAL_CONFIG_KEY = 'USE_BASEOBJECT_GARBAGE_COLLECTOR'
+    _Events = {'queue_collection':{}, 
+               'enable_collection':{}, 
+               'collecting':{}, 
+               'wait_for_collection':dict(wait_timeout=1.)}
     def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
-        self.running = threading.Event()
-        self.stopped = threading.Event()
-        self.wait_time = kwargs.get('wait_time', 1.)
-        self.wait_for_collection = threading.Event()
-        self.queue_collection = threading.Event()
-        self.enable_collection = threading.Event()
-        self.collecting = threading.Event()
+        super(GCCollectThread, self).__init__(**kwargs)
+        #self.running = threading.Event()
+        #self.stopped = threading.Event()
+        #self.wait_time = kwargs.get('wait_time', 1.)
+        #self.wait_for_collection = threading.Event()
+        #self.queue_collection = threading.Event()
+        #self.enable_collection = threading.Event()
+        #self.collecting = threading.Event()
         GLOBAL_CONFIG.bind(update=self.on_global_config_update)
     def on_global_config_update(self, **kwargs):
         old = kwargs.get('old')
         gc_enable = GLOBAL_CONFIG.get(self.GLOBAL_CONFIG_KEY)
-        if gc_enable and not self.running.isSet() and not self.stopped.isSet() and not self.is_alive():
+        if gc_enable and not self._running.isSet() and not self._stopped.isSet() and not self.is_alive():
+            self.enable_collection.set()
             self.start()
-        if not gc_enable and self.running.isSet():
+        if not gc_enable and self._running.isSet():
             self.stop()
-    def run(self):
+    def _thread_loop_iteration(self):
+        if not(self.enable_collection.isSet()):
+            return
+        self.wait_for_collection.wait()
+        if self.queue_collection.isSet():
+            self.do_collect()
+            self.queue_collection.clear()
+        self.wait_for_collection.clear()
+    def old_run(self):
         #atexit.register(self.stop)
         self.running.set()
         self.enable_collection.set()
@@ -384,7 +399,7 @@ class GCCollectThread(threading.Thread):
                     self.queue_collection.clear()
                 self.wait_for_collection.clear()
         self.stopped.set()
-    def stop(self):
+    def old_stop(self):
         self.running.clear()
         self.enable_collection.set()
         self.wait_for_collection.set()
