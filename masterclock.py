@@ -59,9 +59,9 @@ class BaseClock(object):
         self.running = True
         self._build_timer()
         
-    def stop(self):
+    def stop(self, blocking=False):
         self.running = False
-        self._kill_timer()
+        self._kill_timer(blocking)
         self.timer_id = None
         #self.ticks = 0
     
@@ -139,12 +139,12 @@ class BaseClock(object):
         self.now = self.starttime
         self.timer.start()
         
-    def _kill_timer(self):
+    def _kill_timer(self, blocking=False):
         if self.tick_listener is not None:
-            self.tick_listener.stop()
+            self.tick_listener.stop(blocking=blocking)
             self.tick_listener = None
         if self.timer is not None:
-            self.timer.stop()
+            self.timer.stop(blocking=blocking)
             self.timer = None
             
 class DatetimeClock(BaseClock):
@@ -214,6 +214,8 @@ class Ticker(BaseThread):
         #self._threaded_call_ready.wait_timeout = None
         
     def _thread_loop_iteration(self):
+        if not self.running:
+            return
         time.sleep(self.interval)
         self.ticking.set()
         self.callback()

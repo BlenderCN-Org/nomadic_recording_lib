@@ -46,9 +46,12 @@ class Scheduler(threading.Thread):
                         self.next_timeout = timeout
                         #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
             
-    def stop(self):
+    def stop(self, **kwargs):
+        blocking = kwargs.get('blocking')
         self.running.clear()
         self.waiting.set()
+        if blocking:
+            self.join()
         
     def process_item(self, time):
         t, item = self.queue.pop(time)

@@ -78,6 +78,7 @@ def add_call_to_thread(call, *args, **kwargs):
     obj.insert_threaded_call(call, *args, **kwargs)
     return True
 
+
 class BaseThread(OSCBaseObject, threading.Thread):
     _Events = {'_running':{}, 
                '_stopped':{}, 
@@ -85,7 +86,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
     def __init__(self, **kwargs):
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
-            raise
+            print 'thread_id %s already exists'
+            thread_id = setID(None)
         self._thread_id = thread_id
         _THREADS[thread_id] = self
         threading.Thread.__init__(self, name=thread_id)
@@ -107,6 +109,9 @@ class BaseThread(OSCBaseObject, threading.Thread):
         self.timed_events = timed_events
         self._threaded_calls_queue = collections.deque()
         self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
+    @property
+    def running(self):
+        return self._running.isSet()
     def insert_threaded_call(self, call, *args, **kwargs):
         args = tuple(args)
         kwargs = kwargs.copy()
@@ -133,15 +138,19 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 call_ready.wait()
             do_calls()
         self._stopped.set()
-    def stop(self, wait_for_queues=True):
+    def stop(self, **kwargs):
+        blocking = kwargs.get('blocking', False)
+        wait_for_queues = kwargs.get('wait_for_queues', True)
         self._running.clear()
-        if not wait_for_queues:
-            self._threaded_calls_queue.clear()
-            self._threaded_call_ready.set()
-        else:
+        if wait_for_queues:
             if not len(self._threaded_calls_queue):
                 self._threaded_call_ready.set()
             self._cancel_event_timeouts()
+        else:
+            self._threaded_calls_queue.clear()
+            self._threaded_call_ready.set()
+        if blocking:
+            self.join()
     def _thread_loop_iteration(self):
         pass
     def _do_threaded_calls(self):
