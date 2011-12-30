@@ -149,7 +149,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         else:
             self._threaded_calls_queue.clear()
             self._threaded_call_ready.set()
-        if blocking:
+        if blocking and self.isAlive():
             self.join()
     def _thread_loop_iteration(self):
         pass
