@@ -16,8 +16,6 @@
 
 import UserDict
 import jsonpickle
-if jsonpickle.__version__ != '0.3.1':
-    raise
 
 from Properties import EMULATED_TYPES
 
@@ -42,11 +40,10 @@ class Serializer(object):
             del kwargs['json_preset']
         d = self._get_saved_attr(**kwargs)
         d.update(incl_dict)
-        jsonpickle.set_encoder_options('simplejson', **json_presets[json_preset])
-        return jsonpickle.encode(d, unpicklable=False)
+        return to_json(d, json_preset)
         
     def from_json(self, string, **kwargs):
-        d = jsonpickle.decode(string)
+        d = from_json(string)
         self._load_saved_attr(d, **kwargs)
         
     def _get_saved_attr(self, **kwargs):
@@ -58,9 +55,6 @@ class Serializer(object):
         d.update({'attrs':{}})
         for key in self.saved_attributes:
             val = getattr(self, key, None)
-            for realtype, emutype in EMULATED_TYPES.iteritems():
-                if isinstance(val, emutype):
-                    val = realtype(val)
             d['attrs'].update({key:val})
         if hasattr(self, 'saved_child_objects'):
             d.update({'saved_children':{}})
@@ -120,4 +114,19 @@ class Serializer(object):
                 return cls(deserialize=d)
         return False
 
-
+def to_json(obj, json_preset='tiny'):
+    jsonpickle.set_encoder_options('simplejson', **json_presets[json_preset])
+    pickler = Pickler(unpicklable=True)
+    return jsonpickle.json.encode(pickler.flatten(obj))
+    
+def from_json(jstring):
+    return jsonpickle.decode(jstring)
+    
+class Pickler(jsonpickle.Pickler):
+    def flatten(self, obj):
+        for realtype, emutype in EMULATED_TYPES.iteritems():
+            if isinstance(obj, emutype):
+                #print 'changed %s to %s' % (emutype, realtype)
+                obj = realtype(obj)
+                break
+        return super(Pickler, self).flatten(obj)

@@ -15,6 +15,7 @@
 # Copyright (c) 2011 Matthew Reid
 
 import os.path
+import traceback
 import time
 import datetime
 import tarfile
@@ -24,7 +25,7 @@ import csv
 import jsonpickle
 
 from BaseObject import BaseObject
-from Serialization import json_presets
+import Serialization
 
 
 def build_datetime_string(fmt_str, dt=None):
@@ -89,7 +90,7 @@ class ArchiveMember(BaseObject):
         js = ''
         for line in file:
             js += line
-        d = jsonpickle.decode(js)
+        d = Serialization.from_json(js)
         self._load_saved_attr(d)
         for key, objdict in d['serialize_obj'].iteritems():
             obj = self.serialize_obj.get(key)
@@ -104,8 +105,7 @@ class ArchiveMember(BaseObject):
         for key, obj in self.serialize_obj.iteritems():
             skwargs = self.serialize_kwargs.get(key, {})
             d['serialize_obj'][key] = obj._get_saved_attr(**skwargs)
-        jsonpickle.set_encoder_options('simplejson', **json_presets[self.json_preset])
-        s = jsonpickle.encode(d, unpicklable=False)
+        s = Serialization.to_json(d, self.json_preset)
         file.write(s)
         
     def _deserialize_csv(self, file):
@@ -136,6 +136,9 @@ class Archive(BaseObject):
     _ChildGroups = {'members':{'child_class':ArchiveMember}}
     def __init__(self, **kwargs):
         super(Archive, self).__init__(**kwargs)
+        self.compression_format = kwargs.get('compression_format')
+        if self.compression_format is None:
+            self.compression_format = ''
         
     def add_member(self, **kwargs):
         self.members.add_child(**kwargs)
@@ -143,7 +146,7 @@ class Archive(BaseObject):
     def save(self, filename, members=None):
         if members is None:
             members = self.members.keys()
-        tar = tarfile.open(filename, 'w:gz')
+        tar = tarfile.open(filename, ':'.join(['w', self.compression_format]))
         files = []
         for key in members:
             member = self.members[key]
@@ -157,7 +160,15 @@ class Archive(BaseObject):
     def load(self, filename, members=None):
         if members is None:
             members = [self.members.indexed_items[i].id for i in sorted(self.members.indexed_items.keys())]
-        tar = tarfile.open(filename, 'r:gz')
+        try:
+            tar = tarfile.open(filename, 'r:')
+        except tarfile.TarError:
+            tar = tarfile.open(filename, 'r:gz')
+        except tarfile.TarError:
+            tar = tarfile.open(filename, 'r:bz2')
+        except:
+            traceback.print_exc()
+            return
         for key in members:
             self.members[key].load(tar)
         tar.close()
