@@ -595,6 +595,8 @@ def get_ui_module(name):
     if name == 'kivy':
         from kivy.clock import Clock
         return Clock
+    elif name == 'gtk':
+        return None
     t = imp.find_module(name)
     module = imp.load_module(name, *t)
     return module
