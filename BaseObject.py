@@ -313,7 +313,7 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
         for key, item in newd.iteritems():
             self.__setitem__(key, item, emit_update=False)
         #UserDict.UserDict.update(self, d, **kwargs)
-        self.emit('update', old=old)
+        self.emit('update', old=old, keys=newd.keys[:])
     def clear(self):
         old = self.data.copy()
         for key in self.ObjProperties.keys()[:]:

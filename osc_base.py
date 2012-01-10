@@ -263,10 +263,11 @@ class OSCHandler(BaseObject, PropertyConnector):
         self.Property_set_by_osc = False
                 
     def on_osc_Property_value_requested(self, **kwargs):
-        self.send_Property_value_to_osc(client=kwargs.get('client'))
+        self.send_Property_value_to_osc(client=kwargs.get('client').name, all_sessions=self.all_sessions)
         
     def request_Property_value(self, **kwargs):
-        self.osc_node.send_message(address='current-value', to_master=True)
+        kwargs.update(dict(address='current-value', all_sessions=self.all_sessions))
+        self.osc_node.send_message(**kwargs)
 
 OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
 
