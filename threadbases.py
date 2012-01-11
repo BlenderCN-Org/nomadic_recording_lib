@@ -159,7 +159,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
             self._threaded_call_ready.clear()
             return
         call, args, kwargs = queue.popleft()
-        call(*args, **kwargs)
+        result = call(*args, **kwargs)
+        return (result, call, args, kwargs)
         
 if __name__ == '__main__':
     class TestThread(BaseThread):
