@@ -322,15 +322,15 @@ class OSCNode(BaseObject, dispatch.Receiver):
 #            c.unbind(self)
         super(OSCNode, self).unlink()
         
-    def unlink_all(self, direction='up'):
+    def unlink_all(self, direction='up', blocking=False):
         self.unlink()
         if self.is_root_node:
-            self._dispatch_thread.stop()
+            self._dispatch_thread.stop(blocking=blocking)
         if direction == 'up' and not self.is_root_node:
-            self._parent.unlink_all(direction)
+            self._parent.unlink_all(direction, blocking)
         elif direction == 'down':
             for c in self._childNodes.itervalues():
-                c.unlink_all(direction)
+                c.unlink_all(direction, blocking)
         
         
     @property
@@ -683,11 +683,12 @@ class OSCDispatchThread(threading.Thread):
         self._do_dispatch(messenger.messages, messenger.client)
         self.kivy_messengers.discard(messenger)
 
-    def stop(self):
+    def stop(self, **kwargs):
+        blocking = kwargs.get('blocking')
         self.running.clear()
         self.ready_to_dispatch.set()
-                
-            
+        if blocking and self.isAlive():
+            self.join()
 
 class Messenger(object):
     __slots__ = ('messages', 'client', 'callback', '__weakref__')
