@@ -63,11 +63,12 @@ class ArtnetManager(BaseIO.BaseIO):
             self.Nodes[style] = {}
         
         self.Universes = {}
-        
+        self.ds_universes = {}
+
         self.artnet_io = ArtnetIO(hostaddr=PRIMARY_ADDR, hostport=UDP_PORT, manager=self)
         self.poller = None
         
-        if self.comm.MainController:
+        if getattr(self.comm, 'MainController', None):
             self.on_comm_MainController_set()
         else:
             self.comm.bind(MainController_set=self.on_comm_MainController_set)

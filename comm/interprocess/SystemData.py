@@ -15,8 +15,7 @@ class SystemData(BaseObject):
         self.bind(property_changed=self._on_own_property_changed)
         d = {'name':{'default':socket.gethostname()},
              'id':{'default':uuid.uuid4().urn},
-             'appname':{'default':'', 'gckey':'app_name'},
-             'hostname':{'default':'.'.join([self.name, '.local'])}}
+             'appname':{'default':'', 'gckey':'app_name'}}
         for key, val in d.iteritems():
             value = kwargs.get(key)
             gckey = val.get('gckey')
@@ -27,6 +26,8 @@ class SystemData(BaseObject):
             if value is None:
                 value = val['default']
             setattr(self, key, value)
+        if self.hostname is None:
+            self.hostname = '.'.join([self.name, 'local'])
         self.GLOBAL_CONFIG.bind(update=self.on_GLOBAL_CONFIG_update)
 
     def on_GLOBAL_CONFIG_update(self, **kwargs):
