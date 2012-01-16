@@ -46,7 +46,7 @@ class BaseOSCReceiver(BaseIO):
         self.osc_tree.setFallback(self.fallback)
         self.server = None
         self.server_thread = None
-        self.debug = self.GLOBAL_CONFIG['arg_parse_dict'].get('debug_osc')
+        self.debug = self.GLOBAL_CONFIG.get('arg_parse_dict', {}).get('debug_osc')
         self.connection_count = 0
         self.preprocess_callbacks = []
         

@@ -50,7 +50,7 @@ class BaseOSCSender(BaseIO):
         self.client = None
         self.queue = collections.deque()
         #self.connected = False
-        self.debug = self.GLOBAL_CONFIG['arg_parse_dict'].get('debug_osc')
+        self.debug = self.GLOBAL_CONFIG.get('arg_parse_dict', {}).get('debug_osc')
         self.preprocess_callbacks = []
         
     def add_preprocess(self, cb):

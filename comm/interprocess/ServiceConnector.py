@@ -18,14 +18,16 @@ import sys
 
 from Bases import BaseObject
 
+from SystemData import SystemData
 from pybonjour_browsepublish import Publisher, Browser
 
 class ServiceConnector(BaseObject):
     def __init__(self, **kwargs):
         super(ServiceConnector, self).__init__(**kwargs)
         self.register_signal('new_host', 'remove_host', 'host_connection', 'got_local_address')
-        self.system = kwargs.get('SystemData')
-        servname_base = self.system.appname + '-' + self.system.name
+        self.system = self.GLOBAL_CONFIG.get('SystemData')
+        if not self.system:
+            self.system = SystemData()
         self.hosts = {}
         self.services = {}
         self.listeners = {}

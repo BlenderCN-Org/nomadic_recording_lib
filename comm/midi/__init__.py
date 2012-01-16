@@ -13,3 +13,5 @@ MidiIO = pypmMidiIO
 #from rtmidi_midiIO import rtmMidiIO
 
 #MidiIO = rtmMidiIO
+
+IO_LOADER = MidiIO

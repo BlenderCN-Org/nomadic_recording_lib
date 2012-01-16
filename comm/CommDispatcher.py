@@ -16,15 +16,28 @@
 # CommDispatcher.py
 # Copyright (c) 2010 - 2011 Matthew Reid
 
+import os.path
+import pkgutil
+
 import BaseIO
-from interprocess.SystemData import SystemData
 from interprocess.ServiceConnector import ServiceConnector
+
+from . import IO_CLASSES
+
 
 class CommDispatcherBase(BaseIO.BaseIO):
     def __init__(self, **kwargs):
         super(CommDispatcherBase, self).__init__(**kwargs)
-        self.SystemData = SystemData()
-        self.ServiceConnector = ServiceConnector(SystemData=self.SystemData)
+        self.IO_MODULES = {}
+        self.ServiceConnector = ServiceConnector()
+    
+    @property
+    def SystemData(self):
+        return self.GLOBAL_CONFIG.get('SystemData')
+    
+    @property
+    def IO_CLASSES(self):
+        return IO_CLASSES
         
     def do_connect(self, **kwargs):
         self.ServiceConnector.publish()
@@ -38,3 +51,12 @@ class CommDispatcherBase(BaseIO.BaseIO):
         self.ServiceConnector.unpublish(blocking=True)
         self.connected = False
     
+    def build_io_module(self, name, **kwargs):
+        cls = self.IO_CLASSES.get(name)
+        if not cls:
+            return
+        kwargs.setdefault('comm', self)
+        obj = cls(**kwargs)
+        self.IO_MODULES[name] = obj
+        return obj
+
