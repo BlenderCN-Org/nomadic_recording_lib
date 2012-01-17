@@ -274,6 +274,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     def GLOBAL_CONFIG(self, value):
         globals()['GLOBAL_CONFIG'].update(value)
         
+
 from ChildGroup import ChildGroup
 
 class _GlobalConfig(BaseObject, UserDict.UserDict):
@@ -349,6 +350,12 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
         del self.ObjProperties[key]
         
 GLOBAL_CONFIG = _GlobalConfig()
+
+from category import Category
+
+ROOT_CATEGORY = Category(name='root', id='root')
+
+GLOBAL_CONFIG['ROOT_CATEGORY'] = ROOT_CATEGORY
 
 from threadbases import BaseThread
 
