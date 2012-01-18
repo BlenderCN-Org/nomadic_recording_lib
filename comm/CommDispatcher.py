@@ -19,6 +19,7 @@
 import os.path
 import pkgutil
 
+from Bases import BaseObject, ChildGroup
 import BaseIO
 from interprocess.ServiceConnector import ServiceConnector
 
@@ -29,6 +30,9 @@ class CommDispatcherBase(BaseIO.BaseIO):
     def __init__(self, **kwargs):
         super(CommDispatcherBase, self).__init__(**kwargs)
         self.IO_MODULES = {}
+        self.IO_MODULE_UPDN_ORDER = {}
+        for key in ['up', 'dn']:
+            self.IO_MODULE_UPDN_ORDER[key] = ChildGroup(name=key, child_class=DummyIOObj)
         self.ServiceConnector = ServiceConnector()
     
     @property
@@ -41,22 +45,52 @@ class CommDispatcherBase(BaseIO.BaseIO):
         
     def do_connect(self, **kwargs):
         self.ServiceConnector.publish()
+        updnobj = self.IO_MODULE_UPDN_ORDER['up'].indexed_items
+        for key in sorted(updnobj.keys()):
+            obj = updnobj[key].io_obj
+            obj.do_connect(**kwargs)
         self.connected = True
         
     def do_disconnect(self, **kwargs):
+        updnobj = self.IO_MODULE_UPDN_ORDER['dn'].indexed_items
+        for key in sorted(updnobj.keys()):
+            obj = updnobj[key].io_obj
+            obj.do_disconnect(**kwargs)
         self.ServiceConnector.unpublish()
         self.connected = False
         
     def shutdown(self):
+        updnobj = self.IO_MODULE_UPDN_ORDER['dn'].indexed_items
+        for key in sorted(updnobj.keys()):
+            obj = updnobj[key].io_obj
+            if hasattr(obj, 'shutdown'):
+                obj.shutdown()
+            else:
+                obj.do_disconnect(blocking=True)
         self.ServiceConnector.unpublish(blocking=True)
         self.connected = False
     
-    def build_io_module(self, name, **kwargs):
+    def build_io_module(self, name, updn_order=False, **kwargs):
         cls = self.IO_CLASSES.get(name)
         if not cls:
             return
+        if updn_order is True:
+            updn_order = [None, None]
         kwargs.setdefault('comm', self)
         obj = cls(**kwargs)
         self.IO_MODULES[name] = obj
+        if type(updn_order) in [list, tuple]:
+            for i, key in enumerate(['up', 'dn']):
+                index = updn_order[i]
+                c_kwargs = dict(id=name, obj=obj)
+                if index is not None:
+                    c_kwargs['Index'] = index
+                dobj = self.IO_MODULE_UPDN_ORDER[key].add_child(**c_kwargs)
         return obj
 
+class DummyIOObj(BaseObject):
+    def __init__(self, **kwargs):
+        super(DummyIOObj, self).__init__(**kwargs)
+        self.id = kwargs.get('id')
+        self.io_obj = kwargs.get('obj')
+    
