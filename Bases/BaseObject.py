@@ -16,7 +16,10 @@
 
 import threading
 import gc
-import UserDict
+try:
+    import UserDict
+except:
+    import collections as UserDict
 import atexit
 import weakref
 
@@ -34,14 +37,14 @@ class MyWVDict(weakref.WeakValueDictionary):
         def remove(wr, selfref=weakref.ref(self)):
             self = selfref()
             if self is not None:
-                print 'REMOVE BASEOBJECT: ', wr.key
+                #print 'REMOVE BASEOBJECT: ', wr.key
                 del self.data[wr.key]
-                print 'len = ', len(self.data)
+                #print 'len = ', len(self.data)
         self._remove = remove
     def __setitem__(self, key, value):
         weakref.WeakValueDictionary.__setitem__(self, key, value)
         #print 'ADD BASEOBJECT: ', value
-        print 'add len = ', len(self.data)
+        #print 'add len = ', len(self.data)
 
 #lots_of_baseobjects = MyWVDict()
 
@@ -209,13 +212,15 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                     result = True
             results.append(result)
         if False in results:
-            print 'could not unbind: ', self, zip(args, results)
+            pass
+            #print 'could not unbind: ', self, zip(args, results)
         return results
         
     def disconnect(self, **kwargs):
         result = SignalDispatcher.dispatcher.disconnect(self, **kwargs)
         if not result:
-            print 'could not disconnect: ', self, kwargs
+            pass
+            #print 'could not disconnect: ', self, kwargs
         return result
     
     def add_category(self, category):
@@ -341,7 +346,7 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
         old = self.data.copy()
         old[key] = prop_old
         self.emit('update', key=key, item=prop.value, old=old)
-        print 'emu_prop: ', key, prop.value, old
+        #print 'emu_prop: ', key, prop.value, old
     def _remove_emulated_property(self, key):
         prop = self.ObjProperties.get(key)
         if prop is None:

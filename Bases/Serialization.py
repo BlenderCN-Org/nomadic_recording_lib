@@ -14,7 +14,10 @@
 # Serialization.py
 # Copyright (c) 2010 - 2011 Matthew Reid
 
-import UserDict
+try:
+    import UserDict
+except:
+    import collections as UserDict
 import jsonpickle
 
 from Properties import EMULATED_TYPES

@@ -16,7 +16,7 @@ def BuildSubProcess(cls, name, parent=None, **kwargs):
     sp.start()
     sp.obj_init.wait()
     obj = sp.out_queue.get()
-    print name, obj
+    #print name, obj
     return obj
     
 class SubProcess(multiprocessing.Process):

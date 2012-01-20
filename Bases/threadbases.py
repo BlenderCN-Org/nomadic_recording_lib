@@ -86,7 +86,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
     def __init__(self, **kwargs):
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
-            print 'thread_id %s already exists'
+            #print 'thread_id %s already exists'
             thread_id = setID(None)
         self._thread_id = thread_id
         _THREADS[thread_id] = self
@@ -165,7 +165,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
 if __name__ == '__main__':
     class TestThread(BaseThread):
         def test_call(self, **kwargs):
-            print 'thread_id=%s, current_thread=%s, kwargs=%s' % (self._thread_id, threading.current_thread().name, kwargs)
+            pass
+            #print 'thread_id=%s, current_thread=%s, kwargs=%s' % (self._thread_id, threading.current_thread().name, kwargs)
     testthread = TestThread(thread_id='test')
     testthread.start()
     for i in range(5):

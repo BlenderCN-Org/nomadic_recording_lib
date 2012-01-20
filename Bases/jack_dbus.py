@@ -31,6 +31,6 @@ class JackDBus(BaseObject):
         self.controller = self.bus.get_object(jack_control.service_name, "/org/jackaudio/Controller")
         self.control_iface = dbus.Interface(self.controller, jack_control.control_interface_name)
         self.configure_iface = dbus.Interface(self.controller, jack_control.configure_interface_name)
-        print self.control_iface.IsStarted()
+        #print self.control_iface.IsStarted()
         
 jdb = JackDBus()

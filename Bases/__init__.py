@@ -1,4 +1,4 @@
-from BaseObject import BaseObject as _BaseObject
+from .BaseObject import BaseObject as _BaseObject
 from osc_base import OSCBaseObject as _OSCBaseObject
 from threadbases import BaseThread as _BaseThread
 from ChildGroup import ChildGroup as _ChildGroup

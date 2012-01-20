@@ -103,12 +103,12 @@ class SyncThread(threading.Thread):
         self.waiting_thread = threading.currentThread()
         self.callback = kwargs.get('callback')
     def run(self):
-        print '%s waiting for %s' % (self.name, self.waiting_thread.name)
+        #print '%s waiting for %s' % (self.name, self.waiting_thread.name)
         self.waiting_thread.join(self.timeout)
-        if not self.waiting_thread.isAlive:
-            print '%s done waiting for %s' % (self.name, self.waiting_thread.name)
-        else:
-            print '%s timed out waiting for %s' % (self.name, self.waiting_thread.name)
+        #if not self.waiting_thread.isAlive:
+        #    print '%s done waiting for %s' % (self.name, self.waiting_thread.name)
+        #else:
+        #    print '%s timed out waiting for %s' % (self.name, self.waiting_thread.name)
         self.callback(self)
         
 class GenericPoll(BaseObject):

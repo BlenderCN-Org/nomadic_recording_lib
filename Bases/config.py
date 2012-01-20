@@ -105,14 +105,5 @@ class Config(object):
             self._confparser.write(file)
             file.close()
 
-class TestConf(Config):
-    _confsection = 'TEST'
-    
-if __name__ == '__main__':
-    c = TestConf(_conf_filename='test.conf')
-    c.update_conf(testitem='blah')
-    c.update_conf(testlist=['blah','stuff'])
-    print c.get_conf('testitem')
-    print c.get_conf('testlist')
     
     

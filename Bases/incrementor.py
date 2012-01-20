@@ -246,75 +246,75 @@ class Minute(Incrementor):
 class Hour(Incrementor):
     pass
     
-if __name__ == '__main__':
-    import threading
-    import datetime
-    import time
-    class TestThread(threading.Thread):
-        def run(self):
-            tick = threading.Event()
-            incrgroup = self.incrgroup
-            incrgroup.bind(value_update=self.on_value_update)
-            timeout = .001
-            #incr = ms.resolution * timeout
-            starttime = datetime.datetime.now()
-            self.starttime = starttime
-            self.now = starttime
-            print starttime
-            for key in ['hour', 'minute', 'second', 'microsecond']:
-                value = getattr(starttime, key)
-                if key == 'microsecond':
-                    value = int(value * .001) + 1
-                    key = 'millisecond'
-                setattr(incrgroup, key, value)
-            while True:
-                tick.wait(timeout)
-                self.now = datetime.datetime.now()
-                incrgroup += 1
-        def on_value_update(self, **kwargs):
-            name = kwargs.get('name')
-            if name == 'millisecond':
-                return
-            keys = ['hour', 'minute', 'second', 'millisecond']
-            print zip(keys, [getattr(self.incrgroup, key) for key in keys]), name, '\n'
-            s = self.now.strftime('%H:%M:%S')
-            print '%s.%s' % (s, self.now.microsecond * .001)
-    class oldTestThread(threading.Thread):
-        def run(self):
-            tick = threading.Event()
-            ms = Microsecond()
-            self.ms = ms
-            #ms.bind(value=self.on_ms)
-            all_obj = ms.get_all_obj()
-            all_obj['second'].bind(value=self.on_second)
-            timeout = .01
-            #incr = ms.resolution * timeout
-            self.starttime = time.time()
-            startdt = datetime.datetime.fromtimestamp(self.starttime)
-            while True:
-                tick.wait(timeout)
-                now = datetime.datetime.now()
-                self.now = time.time()
-                td = now - startdt
-                all_obj['hour'].value = td.seconds / 3600
-                all_obj['minute'].value = (td.seconds % 3600) / 60
-                all_obj['second'].value = td.seconds % 60
-                all_obj['microsecond'].value = td.microseconds
-                #elapsed = td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6
-                #ms += elapsed
-                #lasttime = now
-        def on_ms(self, **kwargs):
-            print 'microsecond: ', kwargs.get('value')
-        def on_second(self, **kwargs):
-            print 'seconds=%s, values=%s' % (self.now - self.starttime, self.ms.get_values())
-    hour = {'resolution':60}
-    minute = {'resolution':60, 'children':{'hour':hour}}
-    sec = {'resolution':60, 'children':{'minute':minute}}
-    ms = {'resolution':1000, 'children':{'second':sec}}
-    d = {'millisecond':ms}
-    incrgroup = IncrementorGroup(incrementors=d)
-    t = TestThread()
-    t.incrgroup = incrgroup
-    t.start()
-    
-    
+#if __name__ == '__main__':
+#    import threading
+#    import datetime
+#    import time
+#    class TestThread(threading.Thread):
+#        def run(self):
+#            tick = threading.Event()
+#            incrgroup = self.incrgroup
+#            incrgroup.bind(value_update=self.on_value_update)
+#            timeout = .001
+#            #incr = ms.resolution * timeout
+#            starttime = datetime.datetime.now()
+#            self.starttime = starttime
+#            self.now = starttime
+#            print starttime
+#            for key in ['hour', 'minute', 'second', 'microsecond']:
+#                value = getattr(starttime, key)
+#                if key == 'microsecond':
+#                    value = int(value * .001) + 1
+#                    key = 'millisecond'
+#                setattr(incrgroup, key, value)
+#            while True:
+#                tick.wait(timeout)
+#                self.now = datetime.datetime.now()
+#                incrgroup += 1
+#        def on_value_update(self, **kwargs):
+#            name = kwargs.get('name')
+#            if name == 'millisecond':
+#                return
+#            keys = ['hour', 'minute', 'second', 'millisecond']
+#            print zip(keys, [getattr(self.incrgroup, key) for key in keys]), name, '\n'
+#            s = self.now.strftime('%H:%M:%S')
+#            print '%s.%s' % (s, self.now.microsecond * .001)
+#    class oldTestThread(threading.Thread):
+#        def run(self):
+#            tick = threading.Event()
+#            ms = Microsecond()
+#            self.ms = ms
+#            #ms.bind(value=self.on_ms)
+#            all_obj = ms.get_all_obj()
+#            all_obj['second'].bind(value=self.on_second)
+#            timeout = .01
+#            #incr = ms.resolution * timeout
+#            self.starttime = time.time()
+#            startdt = datetime.datetime.fromtimestamp(self.starttime)
+#            while True:
+#                tick.wait(timeout)
+#                now = datetime.datetime.now()
+#                self.now = time.time()
+#                td = now - startdt
+#                all_obj['hour'].value = td.seconds / 3600
+#                all_obj['minute'].value = (td.seconds % 3600) / 60
+#                all_obj['second'].value = td.seconds % 60
+#                all_obj['microsecond'].value = td.microseconds
+#                #elapsed = td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6
+#                #ms += elapsed
+#                #lasttime = now
+#        def on_ms(self, **kwargs):
+#            print 'microsecond: ', kwargs.get('value')
+#        def on_second(self, **kwargs):
+#            print 'seconds=%s, values=%s' % (self.now - self.starttime, self.ms.get_values())
+#    hour = {'resolution':60}
+#    minute = {'resolution':60, 'children':{'hour':hour}}
+#    sec = {'resolution':60, 'children':{'minute':minute}}
+#    ms = {'resolution':1000, 'children':{'second':sec}}
+#    d = {'millisecond':ms}
+#    incrgroup = IncrementorGroup(incrementors=d)
+#    t = TestThread()
+#    t.incrgroup = incrgroup
+#    t.start()
+#    
+#    

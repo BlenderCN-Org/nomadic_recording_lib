@@ -128,7 +128,8 @@ class BaseClock(object):
         try:
             self.do_callbacks()
         except:
-            print sys.exc_info()
+            pass
+            #print sys.exc_info()
         
     def do_tick_increment(self):
         self.seconds += self.tick_interval
@@ -365,9 +366,9 @@ if __name__ == '__main__':
     t = Tester('incrementor', c)
     c.timer.join()
     cdata.append(t.all_data)
-    print 'clock_avg: ', ['%010.8f' % (data['clock']['clock_avg']) for data in cdata]
-    print 'tick_avg: ', ['%010.8f' % (data['tick']['tick_avg']) for data in cdata]
-    print 'clock_min: ', ['%010.8f' % (min([diff for diff in data['clock']['clock_diff']])) for data in cdata]
-    print 'clock_max: ', ['%010.8f' % (max([diff for diff in data['clock']['clock_diff']])) for data in cdata]
-    print 'tick_min:  ', ['%010.8f' % (min([diff for diff in data['tick']['tick_diff']])) for data in cdata]
-    print 'tick_max:  ', ['%010.8f' % (max([diff for diff in data['tick']['tick_diff']])) for data in cdata]
+#    print 'clock_avg: ', ['%010.8f' % (data['clock']['clock_avg']) for data in cdata]
+#    print 'tick_avg: ', ['%010.8f' % (data['tick']['tick_avg']) for data in cdata]
+#    print 'clock_min: ', ['%010.8f' % (min([diff for diff in data['clock']['clock_diff']])) for data in cdata]
+#    print 'clock_max: ', ['%010.8f' % (max([diff for diff in data['clock']['clock_diff']])) for data in cdata]
+#    print 'tick_min:  ', ['%010.8f' % (min([diff for diff in data['tick']['tick_diff']])) for data in cdata]
+#    print 'tick_max:  ', ['%010.8f' % (max([diff for diff in data['tick']['tick_diff']])) for data in cdata]

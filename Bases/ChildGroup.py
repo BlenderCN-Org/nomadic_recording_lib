@@ -14,7 +14,10 @@
 # ChildGroup.py
 # Copyright (c) 2010 - 2011 Matthew Reid
 
-import UserDict
+try:
+    import UserDict
+except:
+    import collections as UserDict
 from osc_base import OSCBaseObject
 
 class ChildGroup(OSCBaseObject, UserDict.UserDict):
@@ -52,7 +55,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 if index is None:
                     index = kwargs.get('Index', self.find_max_index() + 1)
                 if not self.check_valid_index(index):
-                    print 'Index error, could not add child ', self.name, child
+                    #print 'Index error, could not add child ', self.name, child
                     return False
                 child.Index = index
             child.ChildGroup_parent = self

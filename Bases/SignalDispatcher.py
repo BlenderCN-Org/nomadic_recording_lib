@@ -163,7 +163,7 @@ class MyWVDict(weakref.WeakValueDictionary):
         def remove(wr, selfref=weakref.ref(self)):
             self = selfref()
             if self is not None:
-                print 'REMOVE SIGNAL WEAKREF: ', self.name, wr.key
+                #print 'REMOVE SIGNAL WEAKREF: ', self.name, wr.key
                 del self.data[wr.key]
         self._remove = remove
 

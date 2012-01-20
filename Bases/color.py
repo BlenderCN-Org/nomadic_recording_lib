@@ -217,5 +217,5 @@ if __name__ == '__main__':
             for vkey, vval in sval.iteritems():
                 d[hkey][skey][vkey] = [p.hsv_seq for p in vval]
     p = grid.find_pixels_from_hsv([1., 1., 1.])
-    print p[0].hsv
+    #print p[0].hsv
     

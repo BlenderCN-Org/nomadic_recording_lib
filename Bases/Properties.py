@@ -177,11 +177,11 @@ class MyWVDict(weakref.WeakValueDictionary):
             self = selfref()
             if self is not None:
                 del self.data[wr.key]
-                print 'REMOVE: ', len(self.data), self.printstring, wr.key
+                #print 'REMOVE: ', len(self.data), self.printstring, wr.key
         self._remove = remove
     def __setitem__(self, key, value):
         weakref.WeakValueDictionary.__setitem__(self, key, value)
-        print 'ADD: ', len(self.data), self.printstring, key
+        #print 'ADD: ', len(self.data), self.printstring, key
         
 
 class ObjProperty(object):
@@ -414,13 +414,13 @@ class ThreadedEmitter(threading.Thread):
         self.id = id(self.callback)
         self.parent_property = kwargs.get('parent_property')
         self.running = threading.Event()
-        print 'threaded emitter init: ', self.parent_property.name
+        #print 'threaded emitter init: ', self.parent_property.name
     def run(self):
         self.running.set()
         while self.running.isSet():
             self.parent_property.emission_event.wait()
             self.do_callback()
-        print 'threaded emitter stopped: ', self.parent_property.name
+        #print 'threaded emitter stopped: ', self.parent_property.name
     def do_callback(self):
         if not self.running.isSet():
             return

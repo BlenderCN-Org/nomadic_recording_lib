@@ -60,7 +60,7 @@ class DropFrame(incrementor.Incrementor):
         if value == self.enable_drop:
             return
         self._enable_drop = value
-        print 'enable_drop: ', value
+        #print 'enable_drop: ', value
         
     def _on_value_set(self, **kwargs):
         if not self.enable_drop:
@@ -282,11 +282,11 @@ if __name__ == '__main__':
     d['frame'].value = 28
     keys = ['hour', 'minute', 'second', 'frame']
     values = tcgen.frame_obj.get_values()
-    print ':'.join(['%02d' % (values[key]) for key in keys])
+    #print ':'.join(['%02d' % (values[key]) for key in keys])
     for i in range(61):
         tcgen.frame_obj += 1
         values = tcgen.frame_obj.get_values()
-        print ':'.join(['%02d' % (values[key]) for key in keys]), '   ', i
+        #print ':'.join(['%02d' % (values[key]) for key in keys]), '   ', i
     a = tcgen.build_audio_data()
-    print a
+    #print a
     
