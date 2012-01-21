@@ -152,7 +152,7 @@ class ArtnetManager(BaseIO.BaseIO):
         kwargs.setdefault('manager', self)
         univ = UniverseThread(**kwargs)
         self.Universes[(univ.subnet, univ.universe_index)] = univ
-        print 'attached universe: ', kwargs
+        self.LOG.info('Artnet attached universe: ', kwargs)
         if self.connected:
             univ.start()
             
@@ -315,7 +315,7 @@ class Poller(BaseThread):
         for nstyles in self.manager.Nodes.itervalues():
             for node in nstyles.itervalues():
                 if node.last_update < timeout:
-                    print 'deleting node: timeout = ',  timeout
+                    self.LOG.info('deleting node: timeout = ',  timeout)
                     dead_nodes.append(node)
         for node in dead_nodes:
             self.manager.del_node(node=node)

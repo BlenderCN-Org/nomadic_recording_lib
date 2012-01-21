@@ -95,7 +95,7 @@ class OSCtoOLAHost(OSCBaseObject):
             univ.set_all_zero(not self.osc_node.oscMaster)
         
     def on_app_exit(self, *args, **kwargs):
-        print 'oscola app exit'
+        self.LOG.info('oscola app exit')
         self.olaIO.on_app_exit()
         
 class OSCUniverse(OSCBaseObject):

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2012-01-17, 08:36:43 -->
+<!-- Saved: 2012-01-21, 13:03:03 -->
 <!-- Copyright (C) 2012 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -70,6 +70,7 @@
     <Source>comm/midi/mapper.py</Source>
     <Source>comm/midi/mapobjects.py</Source>
     <Source>comm/midi/__init__.py</Source>
+    <Source>Bases/logger.py</Source>
   </Sources>
   <Forms>
   </Forms>

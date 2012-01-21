@@ -3,8 +3,10 @@ import threading
 import serial
 import traceback
 
-from Bases import BaseThread, Config
+from Bases import BaseObject, BaseThread, Config
 from ..BaseIO import BaseIO
+
+LOG = BaseObject().LOG
 
 MSG_DELIMITERS = (chr(0x7E), chr(0xE7))
 
@@ -29,7 +31,7 @@ def find_messages(data):
             break
         if leftover[stopI] != stop:
             #print 'oops: size=%s, stopI=%s, msg=%s, leftover=%s' % (size, stopI, [ord(c) for c in msg], [ord(c) for c in leftover])
-            print 'oops: stopI=%s, str at stopI=%s, leftover=%s' % (stopI, ord(leftover[stopI]), [ord(c) for c in leftover])
+            LOG.warning('usbpro', 'oops: stopI=%s, str at stopI=%s, leftover=%s' % (stopI, ord(leftover[stopI]), [ord(c) for c in leftover]))
             stopI = leftover.rindex(stop)
             #msg = leftover[:stopI+1]
             
@@ -120,7 +122,7 @@ class USBProIO(BaseIO, Config):
             self.universe_thread.stop()
             self.universe_thread.join()
             self.universe_thread = None
-        print 'usbpro attach_universe: old=%s, new=%s' % (self.universe_obj, univ)
+        self.LOG.info('usbpro attach_universe: old=%s, new=%s' % (self.universe_obj, univ))
         self.universe_obj = univ
         if univ is None:
             return
@@ -143,7 +145,7 @@ class USBProIO(BaseIO, Config):
             if self.io_type == 'input':
                 self.send_message(RDMRequest())
         except:
-            print 'usbpro could not connect: ', sys.exc_info()        
+            self.LOG.warning('usbpro could not connect: ', sys.exc_info())
         
     def do_disconnect(self, blocking=False):
         if self.universe_thread is not None:
@@ -179,7 +181,7 @@ class USBProIO(BaseIO, Config):
             #print 'dmxpro merge input: ', data
             self.universe_obj.merge_input(values=data, merge_source='usbpro')
         else:
-            print 'dmxpro rx: ', message, message.data
+            self.LOG.info('dmxpro rx: ', message, message.data)
         
     def _on_own_property_changed(self, **kwargs):
         prop = kwargs.get('Property')

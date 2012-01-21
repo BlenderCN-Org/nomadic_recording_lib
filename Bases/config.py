@@ -14,28 +14,44 @@
 # config.py
 # Copyright (c) 2010 - 2011 Matthew Reid
 
+import sys
 import os
 from ConfigParser import SafeConfigParser
 from BaseObject import GLOBAL_CONFIG
 
 #default_conf = os.path.expanduser('~/.openlightingdesigner.conf')
 def build_conf_filename():
-    app = GLOBAL_CONFIG['app_name']
+    cfilename = GLOBAL_CONFIG.get('conf_filename')
+    if cfilename:
+        return cfilename
+    app = GLOBAL_CONFIG.get('app_name')
+    if app is None:
+        return False
+        #app = sys.argv[0].split('.py')[0]
     return os.path.expanduser('~/.%s.conf' % (app))
 
 class Config(object):
     def __init__(self, **kwargs):
-        self._conf_filename = kwargs.get('_conf_filename', build_conf_filename())
+        _conf_filename = kwargs.get('_conf_filename', build_conf_filename())
         self._confsection = kwargs.get('confsection', getattr(self.__class__, '_confsection', None))
         self._save_config_file = kwargs.get('_save_config_file', True)
         #self.section = kwargs.get('section')
         #self.items = kwargs.get('items')
         self._confparser = SafeConfigParser()
+        #self._read_conf_file()
+        #if self._confparser.has_section(self._confsection) is False:
+        #    self._confparser.add_section(self._confsection)
+        #    self.write_conf()
+        self.set_conf_filename(_conf_filename)
+        GLOBAL_CONFIG.bind(update=self._CONF_ON_GLOBAL_CONFIG_UPDATE)
+    def set_conf_filename(self, filename):
+        self._conf_filename = filename
         self._read_conf_file()
         if self._confparser.has_section(self._confsection) is False:
             self._confparser.add_section(self._confsection)
-            self.write_conf()
     def _read_conf_file(self):
+        if not self._conf_filename:
+            return
         self._confparser.read(self._conf_filename)
     def get_conf(self, key=None, default=None):
         self._read_conf_file()
@@ -100,10 +116,17 @@ class Config(object):
             self._confparser.remove_option(self._confsection, option)
         self.write_conf()
     def write_conf(self):
-        if self._save_config_file:
-            file = open(self._conf_filename, 'w')
-            self._confparser.write(file)
-            file.close()
-
+        if not self._conf_filename:
+            return
+        if not self._save_config_file:
+            return
+        file = open(self._conf_filename, 'w')
+        self._confparser.write(file)
+        file.close()
+    def _CONF_ON_GLOBAL_CONFIG_UPDATE(self, **kwargs):
+        cfilename = build_conf_filename()
+        if cfilename == self._conf_filename:
+            return
+        self.set_conf_filename(cfilename)
     
     

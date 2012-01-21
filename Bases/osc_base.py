@@ -180,11 +180,10 @@ class OSCHandler(BaseObject, PropertyConnector):
         for key in self.callbacks.keys()[:]:
             try:
                 self.osc_node.removeCallback('%s/%s' % (self.address, key), self.handle_message)
-                #print self.address, ' callback removed: ', key
+                self.LOG.info(self.address, 'callback removed', key)
                 del self.callbacks[key]
             except:
-                pass
-                #print self.address, ' could not remove callback: ', key
+                self.LOG.warning(self.address, 'could not remove callback', key)
             
     def handle_message(self, message, hostaddr):
         address = message.address
@@ -194,8 +193,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         if self.osc_node.get_client_cb:
             cb_kwargs['client'] = self.osc_node.get_client_cb(hostaddr=hostaddr)
         else:
-            pass
-            #print 'no callback!!!!'
+            self.LOG.warning(self, 'no callback!!!!')
         if method in self.callbacks:
             #print 'osc_callback: ', address, message.getValues()
             self.callbacks[method](**cb_kwargs)
@@ -204,9 +202,8 @@ class OSCHandler(BaseObject, PropertyConnector):
                 if '*' in key:
                     cb(**cb_kwargs)
         else:
-            #print 'msg not handled: cb_kwargs = ', cb_kwargs
-            pass
-                    
+            self.LOG.warning('msg not handled: cb_kwargs = ', cb_kwargs)
+            
     def send_methods(self):
         pass
         

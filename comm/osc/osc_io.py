@@ -119,10 +119,10 @@ class oscIO(BaseIO.BaseIO, Config):
         try:
             for obj in [self._receiver, self._sender]:
                 obj.do_connect(**kwargs)
-            print 'osc connected'
+            self.LOG.info('osc connected')
             self.connected = True
         except socket.error, msg:
-            print 'osc socket error: ', msg
+            self.LOG.warning('osc socket error: ', msg)
         
     def do_disconnect(self, **kwargs):
         for obj in [self._receiver, self._sender]:

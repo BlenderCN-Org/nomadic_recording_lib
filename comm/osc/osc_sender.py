@@ -64,7 +64,7 @@ class BaseOSCSender(BaseIO):
             if key in ['hostaddr', 'hostport']:
                 setattr(self, key, val)
         self.build_socket()
-        print 'sender connect', self.hostaddr, self.hostport, self.__class__
+        self.LOG.info('sender connect', self.hostaddr, self.hostport, self.__class__)
         self.connected = True
         #self.emit('state_changed', state=True)
         
@@ -84,12 +84,12 @@ class BaseOSCSender(BaseIO):
             try:
                 self.client.sendto(s, 0, address)
             except socket.error, msg:
-                print '%s, msg len=%s, address=%s' % (msg, len(s), element.address)
+                self.LOG.warning('%s, msg len=%s, address=%s' % (msg, len(s), element.address))
             if self.debug:
                 if isinstance(element, osc.Bundle):
-                    print '_send_bundle: ', element.timeTag, element.elements
+                    self.LOG.debug('_send_bundle: ', element.timeTag, element.elements)
                 else:
-                    print '_send: ', element.address, element.getValues(), address
+                    self.LOG.debug('_send: ', element.address, element.getValues(), address)
                 
 #    def queue_message(self, *args):
 #        self.queue.append(args)

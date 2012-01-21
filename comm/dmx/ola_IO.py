@@ -38,7 +38,7 @@ class ClientWrapperWrapper(ClientWrapper):
         #print 'wrapper init done'
         self.run_thread = WrapperStartStopper(wrapper=self)
         self.run_thread.start()
-        print 'ola run thread = ', self.run_thread.name
+        self.LOG.info('ola run thread = ', self.run_thread.name)
     @property
     def stopped(self):
         return self._stopped.isSet()
@@ -155,10 +155,10 @@ class olaIO(BaseIO):
         if not self.olad_pid:
             pid = search_for_process('olad')
             if not pid:
-                print 'starting olad...'
+                self.LOG.info('starting olad...')
                 self.olad_process = subprocess.Popen('olad', preexec_fn=preexec)
                 pid = self.olad_process.pid
-            print 'olad pid=', pid
+            self.LOG.info('olad pid=%s' % (pid))
             self.olad_pid = pid
         
     def do_connect(self, **kwargs):
@@ -168,7 +168,7 @@ class olaIO(BaseIO):
             connected = True
         except socket.error:
             connected = False
-            print 'could not connect to olad...'
+            self.LOG.warning('could not connect to olad...')
         if connected:
             if not self.client:
                 self.client = self.wrapper.Client()
@@ -188,7 +188,7 @@ class olaIO(BaseIO):
         self.connected = False
         
     def on_app_exit(self, *args, **kwargs):
-        print 'closing olad'
+        self.LOG.info('closing olad')
         self.do_disconnect()
         if self.olad_process:
             #t = threading.Timer(2.0, self.olad_process.kill)
@@ -221,7 +221,7 @@ class olaIO(BaseIO):
     def recvUniverseInfo(self, state, univData):
         #self.recvd()
         self.wrapper.response_received()
-        print 'recvUnivInfo:', state, univData
+        self.LOG.info('recvUnivInfo:', state, univData)
         for univ in univData:
             #print 'name:', univ.name
             if univ.id not in self.universes:
@@ -230,7 +230,7 @@ class olaIO(BaseIO):
                 obj.connect('ready_to_send', self.sendDMXValue)
                 self.universes.update({obj.id:obj})
                 self.emit('new_universe', ola_universe=obj)
-        print 'all univ:', self.universes
+        self.LOG.info('all univ:', self.universes)
         self.reqDeviceInfo()
         
     def reqDeviceInfo(self):
@@ -245,7 +245,7 @@ class olaIO(BaseIO):
             self.devices.update({obj.id:obj})
         
         for univ in self.universes.itervalues():
-            print univ.id, univ.ports
+            self.LOG.info(univ.id, univ.ports)
             
     def on_device_port_update(self, **kwargs):
         prop = kwargs.get('Property')
@@ -376,7 +376,7 @@ class olaListener(threading.Thread):
         self.client = kwargs.get('client')
         
     def run(self):
-        print 'listener started'
+        #print 'listener started'
         while self.state:
             i, o, e = select.select([self.socket], [], [])
             if self.socket in i:
@@ -385,4 +385,4 @@ class olaListener(threading.Thread):
 
 if __name__ == '__main__':
     pid = search_for_process('olad')
-    print 'pid=', pid
+    #print 'pid=', pid

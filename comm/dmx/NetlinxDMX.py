@@ -55,7 +55,7 @@ class NetlinxDMX(BaseIO, Config):
             self.universe_thread.stop()
             self.universe_thread.join()
             self.universe_thread = None
-        print 'netlinx attach_universe: old=%s, new=%s' % (self.universe_obj, univ)
+        self.LOG.info('netlinx attach_universe: old=%s, new=%s' % (self.universe_obj, univ))
         self.universe_obj = univ
         if univ is None:
             return
@@ -77,7 +77,7 @@ class NetlinxDMX(BaseIO, Config):
             self.socket.connect((self.netlinx_address, self.netlinx_port))
             self.connected = True
         except socket.error, msg:
-            print 'could not connect to Netlinx'
+            self.LOG.warning('could not connect to Netlinx')
             #self.reconnect(5.)
     def do_disconnect(self):
         if self.connected:

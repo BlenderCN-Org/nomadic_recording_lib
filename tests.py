@@ -5,6 +5,7 @@ from comm.CommDispatcher import CommDispatcherBase
 class CommDispatcher(CommDispatcherBase):
     def __init__(self, **kwargs):
         super(CommDispatcher, self).__init__(**kwargs)
+        self.GLOBAL_CONFIG['app_name'] = 'teststuff'
         self.osc_io = self.build_io_module('osc')
         self.midi_io = self.build_io_module('midi')
         self.artnet = self.build_io_module('dmx.Artnet')
@@ -20,7 +21,7 @@ class CommDispatcher(CommDispatcherBase):
         super(CommDispatcher, self).shutdown()
 
 comm = CommDispatcher()
-print comm.IO_MODULES
+#print comm.IO_MODULES
 comm.do_connect()
 time.sleep(15.)
 comm.shutdown()

@@ -19,12 +19,14 @@ if __name__ == '__main__':
     import sys
     sys.path.append('/home/nocarrier/programs/openlightingdesigner/openlightingdesigner/')
     
-from Bases import ChildGroup
+from Bases import BaseObject, ChildGroup
 import fields as FieldClasses
 
 PROTOCOL_VERSION = 14
 
 FIELD_DEFAULTS = {'ID': 'Art-Net', 'ProtVer':PROTOCOL_VERSION}
+
+LOG = BaseObject().LOG
 
 class ArtBaseMsg(object):
     _fields = {1:'ID', 2:'OpCode'}
@@ -80,7 +82,7 @@ class ArtBaseMsg(object):
         try:
             values = list(struct.unpack(fmt, string))
         except:
-            print 'could not unpack: ', struct.calcsize(fmt), len(string)
+            LOG.warning(self, 'could not unpack', struct.calcsize(fmt), len(string))
             return False
         #print 'from_string: ', values
         for field in self.Fields.indexed_items.itervalues():
@@ -161,7 +163,7 @@ def parse_message(string):
     try:
         data = struct.unpack('=BBBBBBBBH', string[:10])
     except:
-        print 'could not determine opcode'
+        LOG.warning('could not determine opcode')
     #print 'data: ', data
     opcode = data[8]
     
@@ -170,7 +172,7 @@ def parse_message(string):
         obj = cls(from_string=string)
         if obj._parse_success:
             return obj
-    print 'could not parse msg: opcode=%s' % (opcode)
+    LOG.warning('could not parse msg: opcode=%s' % (opcode))
     return False
 
 if __name__ == '__main__':

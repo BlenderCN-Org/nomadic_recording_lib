@@ -120,7 +120,7 @@ class MidiIO(BaseIO, Config):
                 self.change_device_state(type=dtype, id=id, state=True)
             if update_conf:
                 self.prepare_conf_update()
-            print '%s %s added' % (dtype, id)
+            self.LOG.info('MIDI %s %s added' % (dtype, id))
             
     def del_device(self, dtype, id, update_conf=True):
         device = self.devices[dtype].get(id)
@@ -129,7 +129,7 @@ class MidiIO(BaseIO, Config):
         self.change_device_state(type=dtype, id=id, state=False)
         #del self.devices[dtype][id]
         self.devices[dtype].del_child(device)
-        print '%s %s removed' % (dtype, id)
+        self.LOG.info('MIDI %s %s removed' % (dtype, id))
         self.dev_info[dtype][id].active = False
         if update_conf:
             self.prepare_conf_update()

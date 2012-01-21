@@ -264,55 +264,55 @@ def parse_midi_message(data):
                     return msg
             return cls(data=data)
             
-if __name__ == '__main__':
-    cm = ControlMessage(channel=1, controller=7, value=63)
-    l = cm.build_data()
-    print 'controller msg:    ', l, cm.byte_order
-    parsed = parse_midi_message(l)
-    print 'controller parsed: ', parsed.build_data()
-    nm = NoteOnMessage(channel=1, note=20, velocity=100)
-    l = nm.build_data()
-    print 'note on msg:    ', l, nm.byte_order
-    parsed = parse_midi_message(l)
-    print 'note on parsed: ', parsed.build_data()
-    
-    tcdata = dict(hour=20, minute=31, second=59, frame=18)
-    
-    qmsgs = []
-    qparsed = []
-    for i in range(8):
-        qm = MTCQuarterMessage(MTCPiece=i, tcdata=tcdata)
-        qmsgs.append(qm)
-        qparsed.append(parse_midi_message(qm.build_data()))
-    newtcdata = {}
-    for parsed in qparsed:
-        for key, val in parsed.tcdata.iteritems():
-            v = newtcdata.get(key, 0)
-            v += val
-            newtcdata[key] = v
-    print newtcdata
-    
-    tcfull = MTCFullMessage(tcdata=tcdata)
-    print 'tcfull:   ', tcfull.build_data()
-    parsed = parse_midi_message(tcfull.build_data())
-    print 'tcparsed: ', parsed.build_data(), parsed.tcdata
-    
-    p = SongPositionMessage(beats=400)
-    print 'pos:        ', p.build_data()
-    parsed = parse_midi_message(p.build_data())
-    print 'pos parsed: ', parsed.build_data()
-    
-    cl = ClockMessage()
-    print 'clock:        ', cl.build_data()
-    parsed = parse_midi_message(cl.build_data())
-    print 'clock parsed :', parsed.build_data()
-    
-#    qm1 = MTCQuarterMessage(MTCPiece=6, tcdata=tcdata)
-#    print 'mtcq1 msg:    ', qm1.build_data()
-#    parsed1 = parse_midi_message(qm1.build_data())
-#    print 'mtcq1 parsed: ', parsed1.build_data()
-#    qm2 = MTCQuarterMessage(MTCPiece=7, tcdata=tcdata)
-#    print 'mtcq2 msg:    ', qm2.build_data()
-#    parsed2 = parse_midi_message(qm2.build_data())
-#    print 'mtcq2 parsed: ', parsed2.build_data()
-#    print 'q1 tc=%s, q2 tc=%s' % (parsed1.tcdata, parsed2.tcdata)
+#if __name__ == '__main__':
+#    cm = ControlMessage(channel=1, controller=7, value=63)
+#    l = cm.build_data()
+#    print 'controller msg:    ', l, cm.byte_order
+#    parsed = parse_midi_message(l)
+#    print 'controller parsed: ', parsed.build_data()
+#    nm = NoteOnMessage(channel=1, note=20, velocity=100)
+#    l = nm.build_data()
+#    print 'note on msg:    ', l, nm.byte_order
+#    parsed = parse_midi_message(l)
+#    print 'note on parsed: ', parsed.build_data()
+#    
+#    tcdata = dict(hour=20, minute=31, second=59, frame=18)
+#    
+#    qmsgs = []
+#    qparsed = []
+#    for i in range(8):
+#        qm = MTCQuarterMessage(MTCPiece=i, tcdata=tcdata)
+#        qmsgs.append(qm)
+#        qparsed.append(parse_midi_message(qm.build_data()))
+#    newtcdata = {}
+#    for parsed in qparsed:
+#        for key, val in parsed.tcdata.iteritems():
+#            v = newtcdata.get(key, 0)
+#            v += val
+#            newtcdata[key] = v
+#    print newtcdata
+#    
+#    tcfull = MTCFullMessage(tcdata=tcdata)
+#    print 'tcfull:   ', tcfull.build_data()
+#    parsed = parse_midi_message(tcfull.build_data())
+#    print 'tcparsed: ', parsed.build_data(), parsed.tcdata
+#    
+#    p = SongPositionMessage(beats=400)
+#    print 'pos:        ', p.build_data()
+#    parsed = parse_midi_message(p.build_data())
+#    print 'pos parsed: ', parsed.build_data()
+#    
+#    cl = ClockMessage()
+#    print 'clock:        ', cl.build_data()
+#    parsed = parse_midi_message(cl.build_data())
+#    print 'clock parsed :', parsed.build_data()
+#    
+##    qm1 = MTCQuarterMessage(MTCPiece=6, tcdata=tcdata)
+##    print 'mtcq1 msg:    ', qm1.build_data()
+##    parsed1 = parse_midi_message(qm1.build_data())
+##    print 'mtcq1 parsed: ', parsed1.build_data()
+##    qm2 = MTCQuarterMessage(MTCPiece=7, tcdata=tcdata)
+##    print 'mtcq2 msg:    ', qm2.build_data()
+##    parsed2 = parse_midi_message(qm2.build_data())
+##    print 'mtcq2 parsed: ', parsed2.build_data()
+##    print 'q1 tc=%s, q2 tc=%s' % (parsed1.tcdata, parsed2.tcdata)

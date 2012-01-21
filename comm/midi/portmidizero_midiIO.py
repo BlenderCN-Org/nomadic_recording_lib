@@ -15,7 +15,7 @@ class pmzMidiIO(MidiIO):
         l = []
         for i in range(portmidizero.CountDevices()):
             l.append(portmidizero.GetDeviceInfo(i))
-        print 'pmz info: ', l
+        #print 'pmz info: ', l
         return l
 
 class pmzMidiIn(MidiIn):

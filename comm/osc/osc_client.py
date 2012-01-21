@@ -71,7 +71,7 @@ class Client(OSCBaseObject):
             h = self.add_osc_handler(Property=key, all_sessions=True, request_initial_value=False)
         if self.app_name is not None and not self.isLocalhost:
             self.update_timer = threading.Timer(2., self.on_update_timer)
-            print 'waiting to request props for client ', self.name
+            self.LOG.info('waiting to request props for client ', self.name)
             self.update_timer.start()
         self.GLOBAL_CONFIG.bind(update=self.on_GLOBAL_CONFIG_update)
         self.bind(property_changed=self._on_own_property_changed)
@@ -119,7 +119,7 @@ class Client(OSCBaseObject):
         
     def on_update_timer(self):
         self.update_timer = None
-        print 'requesting props for client ', self.name
+        self.LOG.info('requesting props for client ', self.name)
         self.refresh_osc_properties()
         
     def refresh_osc_properties(self):

@@ -134,8 +134,7 @@ class Sequencer(BaseObject):
         self.Properties['position_mbt'].set_value(self.calc_mbt(offset))
         self.mbt_set_local = False
         if self.position_mbt['tick'] != old_ticks + 1 and self.position_mbt['tick'] != 0:
-            pass
-            #print 'skipped tick: ', old_ticks + 1
+            self.LOG.warning(self, 'skipped tick', old_ticks + 1)
         #self.seconds_set_local = True
         #self.position_seconds = seconds
         #self.seconds_set_local = False

@@ -163,4 +163,4 @@ class Listener(BaseThread):
             msg = self.device.parse_midi_message(data=data[0], timestamp=data[1])
             #print 'msgdata: ', msg.build_data()
         except:
-            print sys.exc_info()
+            self.LOG.warning(sys.exc_info())

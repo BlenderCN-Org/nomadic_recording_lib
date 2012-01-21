@@ -86,7 +86,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
     def __init__(self, **kwargs):
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
-            #print 'thread_id %s already exists'
+            self.LOG.warning('thread_id %s already exists' % (thread_id))
             thread_id = setID(None)
         self._thread_id = thread_id
         _THREADS[thread_id] = self

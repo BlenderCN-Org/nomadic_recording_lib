@@ -212,15 +212,13 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                     result = True
             results.append(result)
         if False in results:
-            pass
-            #print 'could not unbind: ', self, zip(args, results)
+            self.LOG.warning('could not unbind', self, zip(args, results))
         return results
         
     def disconnect(self, **kwargs):
         result = SignalDispatcher.dispatcher.disconnect(self, **kwargs)
         if not result:
-            pass
-            #print 'could not disconnect: ', self, kwargs
+            self.LOG.warning('could not disconnect', self, kwargs)
         return result
     
     def add_category(self, category):
@@ -279,6 +277,9 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     def GLOBAL_CONFIG(self, value):
         globals()['GLOBAL_CONFIG'].update(value)
         
+    @property
+    def LOG(self):
+        return LOGGER
 
 from ChildGroup import ChildGroup
 
@@ -355,6 +356,10 @@ class _GlobalConfig(BaseObject, UserDict.UserDict):
         del self.ObjProperties[key]
         
 GLOBAL_CONFIG = _GlobalConfig()
+
+from logger import Logger
+
+LOGGER = Logger()
 
 from category import Category
 

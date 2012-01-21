@@ -58,11 +58,11 @@ class BaseOSCReceiver(BaseIO):
     def fallback(self, message, address):
         if self.debug:
             if self.root_address not in message.address:
-                print 'fallback: ', message, address
+                self.LOG.info('fallback: ', message, address)
         
     def do_connect(self, **kwargs):
         self.connection_count += 1
-        print 'count = ', self.connection_count
+        #print 'count = ', self.connection_count
         self.do_disconnect()
         for key, val in kwargs.iteritems():
             if key in ['hostaddr', 'hostport']:
@@ -77,7 +77,7 @@ class BaseOSCReceiver(BaseIO):
         #self.server_thread.daemon = True
         self.server_thread.start()
         self.connected = True
-        print 'recvr connected',  self.hostaddr, self.hostport, self.server_class
+        self.LOG.info('OSC recvr connected',  self.hostaddr, self.hostport, self.server_class)
         #self.emit('state_changed', state=True)
         
         
@@ -110,7 +110,7 @@ class ServeThread(BaseThread):
     def stop(self, **kwargs):
         self.server.shutdown()
         super(ServeThread, self).stop(**kwargs)
-        print 'osc receiver closed'
+        self.LOG.info('osc receiver closed')
         
 class MulticastOSCReceiver(BaseOSCReceiver):
     def __init__(self, **kwargs):
@@ -143,9 +143,9 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         #print threading.currentThread()
         if self.server.debug:
             if isinstance(element, osc.Bundle):
-                print '_recv_bundle:', [msg.__str__() for msg in element.getMessages()]
+                self.LOG.debug('_recv_bundle:', [msg.__str__() for msg in element.getMessages()])
             else:
-                print '_recv: ', element.address, element.getValues()
+                self.LOG.debug('_recv: ', element.address, element.getValues())
         self.server.osc_tree.dispatch(element, self.client_address)
         
 class MulticastUDPServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
@@ -178,15 +178,15 @@ class UnicastUDPServer(SocketServer.UDPServer):
         SocketServer.UDPServer.__init__(self, *args)
 
 
-def print_stuff(message, address):
-    print 'received: ', message.address, message.getValues()
-
-if __name__ == "__main__":
-    app = MulticastOSCReceiver()
-    app.do_connect()
-    r = app.osc_tree
-    n1 = app.add_node(name='test', parent=r)
-    n2 = app.add_node(name='foo', parent=n1)
-    app.add_handler(address='/test/foo/bar', callback=print_stuff)
-    
+#def print_stuff(message, address):
+#    print 'received: ', message.address, message.getValues()
+#
+#if __name__ == "__main__":
+#    app = MulticastOSCReceiver()
+#    app.do_connect()
+#    r = app.osc_tree
+#    n1 = app.add_node(name='test', parent=r)
+#    n2 = app.add_node(name='foo', parent=n1)
+#    app.add_handler(address='/test/foo/bar', callback=print_stuff)
+#    
 

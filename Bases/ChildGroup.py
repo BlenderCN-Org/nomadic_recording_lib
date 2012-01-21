@@ -55,7 +55,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 if index is None:
                     index = kwargs.get('Index', self.find_max_index() + 1)
                 if not self.check_valid_index(index):
-                    #print 'Index error, could not add child ', self.name, child
+                    self.LOG.warning('Index error: could not add child', self.name, child)
                     return False
                 child.Index = index
             child.ChildGroup_parent = self

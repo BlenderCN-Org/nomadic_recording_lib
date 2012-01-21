@@ -146,9 +146,9 @@ class OSCManager(BaseIO.BaseIO, Config):
             self.wildcard_address = s
             self.root_node.setName(s)
             self.osc_tree._wildcardNodes.add(s)
-            print 'wildcard = ', s
-            print 'root_node = ', s
-            print 'wcnodes = ', self.osc_tree._wildcardNodes
+            #print 'wildcard = ', s
+            #print 'root_node = ', s
+            #print 'wcnodes = ', self.osc_tree._wildcardNodes
         
     def get_client(self, **kwargs):
         hostaddr = kwargs.get('hostaddr')[0]
@@ -393,7 +393,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if self.check_master_attempts is None:
             self.check_for_master(client=client.name)
         propkeys = client.Properties.keys()
-        print 'add_client:', dict(zip(propkeys, [client.Properties[key].value for key in propkeys]))
+        self.LOG.info('add_client:', dict(zip(propkeys, [client.Properties[key].value for key in propkeys])))
         keys = ['name', 'address', 'port']
         s_kwargs = dict(zip(keys, [getattr(client, key) for key in keys]))
         s_kwargs.update({'client':client})
@@ -410,7 +410,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         client.unbind(self)
         del self.clients[name]
         self.Manager.update_wildcards()
-        print 'remove_client:', name
+        self.LOG.info('remove_client:', name)
         self.emit('client_removed', name=name, client=client)
         if client.session_name is not None:
             self.remove_from_session(name=client.session_name, client=client)
@@ -546,11 +546,11 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def on_master_requested_by_osc(self, msg, address):
         if self.oscMaster:
             self.root_node.send_message(address='setMaster', value=self.oscMaster)
-        print 'master_requested_by_osc'
+        self.LOG.info('master_requested_by_osc')
             
     def on_master_set_by_osc(self, msg, address):
         name = msg.getValues()[0]
-        print 'master_set_by_osc', name
+        self.LOG.info('master_set_by_osc', name)
         self.cancel_check_master_timer()
         self.check_master_attempts = None
         self.set_master(name)
@@ -573,7 +573,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             
         
     def on_host_removed(self, **kwargs):
-        print 'remove:', kwargs
+        self.LOG.info('remove:', kwargs)
         id = kwargs.get('id')
         self.remove_client(name=id)
         if id == self.oscMaster:
@@ -631,7 +631,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                     self.master_takeover_timer = t
                     t.start()
         
-        print 'master = ', self.oscMaster
+        self.LOG.info('master = ', self.oscMaster)
         self.root_node.oscMaster = self.isMaster
         self.Manager.stop_clock_send_thread()
         if self.isMaster:
@@ -663,7 +663,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                         d[key] = client
                 else:
                     d[key] = client
-        print 'clients by priority: ', d
+        self.LOG.info('clients by priority: ', d)
         if not len(d):
             return None
         return d[min(d)]
@@ -683,11 +683,11 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             s = 'False'
         else:
             s = ': '.join([master.name, master.address])
-        print 'ringmaster: ', s
+        self.LOG.info('ringmaster: ', s)
         
     def _on_ring_master_set(self, **kwargs):
         value = kwargs.get('value')
-        print 'RINGMASTER: ', value
+        self.LOG.info('RINGMASTER: ', value)
         self.local_client.isRingMaster = value == self.local_client.name
             
 class ClockSender(BaseThread):

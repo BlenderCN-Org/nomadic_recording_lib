@@ -80,16 +80,13 @@ class Publisher(BaseObject):
         
     def on_register(self, sdRef, flags, errorCode, name, regtype, domain):
         if errorCode == pybonjour.kDNSServiceErr_NoError:
-            print 'Registered service:'
-            print '  name    =', name
-            print '  regtype =', regtype
-            print '  domain  =', domain
+            self.LOG.info('Registered service', 'name=%s, regtype=%s, domain=%s' % (name, regtype, domain))
             
             #self.register_thread.running = False
             self.register_thread.stop()
             self.published = True
             return
-        print 'on_register: ', args
+        #print 'on_register: ', args
 
 class ProcessThread(BaseThread):
     def __init__(self, **kwargs):
@@ -111,7 +108,7 @@ class ProcessThread(BaseThread):
         try:
             pybonjour.DNSServiceProcessResult(self.sdRef)
         except:
-            print 'value error?'
+            #print 'value error?'
             self.stop()
             
     def stop(self, **kwargs):
@@ -130,7 +127,7 @@ class ProcessThread(BaseThread):
                 try:
                     pybonjour.DNSServiceProcessResult(self.sdRef)
                 except:
-                    print 'value error?'
+                    #print 'value error?'
                     self.running = False
                     self.sdRef.close()
         if self.close_when_finished:
