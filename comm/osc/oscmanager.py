@@ -20,7 +20,7 @@ import datetime
 import socket
 
 from txosc import osc
-from Bases.osc_base import OSCNode, Bundle
+from Bases.osc_node import OSCNode, Bundle
 from Bases import BaseObject, BaseThread, Config
 
 from .. import BaseIO
