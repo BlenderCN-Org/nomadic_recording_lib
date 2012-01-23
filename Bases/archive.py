@@ -22,8 +22,6 @@ import tarfile
 from StringIO import StringIO
 import csv
 
-import jsonpickle
-
 from BaseObject import BaseObject
 import Serialization
 

@@ -18,7 +18,7 @@ try:
     import UserDict
 except:
     import collections as UserDict
-import jsonpickle
+import json
 
 from Properties import EMULATED_TYPES
 
@@ -118,18 +118,64 @@ class Serializer(object):
         return False
 
 def to_json(obj, json_preset='tiny'):
-    jsonpickle.set_encoder_options('simplejson', **json_presets[json_preset])
-    pickler = Pickler(unpicklable=True)
-    return jsonpickle.json.encode(pickler.flatten(obj))
+    jskwargs = dict(cls=Encoder)
+    jskwargs.update(json_presets[json_preset])
+    s = json.dumps(obj, **jskwargs)
+    return s
     
 def from_json(jstring):
-    return jsonpickle.decode(jstring)
+    return json.loads(jstring, cls=Decoder)
     
-class Pickler(jsonpickle.Pickler):
-    def flatten(self, obj):
-        for realtype, emutype in EMULATED_TYPES.iteritems():
-            if isinstance(obj, emutype):
-                #print 'changed %s to %s' % (emutype, realtype)
-                obj = realtype(obj)
-                break
-        return super(Pickler, self).flatten(obj)
+class Handler(object):
+    def encode(self, o):
+        return {self._key:self._jsontype(o)}
+    def decode(self, o):
+        return self._pytype(o[self._key])
+        
+class SetHandler(Handler):
+    _key = 'py/set'
+    _pytype = set
+    _jsontype = list
+    
+HANDLERS = (SetHandler(), )
+HANDLERS_BY_PYTYPE = dict(zip([h._pytype for h in HANDLERS], HANDLERS))
+HANDLERS_BY_KEY = dict(zip([h._key for h in HANDLERS], HANDLERS))
+
+class Encoder(json.JSONEncoder):
+    def default(self, o):
+        h = HANDLERS_BY_PYTYPE.get(type(o))
+        if h is None:
+            return super(Encoder, self).default(o)
+        return h.encode(o)
+        
+class Decoder(json.JSONDecoder):
+    def __init__(self, **kwargs):
+        kwargs['object_hook'] = self._object_hook
+        super(Decoder, self).__init__(**kwargs)
+    def _object_hook(self, d):
+        if not isinstance(d, dict):
+            return d
+        def un_unicode(obj):
+            if isinstance(obj, unicode):
+                return str(obj)
+            if isinstance(obj, list):
+                return [un_unicode(o) for o in obj]
+            if isinstance(obj, tuple):
+                return tuple([un_unicode(o) for o in obj])
+            if isinstance(obj, dict):
+                newd = {}
+                for k, v in obj.iteritems():
+                    k = un_unicode(k)
+                    v = un_unicode(v)
+                    newd[k] = v
+                return newd
+            return obj
+        d = un_unicode(d)
+        if len(d) != 1:
+            return d
+        ## now we're sure there's exactly one key
+        k, v = d.items()[0]
+        h = HANDLERS_BY_KEY.get(k)
+        if h is None:
+            return d
+        return h.decode(d)
