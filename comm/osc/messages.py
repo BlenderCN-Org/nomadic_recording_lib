@@ -10,6 +10,7 @@ class Message(object):
         if 'args' in kwargs:
             args = kwargs['args']
         self.address = kwargs.get('address')
+        self.client = kwargs.get('client')
         self.arguments = []
         for arg in args:
             self.add_argument(arg)
@@ -51,6 +52,7 @@ class Bundle(object):
         timetag = kwargs.get('timetag', -1)
         if not isinstance(timetag, TimetagArgument):
             timetag = TimetagArgument(timetag)
+        self.client = kwargs.get('client')
         self.timetag = timetag
         self.elements = []
         if 'elements' in kwargs:
@@ -72,7 +74,7 @@ class Bundle(object):
             self.elements.append(element)
             return
         size, data = element
-        realelement = parse_message(data)
+        realelement = parse_message(data, client=self.client)
         self.elements.append(realelement)
     def build_string(self):
         data = ''.join([StringArgument('#bundle').build_string(), self.timetag.build_string()])
@@ -194,6 +196,38 @@ ARG_CLS_BY_PYTYPE[True] = BoolArgument
 ARG_CLS_BY_PYTYPE[False] = BoolArgument
 ARG_CLS_BY_PYTYPE[None] = NoneArgument
 
+class Address(StringArgument):
+    def __init__(self, value):
+        if type(value) in [list, tuple]:
+            value = '/' + '/'.join([v for v in value])
+        super(Address, self).__init__(value)
+    @property
+    def head(self):
+        return self.split()[0]
+    @property
+    def tail(self):
+        return self.split()[-1:][0]
+    def split(self):
+        l = super(Address, self).split('/')
+        if not len(l) or l[0] == '':
+            return l
+        return l[1:]
+    def append(self, other):
+        if not isinstance(other, Address):
+            other = Address(other)
+        l = self.split() + other.split()
+        return Address(l)
+    def append_right(self, other):
+        if not isinstance(other, Address):
+            other = Address(other)
+        l = other.split() + self.split()
+        return Address(l)
+    def pop(self):
+        sp = self.split()
+        if len(sp) < 2:
+            return '', self
+        return sp[0], Address(sp[1:])
+
 def build_argument(**kwargs):
     type_tag = kwargs.get('type_tag')
     data = kwargs.get('data')
@@ -221,13 +255,13 @@ def _strip_padding(data):
     padlen = _find_pad_length(first_null)
     return data[0:first_null], data[padlen:]
     
-def parse_message(data):
+def parse_message(data, client=None):
     if not len(data):
         return
     if data[0] == '/':
-        return Message(data=data)
+        return Message(data=data, client=client)
     if data[0] == '#':
-        return Bundle(data=data)
+        return Bundle(data=data, client=client)
     
 if __name__ == '__main__':
     msg = Message(128, 128., address='/blah/stuff')
