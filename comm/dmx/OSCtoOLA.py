@@ -1,8 +1,8 @@
 import socket
 import threading
 import array
-import jsonpickle
-from Bases import OSCBaseObject
+#import jsonpickle
+from Bases import OSCBaseObject, Serialization
 from ola_IO import olaIO
 from ..osc.osc_io import oscIO
 from ..BaseIO import detect_usable_address
@@ -87,7 +87,7 @@ class OSCtoOLAHost(OSCBaseObject):
             d.update({key:{}})
             for attr in ['id', 'name']:
                 d[key].update({attr:getattr(val, attr)})
-        s = jsonpickle.encode(d)
+        s = Serialization.to_json(d)
         self.osc_node.send_message(root_address=self.root_address, address='universes-info', value=s)
         
     def on_osc_new_master(self, **kwargs):
