@@ -22,7 +22,7 @@ class Message(object):
         self._address = StringArgument(value)
     @property
     def type_tags(self):
-        return StringArgument(',' + [arg._type_tag for arg in self.arguments])
+        return StringArgument(',' + ''.join([arg._type_tag for arg in self.arguments]))
         
     def add_argument(self, arg):
         if not getattr(arg, '_OSC_ARGUMENT_INSTANCE', False):
@@ -32,7 +32,8 @@ class Message(object):
     def parse_data(self, data):
         address, data = _strip_padding(data)
         tags, data = _strip_padding(data)
-        for tag in tags:
+        args = []
+        for tag in tags[1:]:
             arg, data = build_argument(type_tag=tag, data=data)
             args.append(arg)
         return dict(address=address, args=args)
@@ -42,8 +43,44 @@ class Message(object):
         args.extend(self.arguments)
         return ''.join([arg.build_string() for arg in args])
     
-class Bundle(Message):
-    pass
+class Bundle(object):
+    def __init__(self, *args, **kwargs):
+        data = kwargs.get('data')
+        if data is not None:
+            kwargs = self.parse_data(data)
+        timetag = kwargs.get('timetag', -1)
+        if not isinstance(timetag, TimetagArgument):
+            timetag = TimetagArgument(timetag)
+        self.timetag = timetag
+        self.elements = []
+        if 'elements' in kwargs:
+            args = kwargs['elements']
+        for element in args:
+            self.add_element(element)
+    def parse_data(self, data):
+        bundlestr, data = _strip_padding(data)
+        timetag, data = TimetagArgument.from_binary(TimetagArgument, data)
+        elements = []
+        while len(data):
+            size, data = IntArgument.from_binary(IntArgument, data)
+            elemdata = data[:size]
+            elements.append((size, elemdata))
+            data = data[size:]
+        return dict(timetag=timetag, elements=elements)
+    def add_element(self, element):
+        if type(element) in [Bundle, Message]:
+            self.elements.append(element)
+            return
+        size, data = element
+        realelement = parse_message(data)
+        self.elements.append(realelement)
+    def build_string(self):
+        data = ''.join([StringArgument('#bundle').build_string(), self.timetag.build_string()])
+        for elem in self.elements:
+            elemdata = elem.build_string()
+            data += IntArgument(len(elemdata)).build_string()
+            data += elemdata
+        return data
 
 class Argument(object):
     _OSC_ARGUMENT_INSTANCE = True
@@ -60,9 +97,11 @@ class Argument(object):
         return value, data[4:]
     def build_string(self):
         cls = getattr(self, '_pytype', self.__class__.__bases__[0])
-        stuct_fmt = getattr(self, '_stuct_fmt', None)
+        stuct_fmt = getattr(self, '_struct_fmt', None)
         if stuct_fmt is not None:
-            return struct.pack(stuct_fmt, cls(self))
+            s = struct.pack(stuct_fmt, cls(self))
+            #print type(self), s
+            return s
         return ''
     
 class IntArgument(int, Argument):
@@ -86,6 +125,11 @@ class StringArgument(str, Argument):
     @staticmethod
     def parse_binary(cls, data, **kwargs):
         return _strip_padding(data)
+    def blahbuild_string(self):
+        length = math.ceil((len(self)+1) / 4.0) * 4
+        s = struct.pack('>%ds' % (length), self)
+        print self, length
+        return s
     
 class BlobArgument(list, Argument):
     _type_tag = 'b'
@@ -159,7 +203,7 @@ def build_argument(**kwargs):
         cls = ARG_CLS_BY_TYPE_TAG[type_tag]
     elif 'obj' in kwargs:
         if cls is None:
-            cls = ARG_CLS_BY_PYTYPE(type(obj))
+            cls = ARG_CLS_BY_PYTYPE.get(type(obj))
         if cls is None:
             return False
         return cls(obj)
@@ -185,3 +229,17 @@ def parse_message(data):
     if data[0] == '#':
         return Bundle(data=data)
     
+if __name__ == '__main__':
+    msg = Message(128, 128., address='/blah/stuff')
+    print msg.arguments
+    print [type(arg) for arg in msg.arguments]
+    print msg.build_string()
+    msg2 = parse_message(msg.build_string())
+    print msg2.arguments
+    print [type(arg) for arg in msg2.arguments]
+    print msg2.build_string()
+    bundle = Bundle(msg, msg2)
+    print '\n'
+    print bundle.elements, len(bundle.build_string())
+    bundle2 = parse_message(bundle.build_string())
+    print bundle.elements, len(bundle.build_string())
