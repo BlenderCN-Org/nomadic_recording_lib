@@ -58,7 +58,7 @@ class OSCBaseObject(BaseObject):
         if self.osc_enabled:
             self.osc_handlers = {}
             self.osc_child_nodes = set()
-            self.osc_node = self.osc_parent_node.add_new_node(name=self.osc_address)
+            self.osc_node = self.osc_parent_node.add_child(name=self.osc_address)
             self.set_osc_address(self.osc_address)
         else:
             self.osc_address = None
@@ -67,8 +67,8 @@ class OSCBaseObject(BaseObject):
             
     def unlink(self):
         def remove_node(n):
-            if n._parent is not None:
-                n._parent.removeNode(n._name)
+            if n.parent is not None:
+                n.parent.remove_node(name=n.name)
         if self.osc_enabled:
             for handler in self.osc_handlers.itervalues():
                 handler.unlink()
@@ -85,7 +85,7 @@ class OSCBaseObject(BaseObject):
             if c in address:
                 address = '_'.join(address.split(c))
         self.osc_address = address
-        self.osc_node.setName(address)
+        self.osc_node.name = address
             
     def add_osc_child(self, **kwargs):
         if self.osc_enabled:
@@ -124,7 +124,7 @@ class OSCBaseObject(BaseObject):
             address = self.osc_address
             kwargs['address'] = address
         else:
-            node = self.osc_node.add_new_node(name=address)
+            node = self.osc_node.add_child(name=address)
         kwargs.setdefault('osc_node', node)
         
         objhandler = self.osc_handlers.get(address)
@@ -166,27 +166,33 @@ class OSCHandler(BaseObject, PropertyConnector):
     def add_callbacks(self, **kwargs):
         self.callbacks.update(kwargs)
         for key in kwargs.iterkeys():
-            self.osc_node.addCallback('%s/%s' % (self.address, key), self.handle_message)
+            node = self.osc_node.add_child(name=key)
+            node.bind(message_received=self.handle_message)
+            #self.osc_node.addCallback('%s/%s' % (self.address, key), self.handle_message)
             #print self.osc_node._name, '%s/%s' % (self.address, key)
             
     def remove_callbacks(self):
         for key in self.callbacks.keys()[:]:
             try:
-                self.osc_node.removeCallback('%s/%s' % (self.address, key), self.handle_message)
+                self.osc_node.remove_node(name=key)
+                #self.osc_node.removeCallback('%s/%s' % (self.address, key), self.handle_message)
                 self.LOG.info(self.address, 'callback removed', key)
                 del self.callbacks[key]
             except:
                 self.LOG.warning(self.address, 'could not remove callback', key)
             
-    def handle_message(self, message, hostaddr):
+    def handle_message(self, **kwargs):
+        message = kwargs.get('message')
         address = message.address
-        method = address.split('/')[-1:][0]
+        client = message.client
+        #method = address.split('/')[-1:][0]
+        method = address.tail
         #print 'received: address=%s, method=%s, args=%s' % (address, method, message.getValues())
-        cb_kwargs = dict(method=method, address=address, values=message.getValues())
-        if self.osc_node.get_client_cb:
-            cb_kwargs['client'] = self.osc_node.get_client_cb(hostaddr=hostaddr)
-        else:
-            self.LOG.warning(self, 'no callback!!!!')
+        cb_kwargs = dict(method=method, address=address, values=message.arguments, client=message.client)
+        #if self.osc_node.get_client_cb:
+        #    cb_kwargs['client'] = self.osc_node.get_client_cb(hostaddr=hostaddr)
+        #else:
+        #    self.LOG.warning(self, 'no callback!!!!')
         if method in self.callbacks:
             #print 'osc_callback: ', address, message.getValues()
             self.callbacks[method](**cb_kwargs)

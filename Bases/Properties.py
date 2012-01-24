@@ -484,6 +484,8 @@ class ListProperty(list):
 class DictProperty(dict):
     def __init__(self, initdict=None, **kwargs):
         self.parent_property = kwargs.get('parent_property')
+        if initdict is None:
+            initdict = {}
         super(DictProperty, self).__init__(initdict)
     def _update_value(self, value):
         self.update(value)
