@@ -188,7 +188,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         #method = address.split('/')[-1:][0]
         method = address.tail
         #print 'received: address=%s, method=%s, args=%s' % (address, method, message.getValues())
-        cb_kwargs = dict(method=method, address=address, values=message.arguments, client=message.client)
+        cb_kwargs = dict(method=method, address=address, values=message.arguments, client=client)
         #if self.osc_node.get_client_cb:
         #    cb_kwargs['client'] = self.osc_node.get_client_cb(hostaddr=hostaddr)
         #else:
