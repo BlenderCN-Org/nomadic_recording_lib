@@ -44,7 +44,8 @@ def issequence(obj):
 
 class OSCManager(BaseIO.BaseIO, Config):
     _confsection = 'OSC'
-    _Properties = {'master_priority':dict(default=10), 
+    _Properties = {'app_address':dict(type=str), 
+                   'master_priority':dict(default=10), 
                    'session_name':dict(type=str), 
                    'discovered_sessions':dict(default={}), 
                    'ring_master':dict(type=str)}
@@ -65,11 +66,13 @@ class OSCManager(BaseIO.BaseIO, Config):
         else:
             self.session_name = socket.gethostname()
             self.GLOBAL_CONFIG['session_name'] = self.session_name
-        self.osc_tree = OSCNode(root_node=True, 
+        self.osc_tree = OSCNode(name=self.app_address, 
+                                root_node=True, 
                                 transmit_callback=self.on_node_tree_send, 
                                 get_client_cb=self.get_client, 
                                 get_epoch_offset_cb=self.get_epoch_offset)
-        self.root_node = self.osc_tree.add_child(name='null')
+        #self.root_node = self.osc_tree.add_child(name='null')
+        self.root_node = self.osc_tree
         self.epoch_offset = datetime.timedelta()
         self.clock_send_thread = None
         s = kwargs.get('use_unique_addresses', self.get_conf('use_unique_addresses', 'True'))
@@ -130,6 +133,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.emit('unique_address_changed', state=flag)
     
     def set_address_vars(self):
+        return
         if self.ioManager.iotype == 'Multicast' or self.use_unique_address:
             self.root_address = self.default_root_address
             #self.SessionManager.add_client_name(None, update_conf=False)
@@ -138,6 +142,7 @@ class OSCManager(BaseIO.BaseIO, Config):
             self.root_node.name = self.root_address
             
     def update_wildcards(self):
+        return
         #if self.wildcard_address:
         #    self.osc_tree._wildcardNodes.discard(self.wildcard_address)
         #    self.osc_tree._wildcardNodes.discard('{null}')
@@ -173,13 +178,13 @@ class OSCManager(BaseIO.BaseIO, Config):
             if client is not None:
                 clients = [client]
         address = kwargs.get('address')
-        root_address = kwargs.get('root_address', self.root_address)
+        #root_address = kwargs.get('root_address', self.root_address)
         all_sessions = kwargs.get('all_sessions', False)
         #address[0] = root_address
         if not isinstance(address, Address):
             address = Address(address)
-        junk, address = address.pop()
-        address = address.append_right(root_address)
+        #junk, address = address.pop()
+        #address = address.append_right(root_address)
         
         #path = '/' + join_address(*address)
         #if path[-1:] == '/':

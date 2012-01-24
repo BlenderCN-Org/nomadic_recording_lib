@@ -197,22 +197,24 @@ class OSCNode(BaseObject):
                 print 'NOT dispatched: ', msg.address, self.children.keys()
             
     def send_message(self, **kwargs):
-        if self.is_root_node:
-            now = datetime.datetime.now()
-            offset = self.get_epoch_offset_cb()
-            kwargs['timetag'] = datetime_to_timetag_value(now - offset)
-            kwargs['address'] = kwargs['full_path']
-            self.transmit_callback(**kwargs)
+        if 'full_path' not in kwargs:
+            address = kwargs.get('address')
+            full_path = self.get_full_path()
+            if address is not None:
+                full_path = full_path.append(address)
+                del kwargs['address']
+            if not isinstance(address, Address):
+                address = Address(address)
+            kwargs['full_path'] = full_path
+        if not self.is_root_node:
+            self.get_root_node().send_message(**kwargs)
             return
-        address = kwargs.get('address')
-        full_path = self.get_full_path()
-        if address is not None:
-            full_path = full_path.append(address)
-            del kwargs['address']
-        if not isinstance(address, Address):
-            address = Address(address)
-        kwargs['full_path'] = full_path
-        self.get_root_node().send_message(**kwargs)
+        now = datetime.datetime.now()
+        offset = self.get_epoch_offset_cb()
+        kwargs['timetag'] = datetime_to_timetag_value(now - offset)
+        kwargs['address'] = kwargs['full_path']
+        self.transmit_callback(**kwargs)
+        
         
 
 def get_ui_module(name):

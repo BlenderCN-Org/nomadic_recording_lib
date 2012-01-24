@@ -22,6 +22,12 @@ class Message(object):
     def address(self, value):
         self._address = Address(value)
     @property
+    def client(self):
+        return self._client
+    @client.setter
+    def client(self, value):
+        self._client = value
+    @property
     def type_tags(self):
         return StringArgument(',' + ''.join([arg._type_tag for arg in self.arguments]))
         
@@ -59,13 +65,21 @@ class Bundle(object):
         timetag = kwargs.get('timetag', -1)
         if not isinstance(timetag, TimetagArgument):
             timetag = TimetagArgument(timetag)
+        self.elements = []
         self.client = kwargs.get('client')
         self.timetag = timetag
-        self.elements = []
         if 'elements' in kwargs:
             args = kwargs['elements']
         for element in args:
             self.add_element(element)
+    @property
+    def client(self):
+        return self._client
+    @client.setter
+    def client(self, value):
+        self._client = value
+        for e in self.elements:
+            e.client = value
     def parse_data(self, data):
         #print 'bundle parse: ', len(data), [data]
         bundlestr, data = _strip_padding(data)
