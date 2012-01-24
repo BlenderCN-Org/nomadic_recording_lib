@@ -20,7 +20,7 @@ class Message(object):
         return self._address
     @address.setter
     def address(self, value):
-        self._address = StringArgument(value)
+        self._address = Address(value)
     @property
     def type_tags(self):
         return StringArgument(',' + ''.join([arg._type_tag for arg in self.arguments]))
@@ -43,6 +43,13 @@ class Message(object):
         args = [self.address, self.type_tags]
         args.extend(self.arguments)
         return ''.join([arg.build_string() for arg in args])
+        
+    def __str__(self):
+        s = self.address.build_string() + self.type_tags.build_string()
+        s = s.replace('\0', ' ')
+        s += ' '.join([str(arg) for arg in self.arguments])
+        return s
+    
     
 class Bundle(object):
     def __init__(self, *args, **kwargs):
@@ -60,29 +67,62 @@ class Bundle(object):
         for element in args:
             self.add_element(element)
     def parse_data(self, data):
+        #print 'bundle parse: ', len(data), [data]
         bundlestr, data = _strip_padding(data)
+        #print 'bundlestr: ', [bundlestr], ', data: ', len(data), [data]
         timetag, data = TimetagArgument.from_binary(TimetagArgument, data)
+        #print 'parse timetag: ', timetag
+        #print 'dataremain: ', len(data), [data]
         elements = []
         while len(data):
             size, data = IntArgument.from_binary(IntArgument, data)
             elemdata = data[:size]
-            elements.append((size, elemdata))
+            #print 'elem size: ', size
+            elements.append(elemdata)
             data = data[size:]
         return dict(timetag=timetag, elements=elements)
     def add_element(self, element):
-        if type(element) in [Bundle, Message]:
+        if element.__class__ in [Bundle, Message]:
             self.elements.append(element)
             return
-        size, data = element
-        realelement = parse_message(data, client=self.client)
-        self.elements.append(realelement)
+        #size, data = element
+        realelement = parse_message(element, client=self.client)
+        if realelement.__class__ in [Bundle, Message]:
+            self.elements.append(realelement)
+    def get_messages(self):
+        messages = set()
+        for e in self.elements:
+            if isinstance(e, Bundle):
+                ## TODO: this should maintain the bundled timetags
+                messages |= e.get_messages()
+            else:
+                messages.add(e)
+        return messages
     def build_string(self):
-        data = ''.join([StringArgument('#bundle').build_string(), self.timetag.build_string()])
+        #data = ''.join([StringArgument('#bundle').build_string(), self.timetag.build_string()])
+        bundlestr = StringArgument('#bundle').build_string()
+        ttstr = self.timetag.build_string()
+        #print 'bundle: ', len(bundlestr), [bundlestr]
+        #print 'ttstr: ', len(ttstr), [ttstr]
+        data = bundlestr + ttstr
+        #print 'header: ', len(data), [data]
         for elem in self.elements:
             elemdata = elem.build_string()
-            data += IntArgument(len(elemdata)).build_string()
-            data += elemdata
+            elemstr = IntArgument(len(elemdata)).build_string() + elemdata
+            #print 'elem: ', len(elemdata), [elemstr]
+            data += elemstr
+        #print 'bundledata: ', len(data), [data]
         return data
+        
+    def __str__(self):
+        s = 'bundle %s: ' % (self.timetag)
+        l = []
+        for elem in self.elements:
+            elemdata = elem.build_string()
+            l.append('len=%s: %s' % (len(elemdata), str(elem)))
+            #l.append(str(elem))
+        s += ', '.join([e for e in l])
+        return s
 
 class Argument(object):
     _OSC_ARGUMENT_INSTANCE = True
@@ -160,28 +200,32 @@ class TimetagPyType(float):
     
 class TimetagArgument(TimetagPyType, Argument):
     _type_tag = 't'
+    _struct_fmt = '>qq'
+    
     def build_string(self):
         if self < 0:
             return struct.pack('>qq', 0, 1)
         fr, sec = math.modf(self)
         return struct.pack('>qq', long(sec), long(fr * 1e9))
+        
     @staticmethod
-    def parse_binary(cls, data):
-        binary = data[0:8]
-        if len(binary) != 8:
+    def parse_binary(cls, data, **kwargs):
+        binary = data[0:16]
+        if len(binary) != 16:
             return False
-            #raise OscError("Too few bytes left to get a timetag from %s." % (data))
-        leftover = data[8:]
+            #raise osc.OscError("Too few bytes left to get a timetag from %s." % (data))
+        leftover = data[16:]
+
         if binary == '\0\0\0\0\0\0\0\1':
             # immediately
-            time = -1.
+            time = -1
         else:
-            high, low = struct.unpack(">ll", data[0:8])
+            high, low = struct.unpack(">qq", data[0:16])
             time = float(int(high) + low / float(1e9))
         return time, leftover
 
 ARG_CLASSES = (IntArgument, FloatArgument, StringArgument, BlobArgument, 
-               BoolArgument, NoneArgument, TimetagArgument)
+               BoolArgument, NoneArgument)
 ARG_CLS_BY_PYTYPE = {}
 ARG_CLS_BY_TYPE_TAG = {}
 for argcls in ARG_CLASSES:
@@ -197,10 +241,10 @@ ARG_CLS_BY_PYTYPE[False] = BoolArgument
 ARG_CLS_BY_PYTYPE[None] = NoneArgument
 
 class Address(StringArgument):
-    def __init__(self, value):
-        if type(value) in [list, tuple]:
+    def __new__(cls, value):
+        if isinstance(value, list) or isinstance(value, tuple):
             value = '/' + '/'.join([v for v in value])
-        super(Address, self).__init__(value)
+        return str.__new__(cls, value)
     @property
     def head(self):
         return self.split()[0]
@@ -209,9 +253,9 @@ class Address(StringArgument):
         return self.split()[-1:][0]
     def split(self):
         l = super(Address, self).split('/')
-        if not len(l) or l[0] == '':
-            return l
-        return l[1:]
+        if len(l) and l[0] == '':
+            l = l[1:]
+        return l
     def append(self, other):
         if not isinstance(other, Address):
             other = Address(other)
@@ -224,8 +268,10 @@ class Address(StringArgument):
         return Address(l)
     def pop(self):
         sp = self.split()
-        if len(sp) < 2:
-            return '', self
+        if not len(sp):
+            return '', ''
+        if len(sp) == 1:
+            return sp[0], ''
         return sp[0], Address(sp[1:])
 
 def build_argument(**kwargs):
@@ -257,23 +303,20 @@ def _strip_padding(data):
     
 def parse_message(data, client=None):
     if not len(data):
-        return
+        print 'NO DATA'
+        return False
     if data[0] == '/':
         return Message(data=data, client=client)
-    if data[0] == '#':
+    if len(data) > 7 and data[:7] == '#bundle':
         return Bundle(data=data, client=client)
     
 if __name__ == '__main__':
-    msg = Message(128, 128., address='/blah/stuff')
-    print msg.arguments
-    print [type(arg) for arg in msg.arguments]
-    print msg.build_string()
-    msg2 = parse_message(msg.build_string())
-    print msg2.arguments
-    print [type(arg) for arg in msg2.arguments]
-    print msg2.build_string()
-    bundle = Bundle(msg, msg2)
-    print '\n'
-    print bundle.elements, len(bundle.build_string())
+    msg1 = Message('a', 1, address='/blah/stuff/1')
+    msg2 = Message('b', 2, address='/blah/stuff/2')
+    #print msg1
+    #print msg2
+    
+    bundle = Bundle(msg1, msg2, timetag=2000.)
+    print bundle
     bundle2 = parse_message(bundle.build_string())
-    print bundle.elements, len(bundle.build_string())
+    print bundle2

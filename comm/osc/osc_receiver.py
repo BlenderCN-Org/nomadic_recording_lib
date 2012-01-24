@@ -21,10 +21,11 @@ import select
 import socket
 
 from Bases import osc_base, BaseThread
+import messages
 
 #from twisted.internet import reactor
 #import txosc
-from txosc import osc, dispatch#, sync, async
+#from txosc import osc, dispatch#, sync, async
 
 if __name__ == '__main__':
     import sys, os
@@ -42,8 +43,9 @@ class BaseOSCReceiver(BaseIO):
         self.root_address = kwargs.get('root_address')
         self.hostaddr = kwargs.get('hostaddr', 'localhost')
         self.hostport = int(kwargs.get('recvport', 18888))
-        self.osc_tree = kwargs.get('osc_tree', dispatch.Receiver())
-        self.osc_tree.setFallback(self.fallback)
+        self.osc_io = kwargs.get('osc_io')
+        self.osc_tree = kwargs.get('osc_tree')#, dispatch.Receiver())
+        #self.osc_tree.setFallback(self.fallback)
         self.server = None
         self.server_thread = None
         self.debug = self.GLOBAL_CONFIG.get('arg_parse_dict', {}).get('debug_osc')
@@ -70,7 +72,8 @@ class BaseOSCReceiver(BaseIO):
         server_kwargs = self.set_server_kwargs()
         server_kwargs.update({'debug':self.debug, 
                               'raw_data_cb':self.on_server_raw_data, 
-                              'preprocess_cb':self.preprocess_cb})
+                              'preprocess_cb':self.preprocess_cb, 
+                              'osc_io':self.osc_io})
         self.server = self.server_class(**server_kwargs)
         #self.server_thread = ServerThread(self.server)
         self.server_thread = ServeThread(self.server)#threading.Thread(target=self.server.serve_forever)
@@ -139,14 +142,20 @@ class UnicastOSCReceiver(BaseOSCReceiver):
 class RequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = self.request[0]
-        element = osc_base._elementFromBinary(data)
+        client = self.server.osc_io.Manager.get_client(hostaddr=self.client_address)
+        print 'CLIENT: ', client
+        element = messages.parse_message(data, client=client)
+        if element is False:
+            return
+        #element = osc_base._elementFromBinary(data)
         #print threading.currentThread()
         if self.server.debug:
-            if isinstance(element, osc.Bundle):
-                self.LOG.debug('_recv_bundle:', [msg.__str__() for msg in element.getMessages()])
-            else:
-                self.LOG.debug('_recv: ', element.address, element.getValues())
-        self.server.osc_tree.dispatch(element, self.client_address)
+            self.server.osc_io.LOG.debug('_osc_recv: ' + str(element))
+#            if isinstance(element, messages.Bundle):
+#                self.LOG.debug('_recv_bundle:', [msg.__str__() for msg in element.messages])
+#            else:
+#                self.LOG.debug('_recv: ', element.address, element.arguments, element.client)
+        self.server.osc_tree.dispatch_message(message=element)
         
 class MulticastUDPServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
     def __init__(self, **kwargs):
@@ -154,6 +163,7 @@ class MulticastUDPServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
         self.preprocess_cb = kwargs.get('preprocess_cb')
         self.max_packet_size = MAX_PACKET_SIZE
         self.osc_tree = kwargs.get('osc_tree')
+        self.osc_io = kwargs.get('osc_io')
         self.mcastaddr = kwargs.get('mcastaddr')
         self.mcastport = kwargs.get('mcastport')
         args = [kwargs.get(key) for key in ['hostaddress', 'handler_cls']]
@@ -171,6 +181,7 @@ class UnicastUDPServer(SocketServer.UDPServer):
         self.raw_data_cb = kwargs.get('raw_data_cb')
         self.preprocess_cb = kwargs.get('preprocess_cb')
         self.osc_tree = kwargs.get('osc_tree')
+        self.osc_io = kwargs.get('osc_io')
         self.max_packet_size = MAX_PACKET_SIZE
         #self.allow_reuse_address = True
         self.debug = kwargs.get('debug')

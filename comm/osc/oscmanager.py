@@ -19,12 +19,14 @@ import time
 import datetime
 import socket
 
-from txosc import osc
-from Bases.osc_node import OSCNode, Bundle
+#from txosc import osc
+#from Bases.osc_node import OSCNode, Bundle
 from Bases import BaseObject, BaseThread, Config
 
 from .. import BaseIO
 
+from messages import Message, Bundle, Address
+from osc_node import OSCNode
 from osc_io import oscIO
 from osc_client import Client
 
@@ -67,13 +69,15 @@ class OSCManager(BaseIO.BaseIO, Config):
                                 transmit_callback=self.on_node_tree_send, 
                                 get_client_cb=self.get_client, 
                                 get_epoch_offset_cb=self.get_epoch_offset)
-        self.root_node = self.osc_tree.add_new_node(name='null')
+        self.root_node = self.osc_tree.add_child(name='null')
         self.epoch_offset = datetime.timedelta()
         self.clock_send_thread = None
         s = kwargs.get('use_unique_addresses', self.get_conf('use_unique_addresses', 'True'))
         flag = not s == 'False'
         
-        self.root_node.addCallback('/clocksync', self.on_master_sent_clocksync)
+        #self.root_node.addCallback('/clocksync', self.on_master_sent_clocksync)
+        csnode = self.root_node.add_child(name='clocksync')
+        csnode.bind(message_received=self.on_master_sent_clocksync)
         self.ioManager = oscIO(Manager=self)
         self.SessionManager = OSCSessionManager(Manager=self)
         self.SessionManager.bind(client_added=self.on_client_added, 
@@ -131,12 +135,12 @@ class OSCManager(BaseIO.BaseIO, Config):
             #self.SessionManager.add_client_name(None, update_conf=False)
         else:
             self.root_address = self.app_address
-            self.root_node.setName(self.root_address)
+            self.root_node.name = self.root_address
             
     def update_wildcards(self):
-        if self.wildcard_address:
-            self.osc_tree._wildcardNodes.discard(self.wildcard_address)
-            self.osc_tree._wildcardNodes.discard('{null}')
+        #if self.wildcard_address:
+        #    self.osc_tree._wildcardNodes.discard(self.wildcard_address)
+        #    self.osc_tree._wildcardNodes.discard('{null}')
         names = []
         for c in self.clients.itervalues():
             if not c.isLocalhost:
@@ -144,8 +148,8 @@ class OSCManager(BaseIO.BaseIO, Config):
         if names:
             s = '{%s}' % (','.join(names))
             self.wildcard_address = s
-            self.root_node.setName(s)
-            self.osc_tree._wildcardNodes.add(s)
+            self.root_node.name = s
+            #self.osc_tree._wildcardNodes.add(s)
             #print 'wildcard = ', s
             #print 'root_node = ', s
             #print 'wcnodes = ', self.osc_tree._wildcardNodes
@@ -171,13 +175,18 @@ class OSCManager(BaseIO.BaseIO, Config):
         address = kwargs.get('address')
         root_address = kwargs.get('root_address', self.root_address)
         all_sessions = kwargs.get('all_sessions', False)
-        address[0] = root_address
-        path = '/' + join_address(*address)
-        if path[-1:] == '/':
-            path = path[:-1]
+        #address[0] = root_address
+        if not isinstance(address, Address):
+            address = Address(address)
+        junk, address = address.pop()
+        address = address.append_right(root_address)
+        
+        #path = '/' + join_address(*address)
+        #if path[-1:] == '/':
+        #    path = path[:-1]
         args = self.pack_args(kwargs.get('value'))
-        msg = osc.Message(path, *args)
-        bundle = Bundle([msg], timetag)
+        msg = Message(*args, address=address)
+        bundle = Bundle(msg, timetag=timetag)
         _sender = self.ioManager._sender
         if _sender is None:
             return
@@ -255,8 +264,12 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.check_master_attempts = None
         self.local_client = None
         self.init_clients()
-        self.root_node.addCallback('/getMaster', self.on_master_requested_by_osc)
-        self.root_node.addCallback('/setMaster', self.on_master_set_by_osc)
+        #self.root_node.addCallback('/getMaster', self.on_master_requested_by_osc)
+        #self.root_node.addCallback('/setMaster', self.on_master_set_by_osc)
+        node = self.root_node.add_child(name='getMaster')
+        node.bind(message_received=self.on_master_requested_by_osc)
+        node = self.root_node.add_child(name='setMaster')
+        node.bind(message_received=self.on_master_set_by_osc)
         self.GLOBAL_CONFIG.bind(update=self.on_GLOBAL_CONFIG_update)
         self.comm.ServiceConnector.connect('new_host', self.on_host_discovered)
         self.comm.ServiceConnector.connect('remove_host', self.on_host_removed)
@@ -317,7 +330,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.connected = False
         
     def init_clients(self):
-        self.client_osc_node = self.root_node.add_new_node(name='CLIENTS')
+        self.client_osc_node = self.root_node.add_child(name='CLIENTS')
         names = self.get_conf('client_names', ['null'])
         if type(names) == str:
             names = [names]
@@ -621,7 +634,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             if self.oscMaster is None:
                 return
             if self.isMaster:
-                self.local_client.isMaster = True
+                if self.local_client:
+                    self.local_client.isMaster = True
                 self.root_node.send_message(address='setMaster', value=self.oscMaster)
             else:
                 self.local_client.isMaster = False

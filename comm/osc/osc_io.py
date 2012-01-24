@@ -101,7 +101,7 @@ class oscIO(BaseIO.BaseIO, Config):
             iotype = self.iotype
         update_conf = kwargs.get('update_conf', True)
         self.iotype = iotype
-        iokwargs = {'root_address':self.Manager.root_address, 'osc_tree':self.Manager.osc_tree}
+        iokwargs = {'root_address':self.Manager.root_address, 'osc_tree':self.Manager.osc_tree, 'osc_io':self}
         iokwargs.update(self.hostdata)
         if self.connected:
             self.do_disconnect()

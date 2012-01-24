@@ -18,7 +18,8 @@ import sys
 import collections
 import socket
 #from twisted.internet import reactor
-from txosc import osc#, dispatch, async
+#from txosc import osc#, dispatch, async
+import messages
 
 if __name__ == '__main__':
     import sys, os
@@ -78,7 +79,7 @@ class BaseOSCSender(BaseIO):
     def _send(self, element, address):
         if self.connected:
             #self.preprocess(element)
-            s = element.toBinary()
+            s = element.build_string()
             #for p in split_packet(s):
             #    self.queue_message(p, 0, address)
             try:
@@ -86,10 +87,11 @@ class BaseOSCSender(BaseIO):
             except socket.error, msg:
                 self.LOG.warning('%s, msg len=%s, address=%s' % (msg, len(s), element.address))
             if self.debug:
-                if isinstance(element, osc.Bundle):
-                    self.LOG.debug('_send_bundle: ', element.timeTag, element.elements)
-                else:
-                    self.LOG.debug('_send: ', element.address, element.getValues(), address)
+                self.LOG.debug('_osc_send: ' + str(element))
+#                if isinstance(element, messages.Bundle):
+#                    self.LOG.debug('_send_bundle: ', element.timetag, element.elements)
+#                else:
+#                    self.LOG.debug('_send: ', element.address, element.arguments, address)
                 
 #    def queue_message(self, *args):
 #        self.queue.append(args)
