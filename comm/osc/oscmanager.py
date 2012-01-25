@@ -66,7 +66,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         else:
             self.session_name = socket.gethostname()
             self.GLOBAL_CONFIG['session_name'] = self.session_name
-        self.osc_tree = OSCNode(name='', #self.app_address, 
+        self.osc_tree = OSCNode(name='ROOT', #self.app_address, 
                                 root_node=True, 
                                 transmit_callback=self.on_node_tree_send, 
                                 get_client_cb=self.get_client, 

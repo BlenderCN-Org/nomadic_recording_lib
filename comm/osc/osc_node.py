@@ -199,14 +199,14 @@ class OSCNode(BaseObject):
         client = kwargs.get('client')
         if data:
             element = parse_message(data)
-        if isinstance(element, Bundle):
+        if False:#isinstance(element, Bundle):
             self.dispatch_thread.add_bundle(element, client)
         else:
             self._do_dispatch_message(element, client)
             
     def _do_dispatch_message(self, element, client):
         if isinstance(element, Bundle):
-            m = message.get_messages()
+            m = element.get_messages()
         else:
             m = [element]
         for msg in m:
