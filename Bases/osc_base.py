@@ -184,7 +184,7 @@ class OSCHandler(BaseObject, PropertyConnector):
     def handle_message(self, **kwargs):
         message = kwargs.get('message')
         address = message.address
-        client = message.client
+        client = kwargs.get('client')
         #method = address.split('/')[-1:][0]
         method = address.tail
         #print 'received: address=%s, method=%s, args=%s' % (address, method, message.getValues())
