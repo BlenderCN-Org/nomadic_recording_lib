@@ -144,18 +144,20 @@ class RequestHandler(SocketServer.BaseRequestHandler):
         data = self.request[0]
         client = self.server.osc_io.Manager.get_client(hostaddr=self.client_address)
         print 'CLIENT: ', client
-        element = messages.parse_message(data, client=client)
-        if element is False:
-            return
+        #element = messages.parse_message(data, client=client)
+        
+        #if element is False:
+        #    return
+       # print 'element client: ', element.client
         #element = osc_base._elementFromBinary(data)
         #print threading.currentThread()
-        if self.server.debug:
-            self.server.osc_io.LOG.debug('_osc_recv: ' + str(element))
+        #if self.server.debug:
+        #    self.server.osc_io.LOG.debug('_osc_recv: ' + str(element))
 #            if isinstance(element, messages.Bundle):
 #                self.LOG.debug('_recv_bundle:', [msg.__str__() for msg in element.messages])
 #            else:
 #                self.LOG.debug('_recv: ', element.address, element.arguments, element.client)
-        self.server.osc_tree.dispatch_message(message=element)
+        self.server.osc_tree.dispatch_message(data=data, client=client)
         
 class MulticastUDPServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
     def __init__(self, **kwargs):

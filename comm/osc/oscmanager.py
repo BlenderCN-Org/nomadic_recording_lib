@@ -66,13 +66,12 @@ class OSCManager(BaseIO.BaseIO, Config):
         else:
             self.session_name = socket.gethostname()
             self.GLOBAL_CONFIG['session_name'] = self.session_name
-        self.osc_tree = OSCNode(name=self.app_address, 
+        self.osc_tree = OSCNode(name='', #self.app_address, 
                                 root_node=True, 
                                 transmit_callback=self.on_node_tree_send, 
                                 get_client_cb=self.get_client, 
                                 get_epoch_offset_cb=self.get_epoch_offset)
-        #self.root_node = self.osc_tree.add_child(name='null')
-        self.root_node = self.osc_tree
+        self.root_node = self.osc_tree.add_child(name=self.app_address)
         self.epoch_offset = datetime.timedelta()
         self.clock_send_thread = None
         s = kwargs.get('use_unique_addresses', self.get_conf('use_unique_addresses', 'True'))
@@ -167,9 +166,10 @@ class OSCManager(BaseIO.BaseIO, Config):
     def on_node_tree_send(self, **kwargs):
         clients = kwargs.get('clients')
         client_name = kwargs.get('client')
-        timetag = kwargs.get('timetag')
-        if timetag is not None:
-            del kwargs['timetag']
+        element = kwargs.get('element')
+#        timetag = kwargs.get('timetag')
+#        if timetag is not None:
+#            del kwargs['timetag']
         to_master = kwargs.get('to_master', client_name is None and not self.isMaster)
         if to_master:
             client_name = self.oscMaster
@@ -177,28 +177,33 @@ class OSCManager(BaseIO.BaseIO, Config):
             client = self.clients.get(client_name)
             if client is not None:
                 clients = [client]
-        address = kwargs.get('address')
-        #root_address = kwargs.get('root_address', self.root_address)
+#        address = kwargs.get('address')
+#        #root_address = kwargs.get('root_address', self.root_address)
         all_sessions = kwargs.get('all_sessions', False)
-        #address[0] = root_address
-        if not isinstance(address, Address):
-            address = Address(address)
-        #junk, address = address.pop()
-        #address = address.append_right(root_address)
+#        #address[0] = root_address
+#        if not isinstance(address, Address):
+#            address = Address(address)
+#        #junk, address = address.pop()
+#        #address = address.append_right(root_address)
+#        
+#        #path = '/' + join_address(*address)
+#        #if path[-1:] == '/':
+#        #    path = path[:-1]
+#        args = self.pack_args(kwargs.get('value'))
+#        msg = Message(*args, address=address)
+#        bundle = Bundle(msg, timetag=timetag)
         
-        #path = '/' + join_address(*address)
-        #if path[-1:] == '/':
-        #    path = path[:-1]
-        args = self.pack_args(kwargs.get('value'))
-        msg = Message(*args, address=address)
-        bundle = Bundle(msg, timetag=timetag)
         _sender = self.ioManager._sender
         if _sender is None:
             return
-        _sender.preprocess(bundle)
+        _sender.preprocess(element)
+        if isinstance(element, Bundle):
+            messages = element.get_messages()
+        else:
+            messages = [element]
         if self.ioManager.iotype == 'Multicast':
             #print 'osc_send: ', msg
-            _sender._send(bundle)
+            _sender._send(element)
             return
         if self.ioManager.iotype != 'Unicast':
             return
@@ -214,9 +219,10 @@ class OSCManager(BaseIO.BaseIO, Config):
                         clients.add(c)
         for c in clients:
             if c.accepts_timetags:
-                _sender._send(bundle, c.hostaddr)
+                _sender._send(element, c.hostaddr)
             else:
-                _sender._send(msg, c.hostaddr)
+                for msg in messages:
+                    _sender._send(msg, c.hostaddr)
     
     def pack_args(self, value):
         if isinstance(value, list) or isinstance(value, tuple):

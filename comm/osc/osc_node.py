@@ -1,7 +1,7 @@
 import threading
 import datetime
 from Bases import BaseObject
-from messages import Address, Bundle
+from messages import Address, Message, Bundle, parse_message
 
 OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
 
@@ -20,7 +20,13 @@ def timetag_to_datetime(**kwargs):
 def datetime_to_timetag_value(dt):
     td = dt - OSC_EPOCH
     return seconds_from_timedelta(td)
-
+    
+def pack_args(value):
+    if isinstance(value, list) or isinstance(value, tuple):
+        return value
+    elif value is None:
+        return []
+    return [value]
 
 class OSCNode(BaseObject):
     _Properties = {'name':dict(default=''), 
@@ -52,6 +58,9 @@ class OSCNode(BaseObject):
     def oscMaster(self, value):
         if value != self.oscMaster:
             self.get_root_node()._set_oscMaster(value)
+    @property
+    def dispatch_thread(self):
+        return self.get_root_node()._dispatch_thread
     def _on_name_set(self, **kwargs):
         old = kwargs.get('old')
         value = kwargs.get('value')
@@ -68,6 +77,9 @@ class OSCNode(BaseObject):
     def add_child(self, **kwargs):
         name = kwargs.get('name')
         address = kwargs.get('address', '')
+        if len(address) and address[0] == '/':
+            if not self.is_root_node:
+                return self.get_root_node().add_child(**kwargs)
         parent = kwargs.get('parent', self)
         def do_add_node(**nkwargs):
             nkwargs.setdefault('parent', self)
@@ -182,19 +194,29 @@ class OSCNode(BaseObject):
         if not self.is_root_node:
             self.get_root_node().dispatch_message(**kwargs)
             return
-        message = kwargs.get('message')
-        if isinstance(message, Bundle):
+        element = kwargs.get('element')
+        data = kwargs.get('data')
+        client = kwargs.get('client')
+        if data:
+            element = parse_message(data)
+        if isinstance(element, Bundle):
+            self.dispatch_thread.add_bundle(element, client)
+        else:
+            self._do_dispatch_message(element, client)
+            
+    def _do_dispatch_message(self, element, client):
+        if isinstance(element, Bundle):
             m = message.get_messages()
         else:
-            m = [messages]
+            m = [element]
         for msg in m:
             matched = self.match_address(msg.address)
             for node in matched:
-                node.emit('message_received', message=msg, client=msg.client)
-                print 'msg dispatched: ', msg.address, node.get_full_path()
+                node.emit('message_received', message=msg, client=client)
+                print 'msg dispatched: ', msg.address, node.get_full_path(), client
             if not len(matched):
-                self.emit('message_not_dispatched', message=msg)
-                print 'NOT dispatched: ', msg.address, self.children.keys()
+                self.emit('message_not_dispatched', message=msg, client=client)
+                print 'NOT dispatched: ', msg.address, self.children.keys(), client
             
     def send_message(self, **kwargs):
         if 'full_path' not in kwargs:
@@ -211,8 +233,11 @@ class OSCNode(BaseObject):
             return
         now = datetime.datetime.now()
         offset = self.get_epoch_offset_cb()
-        kwargs['timetag'] = datetime_to_timetag_value(now - offset)
-        kwargs['address'] = kwargs['full_path']
+        timetag = datetime_to_timetag_value(now - offset)
+        value = pack_args(kwargs.get('value'))
+        message = Message(*value, address=kwargs['full_path'])
+        bundle = Bundle(message, timetag=timetag)
+        kwargs['element'] = bundle
         self.transmit_callback(**kwargs)
         
         
@@ -248,9 +273,9 @@ class OSCDispatchThread(threading.Thread):
                 self.do_dispatch = getattr(self, attr)
         
     def add_bundle(self, bundle, client):
-        tt = bundle.timeTag
+        tt = bundle.timetag
         if tt is not None:
-            dt = timetag_to_datetime(timetag_obj=tt)
+            dt = timetag_to_datetime(value=tt)
         else:
             dt = datetime.datetime.now()
         self.bundles[dt] = (bundle, client)
@@ -279,7 +304,7 @@ class OSCDispatchThread(threading.Thread):
                 if dt <= now:
                     bundle, client = self.bundles[dt]
                     del self.bundles[dt]
-                    messages = bundle.getMessages()
+                    messages = bundle.get_messages()
                     try:
                         self.do_dispatch(messages, client)
                     except:
@@ -292,7 +317,7 @@ class OSCDispatchThread(threading.Thread):
                     
     def _do_dispatch(self, messages, client):
         for m in messages:
-            self.osc_tree.dispatch_message(message=m, client=client)
+            self.osc_tree._do_dispatch_message(message=m, client=client)
             
     def gtk_do_dispatch(self, messages, client):
         #self.ui_module.gdk.threads_enter()
