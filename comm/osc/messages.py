@@ -268,7 +268,7 @@ ARG_CLS_BY_PYTYPE[None] = NoneArgument
 class Address(StringArgument):
     def __new__(cls, value):
         if isinstance(value, list) or isinstance(value, tuple):
-            value = '/' + '/'.join([v for v in value])
+            value = '/'.join([v for v in value])
         return str.__new__(cls, value)
     @property
     def head(self):

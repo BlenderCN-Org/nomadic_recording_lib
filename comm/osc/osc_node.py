@@ -1,5 +1,12 @@
 import threading
 import datetime
+if __name__ == '__main__':
+    import sys
+    import os.path
+    p = os.path.dirname(__file__)
+    for i in range(2):
+        p = os.path.split(p)[0]
+    sys.path.append(p)
 from Bases import BaseObject
 from messages import Address, Message, Bundle, parse_message
 
@@ -94,10 +101,11 @@ class OSCNode(BaseObject):
             address = Address(address)
         if name is not None:
             address = address.append(name)
+        print address
         #elif 'name' in kwargs:
         #    address = Address(name)
         current, address = address.pop()
-        #print 'current=%s, address=%s' % (current, address)
+        print 'current=%s, address=%s' % (current, address)
         node = self.children.get(current)
         if not node:
             node = do_add_node(name=current)
@@ -154,6 +162,9 @@ class OSCNode(BaseObject):
     def match_address(self, address):
         if not isinstance(address, Address):
             address = Address(address)
+        if self.is_root_node:
+            current, address = address.pop()
+        #print self.name, ' match: ', address
         current, address = address.pop()
         if not len(current):
             return set([self])
@@ -168,7 +179,7 @@ class OSCNode(BaseObject):
         return matched
         
     def match_wildcard(self, s):
-        print self.name, ' match wildcard ', s
+        #print self.name, ' match wildcard ', s
         matched = set()
         children = self.children
         #if not len(set('*?[]{}') & set(s)):
@@ -343,3 +354,22 @@ class Messenger(object):
             setattr(self, key, val)
     def send(self, *args):
         self.callback(self)
+        
+if __name__ == '__main__':
+    td = datetime.timedelta()
+    def get_client(*args, **kwargs):
+        pass
+    def get_epoch(*args, **kwargs):
+        return td
+    def transmit(*args, **kwargs):
+        element = kwargs.get('element')
+        root.dispatch_message(element=element)
+    root = OSCNode(name='root', 
+                   root_node=True, 
+                   get_client_cb=get_client, 
+                   get_epoch_offset_cb=get_epoch, 
+                   transmit_callback=transmit)
+    tail = root.add_child(address='blah/stuff/things')
+    print tail.get_full_path()
+    tail.send_message(value='hi')
+    print root.match_address('/root/blah/stuff/things')
