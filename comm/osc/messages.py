@@ -272,6 +272,17 @@ class TimetagArgument(TimetagPyType, Argument):
         
     @staticmethod
     def parse_binary(cls, data, **kwargs):
+        msb = struct.unpack('>q', data[:8])[0]
+        data = data[8:]
+        lsb = struct.unpack('>q', data[:8])[0]
+        data = data[8:]
+        if msb <= 0 and lsb == 1:
+            value = -1
+        else:
+            value = msb + float('.%i' % (lsb))
+        return value, data
+    @staticmethod
+    def blahparse_binary(cls, data, **kwargs):
         binary = data[0:16]
         if len(binary) != 16:
             return False
@@ -381,19 +392,23 @@ def parse_message(data, client=None, timestamp=None):
         return Bundle(data=data, client=client, timestamp=timestamp)
     
 if __name__ == '__main__':
-    msg1 = Message('a', 1, True, address='/blah/stuff/1')
-    msg2 = Message('b', 2, False, address='/blah/stuff/2')
-    #print msg1
-    #print msg2
-    
-    bundle = Bundle(msg1, msg2, timetag=2000.)
-    print bundle
-    bundle2 = parse_message(bundle.build_string())
-    print bundle2
-    print [m.get_arguments() for m in bundle2.get_messages()]
-#    for obj in [True, False, None]:
-#        arg = build_argument(obj=obj)
-#        print arg
-#        print arg == obj
-#        print arg is obj
-#        #print arg._pytype(arg)
+#    msg1 = Message('a', 1, True, address='/blah/stuff/1')
+#    msg2 = Message('b', 2, False, address='/blah/stuff/2')
+#    #print msg1
+#    #print msg2
+#    
+#    bundle = Bundle(msg1, msg2, timetag=2000.)
+#    print bundle
+#    bundle2 = parse_message(bundle.build_string())
+#    print bundle2
+#    print [m.get_arguments() for m in bundle2.get_messages()]
+##    for obj in [True, False, None]:
+##        arg = build_argument(obj=obj)
+##        print arg
+##        print arg == obj
+##        print arg is obj
+##        #print arg._pytype(arg)
+    tt1 = TimetagArgument(-1)
+    print tt1, [tt1.build_string()]
+    tt2, data = TimetagArgument.from_binary(TimetagArgument, tt1.build_string())
+    print tt2, [tt2.build_string()]
