@@ -24,6 +24,8 @@ class Message(object):
         return self._address
     @address.setter
     def address(self, value):
+        if value[0] != '/':
+            value = '/' + value
         self._address = Address(value)
     @property
     def client(self):

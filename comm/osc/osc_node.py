@@ -101,11 +101,11 @@ class OSCNode(BaseObject):
             address = Address(address)
         if name is not None:
             address = address.append(name)
-        print address
+        #print address
         #elif 'name' in kwargs:
         #    address = Address(name)
         current, address = address.pop()
-        print 'current=%s, address=%s' % (current, address)
+        #print 'current=%s, address=%s' % (current, address)
         node = self.children.get(current)
         if not node:
             node = do_add_node(name=current)
@@ -210,6 +210,7 @@ class OSCNode(BaseObject):
         client = kwargs.get('client')
         if data:
             element = parse_message(data)
+        print 'osc recv: ', str(element)
         if False:#isinstance(element, Bundle):
             self.dispatch_thread.add_bundle(element, client)
         else:
@@ -363,7 +364,11 @@ if __name__ == '__main__':
         return td
     def transmit(*args, **kwargs):
         element = kwargs.get('element')
-        root.dispatch_message(element=element)
+        print str(element)
+        e2 = parse_message(element.build_string())
+        print [element.build_string()]
+        print str(e2)
+        root.dispatch_message(data=element.build_string())
     root = OSCNode(name='root', 
                    root_node=True, 
                    get_client_cb=get_client, 

@@ -143,7 +143,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
         data = self.request[0]
         client = self.server.osc_io.Manager.get_client(hostaddr=self.client_address)
-        print 'CLIENT: ', client
+        #print 'CLIENT: ', client
         #element = messages.parse_message(data, client=client)
         
         #if element is False:
