@@ -8,13 +8,14 @@ OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
 
 class Message(object):
     def __init__(self, *args, **kwargs):
+        self.client = kwargs.get('client')
+        self.timestamp = kwargs.get('timestamp')
         data = kwargs.get('data')
         if data is not None:
             kwargs = self.parse_data(data)
         if 'args' in kwargs:
             args = kwargs['args']
         self.address = kwargs.get('address')
-        self.client = kwargs.get('client')
         self.arguments = []
         for arg in args:
             self.add_argument(arg)
@@ -68,15 +69,15 @@ class Message(object):
     
 class Bundle(object):
     def __init__(self, *args, **kwargs):
+        self.elements = []
+        self.client = kwargs.get('client')
+        self.timestamp = kwargs.get('timestamp')
         data = kwargs.get('data')
         if data is not None:
             kwargs = self.parse_data(data)
         timetag = kwargs.get('timetag', -1)
         if not isinstance(timetag, TimetagArgument):
             timetag = TimetagArgument(timetag)
-        self.elements = []
-        self.client = kwargs.get('client')
-        self.timestamp = kwargs.get('timestamp')
         self.timetag = timetag
         if 'elements' in kwargs:
             args = kwargs['elements']
@@ -301,7 +302,7 @@ class TimetagArgument(TimetagPyType, Argument):
     def datetime(self):
         td = datetime.timedelta(seconds=self)
         dt = OSC_EPOCH + td
-        print dt
+        #print dt
         return dt
 
 ARG_CLASSES = (IntArgument, FloatArgument, StringArgument, BlobArgument, 
@@ -382,10 +383,12 @@ def _strip_padding(data):
     padlen = _find_pad_length(first_null)
     return data[0:first_null], data[padlen:]
     
-def parse_message(data, client=None, timestamp=None):
+def parse_message(data, **kwargs):
     if not len(data):
         print 'NO DATA'
         return False
+    client = kwargs.get('client')
+    timestamp = kwargs.get('timestamp')
     if data[0] == '/':
         return Message(data=data, client=client, timestamp=timestamp)
     if len(data) > 7 and data[:7] == '#bundle':

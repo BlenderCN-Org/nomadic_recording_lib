@@ -248,8 +248,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         value = msg.get_arguments()[0]
         dt = datetime.datetime.strptime(value, '%Y%m%d %H:%M:%S %f')
         now = datetime.datetime.now()
-        tsnow = datetime.datetime.fromtimestamp(msg.timestamp)
-        print 'now=%s, tsnow=%s' % (now, tsnow)
+        #print 'msg.timestamp: ', msg.timestamp
+        #tsnow = datetime.datetime.fromtimestamp(msg.timestamp)
+        #print 'now=%s, tsnow=%s' % (now, tsnow)
         self.epoch_offset = now - dt
         #print 'epoch_offset: ', self.epoch_offset
         

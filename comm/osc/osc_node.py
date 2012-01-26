@@ -48,6 +48,7 @@ class OSCNode(BaseObject):
         if self.name is None or not len(self.name):
             self.name = str(id(self))
         if self.is_root_node:
+            self.debug = self.GLOBAL_CONFIG.get('arg_parse_dict', {}).get('debug_osc')
             self._oscMaster = kwargs.get('oscMaster', False)
             self.get_client_cb = kwargs.get('get_client_cb')
             self.transmit_callback = kwargs.get('transmit_callback')
@@ -211,13 +212,14 @@ class OSCNode(BaseObject):
         timestamp = kwargs.get('timestamp')
         if data:
             element = parse_message(data, client=client, timestamp=timestamp)
-        print 'osc recv: ', str(element)
+        if self.debug:
+            self.LOG.info('osc recv: ' + str(element))
         if isinstance(element, Bundle) and element.timetag > 0:
-            self.dispatch_thread.add_bundle(element, client)
+            self.dispatch_thread.add_bundle(element)
         else:
-            self._do_dispatch_message(element, client)
+            self._do_dispatch_message(element)
             
-    def _do_dispatch_message(self, element, client):
+    def _do_dispatch_message(self, element):
         if isinstance(element, Bundle):
             m = element.get_messages()
         else:
@@ -225,11 +227,11 @@ class OSCNode(BaseObject):
         for msg in m:
             matched = self.match_address(msg.address)
             for node in matched:
-                node.emit('message_received', message=msg, client=client)
-                print 'msg dispatched: ', msg.address, msg.get_arguments(), node.get_full_path(), client
+                #print 'dispatching msg: ', msg.address, msg.get_arguments(), '(from %s)' % msg.client.name
+                node.emit('message_received', message=msg, client=msg.client)
             if not len(matched):
-                self.emit('message_not_dispatched', message=msg, client=client)
-                print 'NOT dispatched: ', msg.address, msg.get_arguments(), self.children.keys(), client
+                self.emit('message_not_dispatched', message=msg, client=msg.client)
+                self.LOG.info('OSC msg not dispatched: ', msg.address, msg.get_arguments(), self.children.keys(), msg.client.name)
             
     def send_message(self, **kwargs):
         if 'full_path' not in kwargs:
@@ -249,6 +251,7 @@ class OSCNode(BaseObject):
             now = datetime.datetime.now()
             offset = self.get_epoch_offset_cb()
             timetag = datetime_to_timetag_value(now - offset)
+        timetag = -1
         value = pack_args(kwargs.get('value'))
         message = Message(*value, address=kwargs['full_path'])
         bundle = Bundle(message, timetag=timetag)
@@ -287,11 +290,11 @@ class OSCDispatchThread(threading.Thread):
             if attr:
                 self.do_dispatch = getattr(self, attr)
         
-    def add_bundle(self, bundle, client):
-        dt = bundle.datetime
+    def add_bundle(self, bundle):
+        dt = bundle.timetag.datetime
         if dt in self.bundles:
             dt = dt + datetime.timedelta(microseconds=1)
-        self.bundles[dt] = (bundle, client)
+        self.bundles[dt] = bundle
         self.ready_to_dispatch.set()
         
     def get_next_datetime(self):
@@ -313,11 +316,11 @@ class OSCDispatchThread(threading.Thread):
                 offset = self.osc_tree.get_epoch_offset_cb()
                 now = now + offset
                 if dt <= now:
-                    bundle, client = self.bundles[dt]
+                    bundle = self.bundles[dt]
                     del self.bundles[dt]
                     messages = bundle.get_messages()
                     try:
-                        self.do_dispatch(messages, client)
+                        self.do_dispatch(messages)
                     except:
                         pass
                 else:
@@ -326,22 +329,22 @@ class OSCDispatchThread(threading.Thread):
                     self.ready_to_dispatch.wait(timeout)
                     self.ready_to_dispatch.set()
                     
-    def _do_dispatch(self, messages, client):
+    def _do_dispatch(self, messages):
         for m in messages:
-            self.osc_tree._do_dispatch_message(message=m, client=client)
+            self.osc_tree._do_dispatch_message(m)
             
-    def gtk_do_dispatch(self, messages, client):
+    def gtk_do_dispatch(self, messages):
         #self.ui_module.gdk.threads_enter()
-        self._do_dispatch(messages, client)
+        self._do_dispatch(messages)
         #self.ui_module.gdk.threads_leave()
                 
-    def kivy_do_dispatch(self, messages, client):
-        obj = Messenger(messages=messages, client=client, callback=self._on_kivy_msg_cb)
+    def kivy_do_dispatch(self, messages):
+        obj = Messenger(messages=messages, callback=self._on_kivy_msg_cb)
         self.kivy_messengers.add(obj)
         self.ui_module.schedule_once(obj.send, 0)
         
     def _on_kivy_msg_cb(self, messenger):
-        self._do_dispatch(messenger.messages, messenger.client)
+        self._do_dispatch(messenger.messages)
         self.kivy_messengers.discard(messenger)
 
     def stop(self, **kwargs):
@@ -352,7 +355,7 @@ class OSCDispatchThread(threading.Thread):
             self.join()
 
 class Messenger(object):
-    __slots__ = ('messages', 'client', 'callback', '__weakref__')
+    __slots__ = ('messages', 'callback', '__weakref__')
     def __init__(self, **kwargs):
         for key, val in kwargs.iteritems():
             setattr(self, key, val)
