@@ -273,19 +273,15 @@ class OSCDispatchThread(threading.Thread):
                 self.do_dispatch = getattr(self, attr)
         
     def add_bundle(self, bundle, client):
-        tt = bundle.timetag
-        if tt is not None:
-            dt = timetag_to_datetime(value=tt)
-        else:
-            dt = datetime.datetime.now()
+        dt = bundle.datetime
+        if dt in self.bundles:
+            dt = dt + datetime.timedelta(microseconds=1)
         self.bundles[dt] = (bundle, client)
         self.ready_to_dispatch.set()
         
     def get_next_datetime(self):
         if len(self.bundles):
-            keys = self.bundles.keys()
-            keys.sort()
-            return keys[0]
+            return min(self.bundles.keys())
         return False
         
     def run(self):

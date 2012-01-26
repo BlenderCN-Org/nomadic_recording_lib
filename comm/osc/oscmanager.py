@@ -54,7 +54,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         BaseIO.BaseIO.__init__(self, **kwargs)
         Config.__init__(self, **kwargs)
         self.register_signal('client_added', 'client_removed', 'unique_address_changed', 'new_master')
-        self.app_address = kwargs.get('app_address', self.get_conf('app_address', 'OSCApp'))
+        self.app_address = self.GLOBAL_CONFIG.get('app_name', self.get_conf('app_address', 'OSCApp'))
         self.default_root_address = kwargs.get('root_address', '%s-%s' % (self.app_address, socket.gethostname()))
         self.root_address = self.default_root_address
         self.wildcard_address = None
@@ -66,12 +66,13 @@ class OSCManager(BaseIO.BaseIO, Config):
         else:
             self.session_name = socket.gethostname()
             self.GLOBAL_CONFIG['session_name'] = self.session_name
-        self.osc_tree = OSCNode(name='ROOT', #self.app_address, 
+        self.osc_tree = OSCNode(name=self.app_address, 
                                 root_node=True, 
                                 transmit_callback=self.on_node_tree_send, 
                                 get_client_cb=self.get_client, 
                                 get_epoch_offset_cb=self.get_epoch_offset)
-        self.root_node = self.osc_tree.add_child(name=self.app_address)
+        #self.root_node = self.osc_tree.add_child(name=self.app_address)
+        self.root_node = self.osc_tree
         self.epoch_offset = datetime.timedelta()
         self.clock_send_thread = None
         s = kwargs.get('use_unique_addresses', self.get_conf('use_unique_addresses', 'True'))

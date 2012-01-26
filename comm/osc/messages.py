@@ -1,6 +1,10 @@
 import struct
 import types
 import math
+import datetime
+
+OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
+
 
 class Message(object):
     def __init__(self, *args, **kwargs):
@@ -237,6 +241,13 @@ class TimetagArgument(TimetagPyType, Argument):
             high, low = struct.unpack(">qq", data[0:16])
             time = float(int(high) + low / float(1e9))
         return time, leftover
+        
+    @property
+    def datetime(self):
+        td = datetime.timedelta(seconds=self)
+        dt = OSC_EPOCH + td
+        print dt
+        return dt
 
 ARG_CLASSES = (IntArgument, FloatArgument, StringArgument, BlobArgument, 
                BoolArgument, NoneArgument)
