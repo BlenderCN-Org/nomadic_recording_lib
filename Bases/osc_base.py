@@ -72,10 +72,12 @@ class OSCBaseObject(BaseObject):
         if self.osc_enabled:
             for handler in self.osc_handlers.itervalues():
                 handler.unlink()
-                n = handler.osc_node
-                if n != self.osc_node:
-                    remove_node(n)
-            remove_node(self.osc_node)
+                #n = handler.osc_node
+                #if n != self.osc_node:
+                #    remove_node(n)
+            #remove_node(self.osc_node)
+            if self.osc_node.parent is not None:
+                self.osc_node.parent.remove_node(name=self.osc_node.name)
         super(OSCBaseObject, self).unlink()
         
     def set_osc_address(self, address):
