@@ -342,6 +342,8 @@ class Address(StringArgument):
         if not isinstance(other, Address):
             other = Address(other)
         l = self.split() + other.split()
+        if len(self) and self[0] == '/':
+            l[0] = '/' + l[0]
         return Address(l)
     def append_right(self, other):
         if not isinstance(other, Address):
@@ -411,7 +413,7 @@ if __name__ == '__main__':
 ##        print arg == obj
 ##        print arg is obj
 ##        #print arg._pytype(arg)
-    tt1 = TimetagArgument(-1)
-    print tt1, [tt1.build_string()]
-    tt2, data = TimetagArgument.from_binary(TimetagArgument, tt1.build_string())
-    print tt2, [tt2.build_string()]
+    addr = Address('/blah/test')
+    print addr
+    addr = addr.append('stuff')
+    print addr
