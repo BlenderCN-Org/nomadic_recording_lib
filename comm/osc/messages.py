@@ -76,6 +76,7 @@ class Bundle(object):
             timetag = TimetagArgument(timetag)
         self.elements = []
         self.client = kwargs.get('client')
+        self.timestamp = kwargs.get('timestamp')
         self.timetag = timetag
         if 'elements' in kwargs:
             args = kwargs['elements']
@@ -106,10 +107,12 @@ class Bundle(object):
         return dict(timetag=timetag, elements=elements)
     def add_element(self, element):
         if element.__class__ in [Bundle, Message]:
+            element.client = self.client
+            element.timestamp = self.timestamp
             self.elements.append(element)
             return
         #size, data = element
-        realelement = parse_message(element, client=self.client)
+        realelement = parse_message(element, client=self.client, timestamp=self.timestamp)
         if realelement.__class__ in [Bundle, Message]:
             self.elements.append(realelement)
     def get_messages(self):
@@ -368,14 +371,14 @@ def _strip_padding(data):
     padlen = _find_pad_length(first_null)
     return data[0:first_null], data[padlen:]
     
-def parse_message(data, client=None):
+def parse_message(data, client=None, timestamp=None):
     if not len(data):
         print 'NO DATA'
         return False
     if data[0] == '/':
-        return Message(data=data, client=client)
+        return Message(data=data, client=client, timestamp=timestamp)
     if len(data) > 7 and data[:7] == '#bundle':
-        return Bundle(data=data, client=client)
+        return Bundle(data=data, client=client, timestamp=timestamp)
     
 if __name__ == '__main__':
     msg1 = Message('a', 1, True, address='/blah/stuff/1')

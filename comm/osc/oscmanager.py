@@ -243,10 +243,13 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.clock_send_thread.stop(blocking=blocking)
         self.clock_send_thread = None
             
-    def on_master_sent_clocksync(self, msg, address):
+    def on_master_sent_clocksync(self, **kwargs):
+        msg = kwargs.get('message')
         value = msg.get_arguments()[0]
         dt = datetime.datetime.strptime(value, '%Y%m%d %H:%M:%S %f')
         now = datetime.datetime.now()
+        tsnow = datetime.datetime.fromtimestamp(msg.timestamp)
+        print 'now=%s, tsnow=%s' % (now, tsnow)
         self.epoch_offset = now - dt
         #print 'epoch_offset: ', self.epoch_offset
         
@@ -568,12 +571,13 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             if value != getattr(self, key):
                 setattr(self, key, value)
             
-    def on_master_requested_by_osc(self, msg, address):
+    def on_master_requested_by_osc(self, **kwargs):
         if self.oscMaster:
             self.root_node.send_message(address='setMaster', value=self.oscMaster)
         self.LOG.info('master_requested_by_osc')
             
-    def on_master_set_by_osc(self, msg, address):
+    def on_master_set_by_osc(self, **kwargs):
+        msg = kwargs.get('message')
         name = msg.get_arguments()[0]
         self.LOG.info('master_set_by_osc', name)
         self.cancel_check_master_timer()
@@ -732,7 +736,10 @@ class ClockSender(BaseThread):
             return
         clients = [c for c in self.Manager.clients.values() if c.sendAllUpdates and c.accepts_timetags and c.isSameSession]
         now = datetime.datetime.now()
-        self.osc_node.send_message(address=self.osc_address, value=now.strftime('%Y%m%d %H:%M:%S %f'), clients=clients)
+        self.osc_node.send_message(address=self.osc_address, 
+                                   value=now.strftime('%Y%m%d %H:%M:%S %f'), 
+                                   timetag=-1, 
+                                   clients=clients)
     def old_run(self):
         self.running.set()
         self.send_clock()

@@ -15,6 +15,7 @@
 # Copyright (c) 2011 Matthew Reid
 
 import sys
+import time
 import SocketServer
 import threading
 import select
@@ -141,6 +142,7 @@ class UnicastOSCReceiver(BaseOSCReceiver):
         
 class RequestHandler(SocketServer.BaseRequestHandler):
     def handle(self):
+        timestamp = time.time()
         data = self.request[0]
         client = self.server.osc_io.Manager.get_client(hostaddr=self.client_address)
         #print 'CLIENT: ', client
@@ -157,7 +159,7 @@ class RequestHandler(SocketServer.BaseRequestHandler):
 #                self.LOG.debug('_recv_bundle:', [msg.__str__() for msg in element.messages])
 #            else:
 #                self.LOG.debug('_recv: ', element.address, element.arguments, element.client)
-        self.server.osc_tree.dispatch_message(data=data, client=client)
+        self.server.osc_tree.dispatch_message(data=data, client=client, timestamp=timestamp)
         
 class MulticastUDPServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
     def __init__(self, **kwargs):

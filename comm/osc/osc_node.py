@@ -208,10 +208,11 @@ class OSCNode(BaseObject):
         element = kwargs.get('element')
         data = kwargs.get('data')
         client = kwargs.get('client')
+        timestamp = kwargs.get('timestamp')
         if data:
-            element = parse_message(data)
+            element = parse_message(data, client=client, timestamp=timestamp)
         print 'osc recv: ', str(element)
-        if False:#isinstance(element, Bundle):
+        if isinstance(element, Bundle) and element.timetag > 0:
             self.dispatch_thread.add_bundle(element, client)
         else:
             self._do_dispatch_message(element, client)
@@ -243,9 +244,11 @@ class OSCNode(BaseObject):
         if not self.is_root_node:
             self.get_root_node().send_message(**kwargs)
             return
-        now = datetime.datetime.now()
-        offset = self.get_epoch_offset_cb()
-        timetag = datetime_to_timetag_value(now - offset)
+        timetag = kwargs.get('timetag')
+        if timetag is None:
+            now = datetime.datetime.now()
+            offset = self.get_epoch_offset_cb()
+            timetag = datetime_to_timetag_value(now - offset)
         value = pack_args(kwargs.get('value'))
         message = Message(*value, address=kwargs['full_path'])
         bundle = Bundle(message, timetag=timetag)
