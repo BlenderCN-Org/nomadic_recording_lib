@@ -225,10 +225,10 @@ class OSCNode(BaseObject):
             matched = self.match_address(msg.address)
             for node in matched:
                 node.emit('message_received', message=msg, client=client)
-                print 'msg dispatched: ', msg.address, node.get_full_path(), client
+                print 'msg dispatched: ', msg.address, msg.get_arguments(), node.get_full_path(), client
             if not len(matched):
                 self.emit('message_not_dispatched', message=msg, client=client)
-                print 'NOT dispatched: ', msg.address, self.children.keys(), client
+                print 'NOT dispatched: ', msg.address, msg.get_arguments(), self.children.keys(), client
             
     def send_message(self, **kwargs):
         if 'full_path' not in kwargs:
@@ -376,5 +376,5 @@ if __name__ == '__main__':
                    transmit_callback=transmit)
     tail = root.add_child(address='blah/stuff/things')
     print tail.get_full_path()
-    tail.send_message(value='hi')
+    tail.send_message(value=[1, True, 'a'])
     print root.match_address('/root/blah/stuff/things')

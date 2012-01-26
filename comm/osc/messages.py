@@ -42,6 +42,9 @@ class Message(object):
             arg = build_argument(obj=arg)
         self.arguments.append(arg)
         
+    def get_arguments(self):
+        return [arg.real_value for arg in self.arguments]
+        
     def parse_data(self, data):
         address, data = _strip_padding(data)
         tags, data = _strip_padding(data)
@@ -165,6 +168,9 @@ class Argument(object):
             #print type(self), s
             return s
         return ''
+    @property
+    def real_value(self):
+        return self
     
 class IntArgument(int, Argument):
     _type_tag = 'i'
@@ -198,22 +204,55 @@ class BlobArgument(list, Argument):
     
 class BoolArgument(Argument):
     _pytype = bool
+    def __new__(cls, value):
+        if cls == BoolArgument:
+            if value:
+                cls = TrueArgument
+            else:
+                cls = FalseArgument
+            return cls.__new__(cls, value)
+        return super(BoolArgument, cls).__new__(cls, value)
     def __init__(self, value):
         self._value = value
+    def __nonzero__(self):
+        return self._value
+    def __eq__(self, other):
+        return other == self._value
+    def __hash__(self):
+        return id(self._value)
     @property
-    def _type_tag(self):
-        if self._value:
-            return 'T'
-        else:
-            return 'F'
+    def real_value(self):
+        return self._value
     @staticmethod
-    def parse_binary(cls, data, **kwargs):
-        tag = kwargs.get('type_tag')
-        return tag == 'T', data
+    def from_binary(cls, data, **kwargs):
+        if cls == TrueArgument:
+            value = True
+        elif cls == FalseArgument:
+            value = False
+        return cls(value), data
+    
+class TrueArgument(BoolArgument):
+    _type_tag = 'T'
+    
+class FalseArgument(BoolArgument):
+    _type_tag = 'F'
     
 class NoneArgument(Argument):
     _type_tag = 'N'
     _pytype = types.NoneType
+    def __new__(cls, *args):
+        if cls == types.NoneType:
+            cls = NoneArgument
+        return super(NoneArgument, cls).__new__(cls)
+    @property
+    def real_value(self):
+        return None
+    def __hash__(self):
+        return id(None)
+    def __nonzero__(self):
+        return False
+    def __eq__(self, other):
+        return other is None
     
 class TimetagPyType(float):
     pass
@@ -252,7 +291,7 @@ class TimetagArgument(TimetagPyType, Argument):
         return dt
 
 ARG_CLASSES = (IntArgument, FloatArgument, StringArgument, BlobArgument, 
-               BoolArgument, NoneArgument)
+               BoolArgument, TrueArgument, FalseArgument, NoneArgument)
 ARG_CLS_BY_PYTYPE = {}
 ARG_CLS_BY_TYPE_TAG = {}
 for argcls in ARG_CLASSES:
@@ -260,11 +299,12 @@ for argcls in ARG_CLASSES:
         pytype = argcls._pytype
     else:
         pytype = argcls.__bases__[0]
-    ARG_CLS_BY_PYTYPE[pytype] = argcls
+    if pytype not in ARG_CLS_BY_PYTYPE:
+        ARG_CLS_BY_PYTYPE[pytype] = argcls
     if hasattr(argcls, '_type_tag'):
         ARG_CLS_BY_TYPE_TAG[argcls._type_tag] = argcls
-ARG_CLS_BY_PYTYPE[True] = BoolArgument
-ARG_CLS_BY_PYTYPE[False] = BoolArgument
+#ARG_CLS_BY_PYTYPE[True] = TrueArgument
+#ARG_CLS_BY_PYTYPE[False] = FalseArgument
 ARG_CLS_BY_PYTYPE[None] = NoneArgument
 
 class Address(StringArgument):
@@ -338,8 +378,8 @@ def parse_message(data, client=None):
         return Bundle(data=data, client=client)
     
 if __name__ == '__main__':
-    msg1 = Message('a', 1, address='/blah/stuff/1')
-    msg2 = Message('b', 2, address='/blah/stuff/2')
+    msg1 = Message('a', 1, True, address='/blah/stuff/1')
+    msg2 = Message('b', 2, False, address='/blah/stuff/2')
     #print msg1
     #print msg2
     
@@ -347,3 +387,10 @@ if __name__ == '__main__':
     print bundle
     bundle2 = parse_message(bundle.build_string())
     print bundle2
+    print [m.get_arguments() for m in bundle2.get_messages()]
+#    for obj in [True, False, None]:
+#        arg = build_argument(obj=obj)
+#        print arg
+#        print arg == obj
+#        print arg is obj
+#        #print arg._pytype(arg)

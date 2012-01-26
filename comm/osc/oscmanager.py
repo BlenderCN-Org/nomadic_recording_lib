@@ -244,7 +244,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.clock_send_thread = None
             
     def on_master_sent_clocksync(self, msg, address):
-        value = msg.getValues()[0]
+        value = msg.get_arguments()[0]
         dt = datetime.datetime.strptime(value, '%Y%m%d %H:%M:%S %f')
         now = datetime.datetime.now()
         self.epoch_offset = now - dt
@@ -574,7 +574,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.LOG.info('master_requested_by_osc')
             
     def on_master_set_by_osc(self, msg, address):
-        name = msg.getValues()[0]
+        name = msg.get_arguments()[0]
         self.LOG.info('master_set_by_osc', name)
         self.cancel_check_master_timer()
         self.check_master_attempts = None
