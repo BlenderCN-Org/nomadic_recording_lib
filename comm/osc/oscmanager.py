@@ -115,9 +115,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.connected = True
         
     def do_disconnect(self, **kwargs):
+        self.stop_clock_send_thread(blocking=True)
         self.ioManager.do_disconnect(**kwargs)
         self.SessionManager.do_disconnect(**kwargs)
-        self.stop_clock_send_thread(blocking=True)
         self.connected = False
         
     def shutdown(self):
@@ -282,10 +282,10 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.init_clients()
         #self.root_node.addCallback('/getMaster', self.on_master_requested_by_osc)
         #self.root_node.addCallback('/setMaster', self.on_master_set_by_osc)
-        node = self.root_node.add_child(name='getMaster')
-        node.bind(message_received=self.on_master_requested_by_osc)
-        node = self.root_node.add_child(name='setMaster')
-        node.bind(message_received=self.on_master_set_by_osc)
+        self.getMasterNode = self.root_node.add_child(name='getMaster')
+        self.getMasterNode.bind(message_received=self.on_master_requested_by_osc)
+        self.setMasterNode = self.root_node.add_child(name='setMaster')
+        self.setMasterNode.bind(message_received=self.on_master_set_by_osc)
         self.GLOBAL_CONFIG.bind(update=self.on_GLOBAL_CONFIG_update)
         self.comm.ServiceConnector.connect('new_host', self.on_host_discovered)
         self.comm.ServiceConnector.connect('remove_host', self.on_host_removed)
@@ -299,11 +299,16 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def root_address(self):
         return self.Manager.root_address
     @property
+    def local_name(self):
+        if not self.local_client:
+            return '-'.join([self.GLOBAL_CONFIG.get('app_name'), socket.gethostname()])
+        return self.local_client.name
+    @property
     def isMaster(self):
-        return self.oscMaster == self.root_address
+        return self.oscMaster == self.local_name
     @property
     def isRingMaster(self):
-        return self.Manager.ring_master == self.root_address
+        return self.Manager.ring_master == self.local_name
     @property
     def master_priority(self):
         return self.Manager.master_priority
@@ -338,8 +343,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def do_connect(self):
         serv = self.comm.ServiceConnector.add_service(**self.build_zeroconf_data())
         self.comm.ServiceConnector.add_listener(stype='_osc._udp')
-        self.check_for_master()
         self.connected = True
+        self.check_for_master()
         
     def do_disconnect(self, **kwargs):
         self.set_master(False)
@@ -392,7 +397,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if session is None:
             return
         for client in clients:
-            if client == session['master']:
+            if client == session.get('master'):
                 session['master'] = None
             session['clients'].discard(client)
         if not len(sessions[name]['clients']):
@@ -435,8 +440,9 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             return
         #self.remove_client_name(name, update_conf=False)
         #self.remove_client_address(addr, update_conf=False)
-        client.unlink()
         client.unbind(self)
+        client.unlink()
+        
         del self.clients[name]
         self.Manager.update_wildcards()
         self.LOG.info('remove_client:', name)
@@ -529,7 +535,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
 ##            self.update_conf(client_addresses=list(self.client_addresses))
         
     def build_zeroconf_data(self):
-        d = dict(name=self.root_address, 
+        d = dict(name=self.local_name, 
                  stype='_osc._udp', 
                  port=self.Manager.ioManager.hostdata['recvport'])
         txt = {'app_name':self.GLOBAL_CONFIG['app_name']}
@@ -574,7 +580,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             
     def on_master_requested_by_osc(self, **kwargs):
         if self.oscMaster:
-            self.root_node.send_message(address='setMaster', value=self.oscMaster)
+            self.setMasterNode.send_message(value=self.oscMaster)
         self.LOG.info('master_requested_by_osc')
             
     def on_master_set_by_osc(self, **kwargs):
@@ -617,10 +623,10 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             self.cancel_check_master_timer()
             self.set_master_timeout = threading.Timer(3.0, self.on_check_master_timeout)
             self.set_master_timeout.start()
-            new_kwargs = {'address':'getMaster'}
+            new_kwargs = {}#{'address':'getMaster'}
             if name:
                 new_kwargs.update({'client':name})
-            self.root_node.send_message(**new_kwargs)
+            self.getMasterNode.send_message(**new_kwargs)
             
     def on_check_master_timeout(self):
         self.check_master_attempts += 1
@@ -634,7 +640,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if self.master_takeover_timer:
             self.master_takeover_timer.cancel()
         if name is None:
-            s = self.root_address
+            s = self.local_name
         elif name is False:
             s = None
         else:
@@ -651,9 +657,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             if self.oscMaster is None:
                 return
             if self.isMaster:
-                if self.local_client:
-                    self.local_client.isMaster = True
-                self.root_node.send_message(address='setMaster', value=self.oscMaster)
+                self.local_client.isMaster = True
+                self.setMasterNode.send_message(value=self.oscMaster)
             else:
                 self.local_client.isMaster = False
                 m = self.determine_next_master()
@@ -702,7 +707,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def select_new_master(self):
         self.oscMaster = None
         m = self.determine_next_master()
-        if m and m.name == self.root_address:
+        if m and m.name == self.local_name:
             self.set_master()
         else:
             self.check_for_master()
@@ -719,7 +724,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def _on_ring_master_set(self, **kwargs):
         value = kwargs.get('value')
         self.LOG.info('RINGMASTER: ', value)
-        self.local_client.isRingMaster = value == self.local_client.name
+        self.local_client.isRingMaster = value == self.local_name
             
 class ClockSender(BaseThread):
     def __init__(self, **kwargs):

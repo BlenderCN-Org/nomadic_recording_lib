@@ -1,3 +1,4 @@
+import sys
 import threading
 import datetime
 if __name__ == '__main__':
@@ -114,21 +115,29 @@ class OSCNode(BaseObject):
             return node
         return node.add_child(address=address)
         
+    def unlink(self):
+        if not self.is_root_node:
+            for key in self.children.keys()[:]:
+                self.remove_node(name=key)
+        super(OSCNode, self).unlink()
+        
     def remove_node(self, **kwargs):
         name = kwargs.get('name')
-        address = kwargs.get('address', '')
-        if not isinstance(address, Address):
-            address = Address(address)
-        if name is not None:
-            address = address.append(name)
-        current, address = address.pop()
+#        address = kwargs.get('address', '')
+#        if not isinstance(address, Address):
+#            address = Address(address)
+#        if name is not None:
+#            address = address.append(name)
+#        current, address = address.pop()
+        current = name
         node = self.children.get(current)
         if not node:
             return False
-        result = node.remove_node(address=address)
-        if result:
-            node.unbind(self)
+        #result = node.remove_node(address=address)
+        
+        if True:#result:
             node.unlink()
+            node.unbind(self)
             del self.children[node.name]
         if not len(self.children):
             return True
@@ -238,10 +247,10 @@ class OSCNode(BaseObject):
             address = kwargs.get('address')
             full_path = self.get_full_path()
             if address is not None:
+                if not isinstance(address, Address):
+                    address = Address(address)
                 full_path = full_path.append(address)
                 del kwargs['address']
-            if not isinstance(address, Address):
-                address = Address(address)
             kwargs['full_path'] = full_path
         if not self.is_root_node:
             self.get_root_node().send_message(**kwargs)
@@ -278,6 +287,7 @@ class OSCDispatchThread(threading.Thread):
         threading.Thread.__init__(self)
         self.running = threading.Event()
         self.ready_to_dispatch = threading.Event()
+        self.LOG = BaseObject().LOG
         self.bundles = {}
         self.osc_tree = kwargs.get('osc_tree')
         self.do_dispatch = self._do_dispatch
@@ -322,7 +332,7 @@ class OSCDispatchThread(threading.Thread):
                     try:
                         self.do_dispatch(messages)
                     except:
-                        pass
+                        self.LOG.warning(sys.exc_info())
                 else:
                     self.ready_to_dispatch.clear()
                     timeout = seconds_from_timedelta(dt - now)

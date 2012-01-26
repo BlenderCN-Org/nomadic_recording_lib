@@ -25,6 +25,7 @@ class Client(OSCBaseObject):
                    'session_name':dict(type=str), 
                    'isMaster':dict(default=False), 
                    'isSlave':dict(default=False), 
+                   'isLocalhost':dict(default=False), 
                    'isRingMaster':dict(default=False), 
                    'isSameSession':dict(default=False), 
                    'master_priority':dict(type=int)}
@@ -81,8 +82,9 @@ class Client(OSCBaseObject):
     def unlink(self):
         if self.update_timer is not None:
             self.update_timer.cancel()
-        super(Client, self).unlink()
         self.GLOBAL_CONFIG.unbind(self)
+        super(Client, self).unlink()
+        
     
     @property
     def osc_name(self):
