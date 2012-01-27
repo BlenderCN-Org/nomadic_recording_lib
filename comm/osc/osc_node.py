@@ -270,7 +270,7 @@ class OSCNode(BaseObject):
             offset = self.get_epoch_offset_cb()
             timetag = datetime_to_timetag_value(now - offset)
         ## TODO: figure out what's wrong with timetags
-        timetag = -1
+        #timetag = -1
         value = pack_args(kwargs.get('value'))
         message = Message(*value, address=kwargs['full_path'])
         bundle = Bundle(message, timetag=timetag)
