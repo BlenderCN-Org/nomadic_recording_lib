@@ -44,7 +44,7 @@ class OSCNode(BaseObject):
         self.register_signal('message_received', 'message_not_dispatched')
         self.parent = kwargs.get('parent')
         self.is_root_node = kwargs.get('root_node', False)
-        self.bind(name=self._on_name_set)
+        #self.bind(name=self._on_name_set)
         self.name = kwargs.get('name')
         if self.name is None or not len(self.name):
             self.name = str(id(self))
@@ -59,7 +59,6 @@ class OSCNode(BaseObject):
         else:
             self.get_client_cb = self.parent.get_client_cb
             self._oscMaster = self.parent._oscMaster
-        
     @property
     def oscMaster(self):
         return self._oscMaster
@@ -70,15 +69,7 @@ class OSCNode(BaseObject):
     @property
     def dispatch_thread(self):
         return self.get_root_node()._dispatch_thread
-    def _on_name_set(self, **kwargs):
-        old = kwargs.get('old')
-        value = kwargs.get('value')
-        if not self.parent:
-            return
-        if old in self.parent.children:
-            del self.parent.children[old]
-        self.parent.children[value] = self
-        #print 'name changed: old=%s, new=%s, result=%s' % (old, value, value in self.parent.children)
+        
     def _set_oscMaster(self, value):
         self._oscMaster = value
         for child in self.children.itervalues():
@@ -94,8 +85,9 @@ class OSCNode(BaseObject):
             nkwargs.setdefault('parent', self)
             new_node = OSCNode(**nkwargs)
             #print 'new_node: parent=%s, name=%s, root=%s' % (self.name, new_node.name, new_node.is_root_node)
-            #self.children[new_node.name] = new_node
-            new_node.bind(children=self.on_childnode_children_update)
+            self.children[new_node.name] = new_node
+            new_node.bind(name=self.on_childnode_name_set, 
+                          children=self.on_childnode_children_update)
             return new_node
         if parent != self:
             return parent.add_child(**kwargs)
@@ -136,8 +128,8 @@ class OSCNode(BaseObject):
         #result = node.remove_node(address=address)
         
         if True:#result:
-            node.unlink()
             node.unbind(self)
+            node.unlink()
             del self.children[node.name]
         if not len(self.children):
             return True
@@ -152,8 +144,26 @@ class OSCNode(BaseObject):
             for c in self.children.itervalues():
                 c.unlink_all(direction, blocking)
                 
+    def on_childnode_name_set(self, **kwargs):
+        old = kwargs.get('old')
+        value = kwargs.get('value')
+        node = kwargs.get('obj')
+        #if not self.parent:
+        #    return
+        print self.name, ' : ', kwargs
+        self.children[value] = node
+        if self.children.get(old) == node:
+            del self.children[old]
+        
     def on_childnode_children_update(self, **kwargs):
-        pass
+        return
+        old = kwargs.get('old')
+        value = kwargs.get('value')
+        node = kwargs.get('obj')
+        removed = set(old.keys()) - set(value.keys())
+        if len(removed) and not len(value):
+            self.remove_node(name=obj.name)
+            
     def get_full_path(self, address=None):
         if address is None:
             address = Address(self.name)
@@ -253,8 +263,7 @@ class OSCNode(BaseObject):
                 del kwargs['address']
             kwargs['full_path'] = full_path
         if not self.is_root_node:
-            self.get_root_node().send_message(**kwargs)
-            return
+            return self.get_root_node().send_message(**kwargs)
         timetag = kwargs.get('timetag')
         if timetag is None:
             now = datetime.datetime.now()
@@ -267,6 +276,7 @@ class OSCNode(BaseObject):
         bundle = Bundle(message, timetag=timetag)
         kwargs['element'] = bundle
         self.transmit_callback(**kwargs)
+        return bundle
         
         
 

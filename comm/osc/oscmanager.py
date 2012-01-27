@@ -579,9 +579,15 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                 setattr(self, key, value)
             
     def on_master_requested_by_osc(self, **kwargs):
-        if self.oscMaster:
-            self.setMasterNode.send_message(value=self.oscMaster)
-        self.LOG.info('master_requested_by_osc')
+        if not self.isRingMaster:
+            return
+        req_session = kwargs.get('values')[0]
+        session = self.discovered_sessions.get(req_session, {})
+        master = session.get('master')
+        if not master:
+            return
+        self.setMasterNode.send_message(value=master)
+        self.LOG.info('master_requested_by_osc, session=%s, master=%s' % (req_session, master))
             
     def on_master_set_by_osc(self, **kwargs):
         msg = kwargs.get('message')
@@ -623,10 +629,11 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             self.cancel_check_master_timer()
             self.set_master_timeout = threading.Timer(3.0, self.on_check_master_timeout)
             self.set_master_timeout.start()
-            new_kwargs = {}#{'address':'getMaster'}
-            if name:
-                new_kwargs.update({'client':name})
-            self.getMasterNode.send_message(**new_kwargs)
+            #new_kwargs = {}#{'address':'getMaster'}
+            #if name:
+            #    new_kwargs.update({'client':name})
+            element = self.getMasterNode.send_message(value=self.session_name, all_sessions=True)
+            print 'sent getmaster: ', [str(element)]
             
     def on_check_master_timeout(self):
         self.check_master_attempts += 1

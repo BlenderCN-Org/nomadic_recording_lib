@@ -50,7 +50,11 @@ class Message(object):
         address, data = _strip_padding(data)
         tags, data = _strip_padding(data)
         args = []
-        for tag in tags[1:]:
+        if len(tags) == 1:
+            tags = []
+        else:
+            tags = tags[1:]
+        for tag in tags:
             arg, data = build_argument(type_tag=tag, data=data)
             args.append(arg)
         return dict(address=address, args=args)
@@ -413,7 +417,7 @@ if __name__ == '__main__':
 ##        print arg == obj
 ##        print arg is obj
 ##        #print arg._pytype(arg)
-    addr = Address('/blah/test')
-    print addr
-    addr = addr.append('stuff')
-    print addr
+    msg = Message(address='/blah')
+    print [msg.build_string()]
+    print msg.get_arguments()
+    print [parse_message(data=msg.build_string()).build_string()]
