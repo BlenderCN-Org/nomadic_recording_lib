@@ -265,6 +265,7 @@ class OSCManager(BaseIO.BaseIO, Config):
             
 class OSCSessionManager(BaseIO.BaseIO, Config):
     _confsection = 'OSC'
+    _Properties = {'oscMaster':dict(type=str)}
     def __init__(self, **kwargs):
         self.Manager = kwargs.get('Manager')
         self.ioManager = self.Manager.ioManager
@@ -274,7 +275,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         BaseIO.BaseIO.__init__(self, **kwargs)
         Config.__init__(self, **kwargs)
         self.register_signal('client_added', 'client_removed', 'new_master')
-        self.oscMaster = None
+        #self.oscMaster = None
+        self.bind(oscMaster=self._on_oscMaster_set)
         self.set_master_timeout = None
         self.master_takeover_timer = None
         self.check_master_attempts = None
@@ -565,7 +567,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.GLOBAL_CONFIG['session_name'] = value
         #data = self.build_zeroconf_data()
         #self.comm.ServiceConnector.update_service(**data)
-        #self.select_new_master()
+        self.select_new_master()
         
     def on_GLOBAL_CONFIG_update(self, **kwargs):
         keys = kwargs.get('keys')
@@ -636,7 +638,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             element = self.getMasterNode.send_message(value=self.session_name, 
                                                       all_sessions=True, 
                                                       timetag=-1)
-            print 'sent getmaster: ', [str(element)]
+            #print 'sent getmaster: ', [str(element)]
             
     def on_check_master_timeout(self):
         self.check_master_attempts += 1
@@ -678,7 +680,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                     t.start()
         
         self.LOG.info('master = ', self.oscMaster)
-        self.root_node.oscMaster = self.isMaster
+        #self.root_node.oscMaster = self.isMaster
         #self.Manager.stop_clock_send_thread()
         #if self.isMaster:
         #    self.Manager.epoch_offset = datetime.timedelta()
@@ -735,11 +737,14 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         value = kwargs.get('value')
         self.LOG.info('RINGMASTER: ', value)
         self.local_client.isRingMaster = value == self.local_name
-        self.stop_clock_send_thread()
+        self.Manager.stop_clock_send_thread()
         if self.isRingMaster:
-            self.epoch_offset = datetime.timedelta()
-            self.start_clock_send_thread()
+            self.Manager.epoch_offset = datetime.timedelta()
+            self.Manager.start_clock_send_thread()
             
+    def _on_oscMaster_set(self, **kwargs):
+        self.root_node.oscMaster = self.isMaster
+        
 class ClockSender(BaseThread):
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'OSCManager_ClockSender'
@@ -754,7 +759,7 @@ class ClockSender(BaseThread):
     def _thread_loop_iteration(self):
         if not self.running:
             return
-        clients = [c for c in self.Manager.clients.values() if c.sendAllUpdates and c.accepts_timetags and c.isSameSession]
+        clients = [c for c in self.Manager.clients.values() if c.sendAllUpdates and c.accepts_timetags]# and c.isSameSession]
         now = datetime.datetime.now()
         self.osc_node.send_message(address=self.osc_address, 
                                    value=now.strftime('%Y%m%d %H:%M:%S %f'), 

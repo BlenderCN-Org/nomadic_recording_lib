@@ -269,8 +269,6 @@ class OSCNode(BaseObject):
             now = datetime.datetime.now()
             offset = self.get_epoch_offset_cb()
             timetag = datetime_to_timetag_value(now - offset)
-        ## TODO: figure out what's wrong with timetags
-        #timetag = -1
         value = pack_args(kwargs.get('value'))
         message = Message(*value, address=kwargs['full_path'])
         bundle = Bundle(message, timetag=timetag)
@@ -313,14 +311,17 @@ class OSCDispatchThread(threading.Thread):
         
     def add_bundle(self, bundle):
         dt = bundle.timetag.datetime
+        #print 'add bundle: ', dt
         if dt in self.bundles:
             dt = dt + datetime.timedelta(microseconds=1)
+            #print 'recalc datetime: ', dt
         self.bundles[dt] = bundle
         self.ready_to_dispatch.set()
         
     def get_next_datetime(self):
         if len(self.bundles):
-            return min(self.bundles.keys())
+            dt = min(self.bundles.keys())
+            return dt
         return False
         
     def run(self):
@@ -339,9 +340,9 @@ class OSCDispatchThread(threading.Thread):
                 if dt <= now:
                     bundle = self.bundles[dt]
                     del self.bundles[dt]
-                    messages = bundle.get_messages()
+                    #messages = bundle.get_messages()
                     try:
-                        self.do_dispatch(messages)
+                        self.do_dispatch(bundle)
                     except:
                         self.LOG.warning(sys.exc_info())
                 else:
@@ -350,22 +351,22 @@ class OSCDispatchThread(threading.Thread):
                     self.ready_to_dispatch.wait(timeout)
                     self.ready_to_dispatch.set()
                     
-    def _do_dispatch(self, messages):
-        for m in messages:
-            self.osc_tree._do_dispatch_message(m)
+    def _do_dispatch(self, element):
+        #for m in messages:
+        self.osc_tree._do_dispatch_message(element)
             
-    def gtk_do_dispatch(self, messages):
+    def gtk_do_dispatch(self, element):
         #self.ui_module.gdk.threads_enter()
-        self._do_dispatch(messages)
+        self._do_dispatch(element)
         #self.ui_module.gdk.threads_leave()
                 
-    def kivy_do_dispatch(self, messages):
-        obj = Messenger(messages=messages, callback=self._on_kivy_msg_cb)
+    def kivy_do_dispatch(self, element):
+        obj = Messenger(element=element, callback=self._on_kivy_msg_cb)
         self.kivy_messengers.add(obj)
         self.ui_module.schedule_once(obj.send, 0)
         
     def _on_kivy_msg_cb(self, messenger):
-        self._do_dispatch(messenger.messages)
+        self._do_dispatch(messenger.element)
         self.kivy_messengers.discard(messenger)
 
     def stop(self, **kwargs):
@@ -376,7 +377,7 @@ class OSCDispatchThread(threading.Thread):
             self.join()
 
 class Messenger(object):
-    __slots__ = ('messages', 'callback', '__weakref__')
+    __slots__ = ('element', 'callback', '__weakref__')
     def __init__(self, **kwargs):
         for key, val in kwargs.iteritems():
             setattr(self, key, val)
