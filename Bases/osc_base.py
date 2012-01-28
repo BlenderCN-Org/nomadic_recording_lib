@@ -39,6 +39,14 @@ def get_node_path(node):
     path.reverse()
     return join_address(*path)
 
+def format_address(address):
+    for c in ['/', ' ']:
+        if c in address:
+            address = '_'.join(address.split(c))
+    if "'" in address:
+        address = ''.join(address.split("'"))
+    return address
+
 class OSCBaseObject(BaseObject):
     _saved_attributes = ['osc_address']
     def __init__(self, **kwargs):
@@ -47,7 +55,7 @@ class OSCBaseObject(BaseObject):
         if address is None and hasattr(self, 'osc_address'):
             address = getattr(self, 'osc_address')
         if address is not None:
-            self.osc_address = str(address)
+            self.osc_address = format_address(str(address))
         parent = kwargs.get('osc_parent_node')
         if parent is None and hasattr(self, 'osc_parent_node'):
             parent = getattr(self, 'osc_parent_node')
@@ -83,9 +91,7 @@ class OSCBaseObject(BaseObject):
     def set_osc_address(self, address):
         if not self.osc_enabled or address is None:
             return
-        for c in ['/', ' ']:
-            if c in address:
-                address = '_'.join(address.split(c))
+        address = format_address(address)
         self.osc_address = address
         self.osc_node.name = address
             
