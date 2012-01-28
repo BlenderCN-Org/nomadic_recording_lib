@@ -104,7 +104,7 @@ class Bundle(object):
         for e in self.elements:
             e.client = value
     def parse_data(self, data):
-        print 'bundle parse: ', len(data), [data]
+        #print 'bundle parse: ', len(data), [data]
         bundlestr, data = _strip_padding(data)
         #print 'bundlestr: ', [bundlestr], ', data: ', len(data), [data]
         timetag, data = TimetagArgument.from_binary(TimetagArgument, data)
@@ -128,15 +128,40 @@ class Bundle(object):
         realelement = parse_message(element, client=self.client, timestamp=self.timestamp)
         if realelement.__class__ in [Bundle, Message]:
             self.elements.append(realelement)
-    def get_messages(self):
-        messages = set()
+        return realelement
+        
+    def get_flat_messages(self):
+        messages = []
         for e in self.elements:
             if isinstance(e, Bundle):
-                ## TODO: this should maintain the bundled timetags
-                messages |= e.get_messages()
+                messages.extend(e.get_flat_messages())
             else:
-                messages.add(e)
+                messages.append(e)
         return messages
+        
+    def split_bundles(self):
+        bundles = {}
+        timetag = self.timetag
+        bundles[timetag] = self
+        to_remove = set()
+        to_add = []
+        for i, e in enumerate(self.elements):
+            if not isinstance(e, Bundle):
+                continue
+            ebundles = e.split_bundles()
+            if timetag in ebundles:
+                if ebundles[timetag] not in self.elements:
+                    to_add.append(ebundles[timetag])
+                del ebundles[timetag]
+            if e.timetag != timetag:
+                to_remove.add(e)
+            bundles.update(ebundles)
+        for b in to_remove:
+            self.elements.remove(b)
+        for b in to_add:
+            self.elements.append(b)
+        return bundles
+        
     def build_string(self):
         #data = ''.join([StringArgument('#bundle').build_string(), self.timetag.build_string()])
         bundlestr = StringArgument('#bundle').build_string()
@@ -285,35 +310,19 @@ class TimetagArgument(TimetagPyType, Argument):
         
     @staticmethod
     def parse_binary(cls, data, **kwargs):
-#        msb = struct.unpack('>q', data[:8])[0]
-#        data = data[8:]
-#        lsb = struct.unpack('>q', data[:8])[0]
-#        data = data[8:]
         msb, lsb = struct.unpack('>qq', data[:16])
-        data = data[16:]
-        if msb == 0 and lsb == 1:
+        if msb == 1 or lsb == 1:
             value = -1
+            data = data[8:]
         else:
             value = msb + float('.%i' % (lsb))
+            data = data[16:]
         return value, data
-    @staticmethod
-    def blahparse_binary(cls, data, **kwargs):
-        binary = data[0:16]
-        if len(binary) != 16:
-            return False
-            #raise osc.OscError("Too few bytes left to get a timetag from %s." % (data))
-        leftover = data[16:]
-
-        if binary == '\0\0\0\0\0\0\0\1':
-            # immediately
-            time = -1
-        else:
-            high, low = struct.unpack(">qq", data[0:16])
-            time = float(int(high) + low / float(1e9))
-        return time, leftover
         
     @property
     def datetime(self):
+        if self < 0:
+            return datetime.datetime.now()
         td = datetime.timedelta(seconds=self)
         dt = OSC_EPOCH + td
         #print dt
@@ -429,7 +438,12 @@ if __name__ == '__main__':
 ##        print arg == obj
 ##        print arg is obj
 ##        #print arg._pytype(arg)
-    msg = Message(address='/blah')
-    print [msg.build_string()]
-    print msg.get_arguments()
-    print [parse_message(data=msg.build_string()).build_string()]
+    msg1 = Message(1, address='/blah')
+    msg2 = Message('a', address='/stuff')
+    bun1 = Bundle(msg1, timetag=10)
+    bun2 = Bundle(msg2, bun1, timetag=20)
+    bun3 = Bundle(bun2, timetag=10)
+    bundles = bun3.split_bundles()
+    print bundles
+    print [str(b) for b in bundles.values()]
+    

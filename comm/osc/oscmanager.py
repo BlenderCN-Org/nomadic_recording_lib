@@ -199,7 +199,7 @@ class OSCManager(BaseIO.BaseIO, Config):
             return
         _sender.preprocess(element)
         if isinstance(element, Bundle):
-            messages = element.get_messages()
+            messages = element.get_flat_messages()
         else:
             messages = [element]
         if self.ioManager.iotype == 'Multicast':

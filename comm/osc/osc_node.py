@@ -233,14 +233,11 @@ class OSCNode(BaseObject):
             element = parse_message(data, client=client, timestamp=timestamp)
         if self.debug:
             self.LOG.info('osc recv: ' + str(element))
-        if isinstance(element, Bundle) and element.timetag > 0:
-            self.dispatch_thread.add_bundle(element)
-        else:
-            self._do_dispatch_message(element)
+        self.dispatch_thread.add_element(element)
             
     def _do_dispatch_message(self, element):
         if isinstance(element, Bundle):
-            m = element.get_messages()
+            m = element.get_flat_messages()
         else:
             m = [element]
         for msg in m:
@@ -312,14 +309,25 @@ class OSCDispatchThread(threading.Thread):
             if attr:
                 self.do_dispatch = getattr(self, attr)
         
-    def add_bundle(self, bundle):
-        dt = bundle.timetag.datetime
-        #print 'add bundle: ', dt
-        if dt in self.bundles:
-            dt = dt + datetime.timedelta(microseconds=1)
-            #print 'recalc datetime: ', dt
-        self.bundles[dt] = bundle
-        self.ready_to_dispatch.set()
+    def add_element(self, element):
+        def do_add(bundle):
+            dt = bundle.timetag.datetime
+            #print 'add bundle: ', dt
+            if dt in self.bundles:
+                dt = dt + datetime.timedelta(microseconds=1)
+                #print 'recalc datetime: ', dt
+            self.bundles[dt] = bundle
+            self.ready_to_dispatch.set()
+        if isinstance(element, Bundle):
+            bundles = element.split_bundles()
+            for bundle in bundles.itervalues():
+                do_add(bundle)
+        else:
+            bundle = Bundle(element, 
+                            client=element.client, 
+                            timestamp=element.timestamp, 
+                            timetag=-1)
+            do_add(bundle)
         
     def get_next_datetime(self):
         if len(self.bundles):
