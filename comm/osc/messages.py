@@ -5,6 +5,11 @@ import datetime
 
 OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
 
+class OSCStreamException(Exception):
+    def __init__(self, value):
+        self._value = value
+    def __str__(self):
+        return 'OSC Stream Size Error: ' + str(self._value)
 
 class Message(object):
     def __init__(self, *args, **kwargs):
@@ -62,7 +67,10 @@ class Message(object):
     def build_string(self):
         args = [self.address, self.type_tags]
         args.extend(self.arguments)
-        return ''.join([arg.build_string() for arg in args])
+        s = ''.join([arg.build_string() for arg in args])
+        if len(s) % 4 != 0:
+            raise OSCStreamException(len(s))
+        return s
         
     def __str__(self):
         s = self.address.build_string() + self.type_tags.build_string()
@@ -96,7 +104,7 @@ class Bundle(object):
         for e in self.elements:
             e.client = value
     def parse_data(self, data):
-        #print 'bundle parse: ', len(data), [data]
+        print 'bundle parse: ', len(data), [data]
         bundlestr, data = _strip_padding(data)
         #print 'bundlestr: ', [bundlestr], ', data: ', len(data), [data]
         timetag, data = TimetagArgument.from_binary(TimetagArgument, data)
@@ -277,11 +285,13 @@ class TimetagArgument(TimetagPyType, Argument):
         
     @staticmethod
     def parse_binary(cls, data, **kwargs):
-        msb = struct.unpack('>q', data[:8])[0]
-        data = data[8:]
-        lsb = struct.unpack('>q', data[:8])[0]
-        data = data[8:]
-        if msb <= 0 and lsb == 1:
+#        msb = struct.unpack('>q', data[:8])[0]
+#        data = data[8:]
+#        lsb = struct.unpack('>q', data[:8])[0]
+#        data = data[8:]
+        msb, lsb = struct.unpack('>qq', data[:16])
+        data = data[16:]
+        if msb == 0 and lsb == 1:
             value = -1
         else:
             value = msb + float('.%i' % (lsb))
@@ -342,6 +352,8 @@ class Address(StringArgument):
         if len(l) and l[0] == '':
             l = l[1:]
         return l
+    def as_root(self):
+        return Address('/' + self)
     def append(self, other):
         if not isinstance(other, Address):
             other = Address(other)

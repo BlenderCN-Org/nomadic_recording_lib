@@ -171,7 +171,7 @@ class OSCNode(BaseObject):
             address = address.append_right(self.name)
         if self.is_root_node:
             #print 'full path: ', address
-            return address
+            return address.as_root()
         return self.parent.get_full_path(address)
         
     def get_root_node(self):
@@ -259,7 +259,10 @@ class OSCNode(BaseObject):
             if address is not None:
                 if not isinstance(address, Address):
                     address = Address(address)
-                full_path = full_path.append(address)
+                if len(address) and address[0] == '/':
+                    full_path = address
+                else:
+                    full_path = full_path.append(address)
                 del kwargs['address']
             kwargs['full_path'] = full_path
         if not self.is_root_node:
