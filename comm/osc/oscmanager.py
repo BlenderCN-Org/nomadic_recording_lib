@@ -752,6 +752,7 @@ class ClockSync(OSCBaseObject):
     def __init__(self, **kwargs):
         kwargs.setdefault('osc_address', 'clocksync')
         super(ClockSync, self).__init__(**kwargs)
+        self.clients = kwargs.get('clients')
         self.clock_send_thread = None
         self.nodes = {}
         for key in ['sync', 'DelayReq', 'DelayResp']:
@@ -760,6 +761,7 @@ class ClockSync(OSCBaseObject):
             node.bind(message_received=method)
             self.nodes[key] = node
         self.bind(isMaster=self._on_isMaster_set)
+        
     def _on_isMaster_set(self, **kwargs):
         value = kwargs.get('value')
         if value:
@@ -769,7 +771,10 @@ class ClockSync(OSCBaseObject):
             
     def start_clock_send_thread(self):
         self.stop_clock_send_thread()
-        self.clock_send_thread = ClockSender(osc_node=self.nodes['sync'])
+        self.offset = 0.
+        self.clock_send_thread = ClockSender(osc_node=self.nodes['sync'], 
+                                             clients=self.clients, 
+                                             time_method='timestamp')
         self.clock_send_thread.start()
         
     def stop_clock_send_thread(self, blocking=True):
@@ -780,19 +785,24 @@ class ClockSync(OSCBaseObject):
         
     def on_sync_message_received(self, **kwargs):
         msg = kwargs.get('message')
-        self.master_clock_time = msg.get_values()[0]
-        self.delay_req_timestamp = msg.timestamp
-        self.nodes['DelayReq'].send_message(client=msg.client)
-        
+        times = self.clock_times
+        times['master_sync'] = msg.get_arguments()[0]
+        times['local_sync'] = msg.timestamp
+        #self.delay_req_timestamp = msg.timestamp
+        self.nodes['DelayReq'].send_message(client=msg.client, timetag=-1)
         
     def on_DelayReq_message_received(self, **kwargs):
         msg = kwargs.get('message')
-        self.nodes['DelayResp'].send_message(value=msg.timestamp, client=msg.client)
+        self.nodes['DelayResp'].send_message(value=msg.timestamp, client=msg.client, timetag=-1)
         
     def on_DelayResp_message_received(self, **kwargs):
         msg = kwargs.get('message')
-        rt = msg.get_arguments()[0] - self.delay_req_timestamp
-        #self.offset = 
+        times = self.clock_times
+        times['master_resp'] = msg.get_arguments()[0]
+        times['local_resp'] = msg.timestamp
+        #netdelay = times['master_resp'] - times['local_resp']
+        netdelay = times['local_sync'] - times['local_resp']
+        self.offset = times['master_sync'] - times['local_sync'] + (netdelay / 2.)
         
         
 class ClockSender(BaseThread):
@@ -805,15 +815,23 @@ class ClockSender(BaseThread):
         #self.Manager = kwargs.get('Manager')
         self.osc_node = kwargs.get('osc_node')
         self.clients = kwargs.get('clients')
+        time_method = kwargs.get('time_method', 'datetime')
+        self.time_method = getattr(self, time_method)
         #self.osc_address = kwargs.get('osc_address', 'clocksync')
         #self.interval = kwargs.get('interval', 10.)
+    def datetime(self):
+        now = datetime.datetime.now()
+        return now.strftime('%Y%m%d %H:%M:%S %f')
+    def timestamp(self):
+        return time.time()
     def _thread_loop_iteration(self):
         if not self.running:
             return
         clients = [c for c in self.clients.values() if c.sendAllUpdates and c.accepts_timetags]# and c.isSameSession]
-        now = datetime.datetime.now()
-        value = now.strftime('%Y%m%d %H:%M:%S %f')
+        #now = datetime.datetime.now()
+        #value = now.strftime('%Y%m%d %H:%M:%S %f')
         #value = time.time()
+        value = self.time_method()
         self.osc_node.send_message(value=value, 
                                    timetag=-1, 
                                    clients=clients)
