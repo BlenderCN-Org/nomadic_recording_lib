@@ -1,4 +1,5 @@
 import sys
+import traceback
 import threading
 import time
 import datetime
@@ -327,21 +328,25 @@ class OSCDispatchThread(threading.Thread):
             ts = timetag_to_timestamp(bundle.timetag)
             #print 'add bundle: ', dt
             if ts in self.bundles:
-                ts += .000001
+                self.bundles[ts].elements.append(bundle)
+                #ts += .000001
                 #dt = dt + datetime.timedelta(microseconds=1)
                 #print 'recalc datetime: ', dt
-            self.bundles[ts] = bundle
-            self.ready_to_dispatch.set()
+            else:
+                self.bundles[ts] = bundle
+                #self.ready_to_dispatch.set()
         if isinstance(element, Bundle):
             bundles = element.split_bundles()
             for bundle in bundles.itervalues():
                 do_add(bundle)
+            self.ready_to_dispatch.set()
         else:
-            bundle = Bundle(element, 
-                            client=element.client, 
-                            timestamp=element.timestamp, 
-                            timetag=-1)
-            do_add(bundle)
+            #bundle = Bundle(element, 
+            #                client=element.client, 
+            #                timestamp=element.timestamp, 
+            #                timetag=-1)
+            #do_add(bundle)
+            self._do_dispatch(element)
         
     def get_next_timestamp(self):
         if len(self.bundles):

@@ -335,8 +335,11 @@ class TimetagArgument(TimetagPyType, Argument):
         dt = OSC_EPOCH + td
         #print dt
         return dt
+        
+    def __str__(self):
+        return self.__repr__()
 
-ARG_CLASSES = (IntArgument, DoubleFloatArgument, FloatArgument, StringArgument, 
+ARG_CLASSES = (IntArgument, FloatArgument, DoubleFloatArgument, StringArgument, 
                BlobArgument, BoolArgument, TrueArgument, FalseArgument, NoneArgument)
 ARG_CLS_BY_PYTYPE = {}
 ARG_CLS_BY_TYPE_TAG = {}

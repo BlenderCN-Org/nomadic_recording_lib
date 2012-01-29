@@ -48,7 +48,8 @@ class OSCManager(BaseIO.BaseIO, Config):
                    'master_priority':dict(default=10), 
                    'session_name':dict(type=str), 
                    'discovered_sessions':dict(default={}), 
-                   'ring_master':dict(type=str)}
+                   'ring_master':dict(type=str), 
+                   'epoch_offset':dict(default=0.)}
     def __init__(self, **kwargs):
         self.comm = kwargs.get('comm')
         BaseIO.BaseIO.__init__(self, **kwargs)
@@ -74,7 +75,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         #self.root_node = self.osc_tree.add_child(name=self.app_address)
         self.root_node = self.osc_tree
         #self.epoch_offset = datetime.timedelta()
-        self.epoch_offset = 0.
+        #self.epoch_offset = 0.
         self.clock_send_thread = None
         s = kwargs.get('use_unique_addresses', self.get_conf('use_unique_addresses', 'True'))
         flag = not s == 'False'
@@ -803,12 +804,12 @@ class ClockSync(OSCBaseObject):
         times['master_sync'] = msg.get_arguments()[0]
         times['local_sync'] = msg.timestamp
         #self.delay_req_timestamp = msg.timestamp
-        self.nodes['DelayReq'].send_message(client=msg.client, timetag=-1)
+        self.nodes['DelayReq'].send_message(client=msg.client, timetag=-1, all_sessions=True)
         
     def on_DelayReq_message_received(self, **kwargs):
         msg = kwargs.get('message')
         value = DoubleFloatArgument(msg.timestamp)
-        self.nodes['DelayResp'].send_message(value=value, client=msg.client, timetag=-1)
+        self.nodes['DelayResp'].send_message(value=value, client=msg.client, timetag=-1, all_sessions=True)
         
     def on_DelayResp_message_received(self, **kwargs):
         msg = kwargs.get('message')
@@ -817,7 +818,10 @@ class ClockSync(OSCBaseObject):
         times['local_resp'] = msg.timestamp
         #netdelay = times['master_resp'] - times['local_resp']
         netdelay = times['local_sync'] - times['local_resp']
-        self.offset = times['local_sync'] - times['master_sync'] + (netdelay / 2.)
+        times['netdelay'] = netdelay
+        self.offset = times['local_sync'] - times['master_sync'] - (netdelay / 2.)
+        print ['='.join([key, times[key].__repr__()]) for key in ['master_sync', 'local_sync', 'master_resp', 'local_resp', 'netdelay']]
+        print 'offset: ', self.offset.__repr__()
         
         
 class ClockSender(BaseThread):
