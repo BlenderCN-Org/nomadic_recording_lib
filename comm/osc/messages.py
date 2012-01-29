@@ -199,8 +199,9 @@ class Argument(object):
         struct_fmt = getattr(cls, '_struct_fmt', None)
         if struct_fmt is None:
             return None, data
-        value = struct.unpack(struct_fmt, data[:4])[0]
-        return value, data[4:]
+        length = struct.calcsize(struct_fmt)
+        value = struct.unpack(struct_fmt, data[:length])[0]
+        return value, data[length:]
     def build_string(self):
         cls = getattr(self, '_pytype', self.__class__.__bases__[0])
         stuct_fmt = getattr(self, '_struct_fmt', None)
