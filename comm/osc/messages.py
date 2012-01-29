@@ -223,6 +223,10 @@ class FloatArgument(float, Argument):
     #_pytype = float
     _struct_fmt = '>f'
     
+class DoubleFloatArgument(float, Argument):
+    _type_tag = 'd'
+    _struct_fmt = '>d'
+    
 class StringArgument(str, Argument):
     _type_tag = 's'
     #_pytype = str
@@ -311,9 +315,12 @@ class TimetagArgument(TimetagPyType, Argument):
     @staticmethod
     def parse_binary(cls, data, **kwargs):
         msb, lsb = struct.unpack('>qq', data[:16])
-        if msb == 1 or lsb == 1:
+        if msb == 1:
             value = -1
             data = data[8:]
+        elif lsb == 1:
+            value = -1
+            data = data[16:]
         else:
             value = msb + float('.%i' % (lsb))
             data = data[16:]
@@ -328,8 +335,8 @@ class TimetagArgument(TimetagPyType, Argument):
         #print dt
         return dt
 
-ARG_CLASSES = (IntArgument, FloatArgument, StringArgument, BlobArgument, 
-               BoolArgument, TrueArgument, FalseArgument, NoneArgument)
+ARG_CLASSES = (IntArgument, DoubleFloatArgument, FloatArgument, StringArgument, 
+               BlobArgument, BoolArgument, TrueArgument, FalseArgument, NoneArgument)
 ARG_CLS_BY_PYTYPE = {}
 ARG_CLS_BY_TYPE_TAG = {}
 for argcls in ARG_CLASSES:

@@ -25,7 +25,7 @@ from Bases import BaseObject, OSCBaseObject, BaseThread, Config
 
 from .. import BaseIO
 
-from messages import Message, Bundle, Address
+from messages import Message, Bundle, Address, DoubleFloatArgument
 from osc_node import OSCNode
 from osc_io import oscIO
 from osc_client import Client
@@ -744,7 +744,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.local_client.isRingMaster = value == self.local_name
         self.Manager.stop_clock_send_thread()
         if self.isRingMaster:
-            self.Manager.epoch_offset = datetime.timedelta()
+            #self.Manager.epoch_offset = datetime.timedelta()
+            self.Manager.epoch_offset = 0.
             self.Manager.start_clock_send_thread()
             
     def _on_oscMaster_set(self, **kwargs):
@@ -827,7 +828,7 @@ class ClockSender(BaseThread):
         now = datetime.datetime.now()
         return now.strftime('%Y%m%d %H:%M:%S %f')
     def timestamp(self):
-        return time.time()
+        return DoubleFloatArgument(time.time())
     def _thread_loop_iteration(self):
         if not self.running:
             return
