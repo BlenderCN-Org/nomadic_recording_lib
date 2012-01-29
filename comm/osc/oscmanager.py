@@ -80,9 +80,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         flag = not s == 'False'
         
         #self.root_node.addCallback('/clocksync', self.on_master_sent_clocksync)
-        csnode = self.root_node.add_child(name='clocksync')
-        csnode.bind(message_received=self.on_master_sent_clocksync)
-        self.clocksync_node = csnode
+        #csnode = self.root_node.add_child(name='clocksync')
+        #csnode.bind(message_received=self.on_master_sent_clocksync)
+        #self.clocksync_node = csnode
         self.ioManager = oscIO(Manager=self)
         self.SessionManager = OSCSessionManager(Manager=self)
         self.SessionManager.bind(client_added=self.on_client_added, 
@@ -91,6 +91,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.set_use_unique_address(flag, update_conf=False)
         io = kwargs.get('connection_type', self.get_conf('connection_type', 'Multicast'))
         self.ioManager.build_io(iotype=io, update_conf=False)
+        self.ClockSync = ClockSync(osc_parent_node=self.root_node, 
+                                   clients=self.clients)
+        self.ClockSync.bind(offset=self.on_ClockSync_offset_set)
         
     @property
     def oscMaster(self):
@@ -117,7 +120,8 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.connected = True
         
     def do_disconnect(self, **kwargs):
-        self.stop_clock_send_thread(blocking=True)
+        #self.stop_clock_send_thread(blocking=True)
+        self.ClockSync.isMaster = False
         self.ioManager.do_disconnect(**kwargs)
         self.SessionManager.do_disconnect(**kwargs)
         self.connected = False
@@ -233,6 +237,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         elif value is None:
             return []
         return [value]
+        
+    def on_ClockSync_offset_set(self, **kwargs):
+        self.epoch_offset = kwargs.get('value')
         
     def start_clock_send_thread(self):
         self.stop_clock_send_thread()
@@ -742,11 +749,12 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         value = kwargs.get('value')
         self.LOG.info('RINGMASTER: ', value)
         self.local_client.isRingMaster = value == self.local_name
-        self.Manager.stop_clock_send_thread()
-        if self.isRingMaster:
+        self.Manager.ClockSync.isMaster = self.isRingMaster
+        #self.Manager.stop_clock_send_thread()
+        #if self.isRingMaster:
             #self.Manager.epoch_offset = datetime.timedelta()
-            self.Manager.epoch_offset = 0.
-            self.Manager.start_clock_send_thread()
+            #self.Manager.epoch_offset = 0.
+            #self.Manager.start_clock_send_thread()
             
     def _on_oscMaster_set(self, **kwargs):
         self.root_node.oscMaster = self.isMaster
@@ -759,10 +767,11 @@ class ClockSync(OSCBaseObject):
         super(ClockSync, self).__init__(**kwargs)
         self.clients = kwargs.get('clients')
         self.clock_send_thread = None
+        self.clock_times = {}
         self.nodes = {}
         for key in ['sync', 'DelayReq', 'DelayResp']:
             node = self.osc_node.add_child(name=key)
-            method = getattr(self, 'on_%s_message_received')
+            method = getattr(self, 'on_%s_message_received' % (key))
             node.bind(message_received=method)
             self.nodes[key] = node
         self.bind(isMaster=self._on_isMaster_set)
@@ -798,7 +807,8 @@ class ClockSync(OSCBaseObject):
         
     def on_DelayReq_message_received(self, **kwargs):
         msg = kwargs.get('message')
-        self.nodes['DelayResp'].send_message(value=msg.timestamp, client=msg.client, timetag=-1)
+        value = DoubleFloatArgument(msg.timestamp)
+        self.nodes['DelayResp'].send_message(value=value, client=msg.client, timetag=-1)
         
     def on_DelayResp_message_received(self, **kwargs):
         msg = kwargs.get('message')
@@ -807,7 +817,7 @@ class ClockSync(OSCBaseObject):
         times['local_resp'] = msg.timestamp
         #netdelay = times['master_resp'] - times['local_resp']
         netdelay = times['local_sync'] - times['local_resp']
-        self.offset = times['master_sync'] - times['local_sync'] + (netdelay / 2.)
+        self.offset = times['local_sync'] - times['master_sync'] + (netdelay / 2.)
         
         
 class ClockSender(BaseThread):
