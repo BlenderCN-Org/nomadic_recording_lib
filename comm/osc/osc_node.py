@@ -1,5 +1,6 @@
 import sys
 import threading
+import time
 import datetime
 if __name__ == '__main__':
     import sys
@@ -11,10 +12,13 @@ if __name__ == '__main__':
 from Bases import BaseObject
 from messages import Address, Message, Bundle, parse_message
 
-OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
 
 def seconds_from_timedelta(td):
     return td.seconds + td.days * 24 * 3600 + (td.microseconds / float(10**6))
+    
+OSC_EPOCH = datetime.datetime(1900, 1, 1, 0, 0, 0)
+PY_EPOCH = datetime.datetime.utcfromtimestamp(0.)
+OSC_EPOCH_TIMESTAMP = seconds_from_timedelta(PY_EPOCH - OSC_EPOCH)
 
 def timetag_to_datetime(**kwargs):
     timetag_obj = kwargs.get('timetag_obj')
@@ -28,6 +32,12 @@ def timetag_to_datetime(**kwargs):
 def datetime_to_timetag_value(dt):
     td = dt - OSC_EPOCH
     return seconds_from_timedelta(td)
+    
+def timestamp_to_timetag_value(ts):
+    return ts + OSC_EPOCH_TIMESTAMP
+    
+def timetag_to_timestamp(tt):
+    return tt - OSC_EPOCH_TIMESTAMP
     
 def pack_args(value):
     if isinstance(value, list) or isinstance(value, tuple):
@@ -266,9 +276,11 @@ class OSCNode(BaseObject):
             return self.get_root_node().send_message(**kwargs)
         timetag = kwargs.get('timetag')
         if timetag is None:
-            now = datetime.datetime.now()
+            #now = datetime.datetime.now()
+            now = time.time()
             offset = self.get_epoch_offset_cb()
-            timetag = datetime_to_timetag_value(now - offset)
+            #timetag = datetime_to_timetag_value(now - offset)
+            timetag = timestamp_to_timetag_value(now - offset)
         value = pack_args(kwargs.get('value'))
         message = Message(*value, address=kwargs['full_path'])
         bundle = Bundle(message, timetag=timetag)
@@ -311,12 +323,14 @@ class OSCDispatchThread(threading.Thread):
         
     def add_element(self, element):
         def do_add(bundle):
-            dt = bundle.timetag.datetime
+            #dt = bundle.timetag.datetime
+            ts = timetag_to_timestamp(bundle.timetag)
             #print 'add bundle: ', dt
-            if dt in self.bundles:
-                dt = dt + datetime.timedelta(microseconds=1)
+            if ts in self.bundles:
+                ts += .000001
+                #dt = dt + datetime.timedelta(microseconds=1)
                 #print 'recalc datetime: ', dt
-            self.bundles[dt] = bundle
+            self.bundles[ts] = bundle
             self.ready_to_dispatch.set()
         if isinstance(element, Bundle):
             bundles = element.split_bundles()
@@ -329,10 +343,10 @@ class OSCDispatchThread(threading.Thread):
                             timetag=-1)
             do_add(bundle)
         
-    def get_next_datetime(self):
+    def get_next_timestamp(self):
         if len(self.bundles):
-            dt = min(self.bundles.keys())
-            return dt
+            ts = min(self.bundles.keys())
+            return ts
         return False
         
     def run(self):
@@ -341,16 +355,17 @@ class OSCDispatchThread(threading.Thread):
             self.ready_to_dispatch.wait()
             if not self.running.isSet():
                 return
-            dt = self.get_next_datetime()
-            if dt is False:
+            ts = self.get_next_timestamp()
+            if ts is False:
                 self.ready_to_dispatch.clear()
             else:
-                now = datetime.datetime.now()
+                #now = datetime.datetime.now()
+                now = time.time()
                 offset = self.osc_tree.get_epoch_offset_cb()
                 now = now + offset
-                if dt <= now:
-                    bundle = self.bundles[dt]
-                    del self.bundles[dt]
+                if ts <= now:
+                    bundle = self.bundles[ts]
+                    del self.bundles[ts]
                     #messages = bundle.get_messages()
                     try:
                         self.do_dispatch(bundle)
@@ -359,7 +374,8 @@ class OSCDispatchThread(threading.Thread):
                         self.LOG.warning('OSC dispatch Exception Caught: \n' + tb)
                 else:
                     self.ready_to_dispatch.clear()
-                    timeout = seconds_from_timedelta(dt - now)
+                    #timeout = seconds_from_timedelta(dt - now)
+                    timeout = ts - now
                     self.ready_to_dispatch.wait(timeout)
                     self.ready_to_dispatch.set()
                     

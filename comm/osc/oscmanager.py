@@ -73,7 +73,8 @@ class OSCManager(BaseIO.BaseIO, Config):
                                 get_epoch_offset_cb=self.get_epoch_offset)
         #self.root_node = self.osc_tree.add_child(name=self.app_address)
         self.root_node = self.osc_tree
-        self.epoch_offset = datetime.timedelta()
+        #self.epoch_offset = datetime.timedelta()
+        self.epoch_offset = 0.
         self.clock_send_thread = None
         s = kwargs.get('use_unique_addresses', self.get_conf('use_unique_addresses', 'True'))
         flag = not s == 'False'
@@ -235,7 +236,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         
     def start_clock_send_thread(self):
         self.stop_clock_send_thread()
-        self.clock_send_thread = ClockSender(osc_node=self.clocksync_node, clients=self.clients)
+        self.clock_send_thread = ClockSender(osc_node=self.clocksync_node, 
+                                             time_method='timestamp', 
+                                             clients=self.clients)
         self.clock_send_thread.start()
         
     def stop_clock_send_thread(self, blocking=True):
@@ -247,12 +250,13 @@ class OSCManager(BaseIO.BaseIO, Config):
     def on_master_sent_clocksync(self, **kwargs):
         msg = kwargs.get('message')
         value = msg.get_arguments()[0]
-        dt = datetime.datetime.strptime(value, '%Y%m%d %H:%M:%S %f')
-        now = datetime.datetime.fromtimestamp(msg.timestamp)
+        #dt = datetime.datetime.strptime(value, '%Y%m%d %H:%M:%S %f')
+        #now = datetime.datetime.fromtimestamp(msg.timestamp)
+        now = time.time()
         #print 'msg.timestamp: ', msg.timestamp
         #tsnow = datetime.datetime.fromtimestamp(msg.timestamp)
         #print 'now=%s, tsnow=%s' % (now, tsnow)
-        self.epoch_offset = now - dt
+        self.epoch_offset = now - value
         #print 'epoch_offset: ', self.epoch_offset
         
     def on_client_added(self, **kwargs):
