@@ -21,7 +21,7 @@ import socket
 
 #from txosc import osc
 #from Bases.osc_node import OSCNode, Bundle
-from Bases import BaseObject, BaseThread, Config
+from Bases import BaseObject, OSCBaseObject, BaseThread, Config
 
 from .. import BaseIO
 
@@ -81,6 +81,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         #self.root_node.addCallback('/clocksync', self.on_master_sent_clocksync)
         csnode = self.root_node.add_child(name='clocksync')
         csnode.bind(message_received=self.on_master_sent_clocksync)
+        self.clocksync_node = csnode
         self.ioManager = oscIO(Manager=self)
         self.SessionManager = OSCSessionManager(Manager=self)
         self.SessionManager.bind(client_added=self.on_client_added, 
@@ -234,7 +235,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         
     def start_clock_send_thread(self):
         self.stop_clock_send_thread()
-        self.clock_send_thread = ClockSender(Manager=self)
+        self.clock_send_thread = ClockSender(osc_node=self.clocksync_node, clients=self.clients)
         self.clock_send_thread.start()
         
     def stop_clock_send_thread(self, blocking=True):
@@ -247,7 +248,7 @@ class OSCManager(BaseIO.BaseIO, Config):
         msg = kwargs.get('message')
         value = msg.get_arguments()[0]
         dt = datetime.datetime.strptime(value, '%Y%m%d %H:%M:%S %f')
-        now = datetime.datetime.now()
+        now = datetime.datetime.fromtimestamp(msg.timestamp)
         #print 'msg.timestamp: ', msg.timestamp
         #tsnow = datetime.datetime.fromtimestamp(msg.timestamp)
         #print 'now=%s, tsnow=%s' % (now, tsnow)
@@ -745,6 +746,55 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def _on_oscMaster_set(self, **kwargs):
         self.root_node.oscMaster = self.isMaster
         
+class ClockSync(OSCBaseObject):
+    _Properties = {'isMaster':dict(default=False), 
+                   'offset':dict(default=0.)}
+    def __init__(self, **kwargs):
+        kwargs.setdefault('osc_address', 'clocksync')
+        super(ClockSync, self).__init__(**kwargs)
+        self.clock_send_thread = None
+        self.nodes = {}
+        for key in ['sync', 'DelayReq', 'DelayResp']:
+            node = self.osc_node.add_child(name=key)
+            method = getattr(self, 'on_%s_message_received')
+            node.bind(message_received=method)
+            self.nodes[key] = node
+        self.bind(isMaster=self._on_isMaster_set)
+    def _on_isMaster_set(self, **kwargs):
+        value = kwargs.get('value')
+        if value:
+            self.start_clock_send_thread()
+        else:
+            self.stop_clock_send_thread()
+            
+    def start_clock_send_thread(self):
+        self.stop_clock_send_thread()
+        self.clock_send_thread = ClockSender(osc_node=self.nodes['sync'])
+        self.clock_send_thread.start()
+        
+    def stop_clock_send_thread(self, blocking=True):
+        if self.clock_send_thread is None:
+            return
+        self.clock_send_thread.stop(blocking=blocking)
+        self.clock_send_thread = None
+        
+    def on_sync_message_received(self, **kwargs):
+        msg = kwargs.get('message')
+        self.master_clock_time = msg.get_values()[0]
+        self.delay_req_timestamp = msg.timestamp
+        self.nodes['DelayReq'].send_message(client=msg.client)
+        
+        
+    def on_DelayReq_message_received(self, **kwargs):
+        msg = kwargs.get('message')
+        self.nodes['DelayResp'].send_message(value=msg.timestamp, client=msg.client)
+        
+    def on_DelayResp_message_received(self, **kwargs):
+        msg = kwargs.get('message')
+        rt = msg.get_arguments()[0] - self.delay_req_timestamp
+        #self.offset = 
+        
+        
 class ClockSender(BaseThread):
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'OSCManager_ClockSender'
@@ -752,17 +802,19 @@ class ClockSender(BaseThread):
         self._threaded_call_ready.wait_timeout = 10.
         #self.running = threading.Event()
         #self.sending = threading.Event()
-        self.Manager = kwargs.get('Manager')
-        self.osc_node = self.Manager.root_node
-        self.osc_address = kwargs.get('osc_address', 'clocksync')
+        #self.Manager = kwargs.get('Manager')
+        self.osc_node = kwargs.get('osc_node')
+        self.clients = kwargs.get('clients')
+        #self.osc_address = kwargs.get('osc_address', 'clocksync')
         #self.interval = kwargs.get('interval', 10.)
     def _thread_loop_iteration(self):
         if not self.running:
             return
-        clients = [c for c in self.Manager.clients.values() if c.sendAllUpdates and c.accepts_timetags]# and c.isSameSession]
+        clients = [c for c in self.clients.values() if c.sendAllUpdates and c.accepts_timetags]# and c.isSameSession]
         now = datetime.datetime.now()
-        self.osc_node.send_message(address=self.osc_address, 
-                                   value=now.strftime('%Y%m%d %H:%M:%S %f'), 
+        value = now.strftime('%Y%m%d %H:%M:%S %f')
+        #value = time.time()
+        self.osc_node.send_message(value=value, 
                                    timetag=-1, 
                                    clients=clients)
     def old_run(self):

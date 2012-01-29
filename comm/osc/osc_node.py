@@ -355,7 +355,8 @@ class OSCDispatchThread(threading.Thread):
                     try:
                         self.do_dispatch(bundle)
                     except:
-                        self.LOG.warning(sys.exc_info())
+                        tb = traceback.format_exc()
+                        self.LOG.warning('OSC dispatch Exception Caught: \n' + tb)
                 else:
                     self.ready_to_dispatch.clear()
                     timeout = seconds_from_timedelta(dt - now)
