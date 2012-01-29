@@ -335,18 +335,13 @@ class OSCDispatchThread(threading.Thread):
             else:
                 self.bundles[ts] = bundle
                 #self.ready_to_dispatch.set()
-        if isinstance(element, Bundle):
+        if not isinstance(element, Bundle) or element.timetag < 0:
+            self._do_dispatch(element)
+        else:
             bundles = element.split_bundles()
             for bundle in bundles.itervalues():
                 do_add(bundle)
             self.ready_to_dispatch.set()
-        else:
-            #bundle = Bundle(element, 
-            #                client=element.client, 
-            #                timestamp=element.timestamp, 
-            #                timetag=-1)
-            #do_add(bundle)
-            self._do_dispatch(element)
         
     def get_next_timestamp(self):
         if len(self.bundles):
@@ -366,9 +361,11 @@ class OSCDispatchThread(threading.Thread):
             else:
                 #now = datetime.datetime.now()
                 now = time.time()
+                #orig_now = now
                 offset = self.osc_tree.get_epoch_offset_cb()
                 now = now + offset
                 if ts <= now:
+                    #print 'now=%s, ts=%s, offset=%s' % (orig_now.__repr__(), ts.__repr__(), offset.__repr__())
                     bundle = self.bundles[ts]
                     del self.bundles[ts]
                     #messages = bundle.get_messages()
