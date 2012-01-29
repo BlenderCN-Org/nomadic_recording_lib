@@ -819,9 +819,9 @@ class ClockSync(OSCBaseObject):
         #netdelay = times['master_resp'] - times['local_resp']
         netdelay = times['local_sync'] - times['local_resp']
         times['netdelay'] = netdelay
-        self.offset = times['local_sync'] - times['master_sync'] - (netdelay / 2.)
-        print ['='.join([key, times[key].__repr__()]) for key in ['master_sync', 'local_sync', 'master_resp', 'local_resp', 'netdelay']]
-        print 'offset: ', self.offset.__repr__()
+        self.offset = times['local_sync'] - times['master_sync']# - (netdelay / 2.)
+        #print ['='.join([key, times[key].__repr__()]) for key in ['master_sync', 'local_sync', 'master_resp', 'local_resp', 'netdelay']]
+        #print 'offset: ', self.offset.__repr__()
         
         
 class ClockSender(BaseThread):
