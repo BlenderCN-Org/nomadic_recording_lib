@@ -10,7 +10,7 @@ if __name__ == '__main__':
     for i in range(2):
         p = os.path.split(p)[0]
     sys.path.append(p)
-from Bases import BaseObject
+from Bases import BaseObject, Scheduler
 from messages import Address, Message, Bundle, parse_message
 
 
@@ -301,16 +301,15 @@ def get_ui_module(name):
     module = imp.load_module(name, *t)
     return module
 
-## TODO: make this use the threadbases.BaseThread class
-class OSCDispatchThread(threading.Thread):
+class OSCDispatchThread(Scheduler):
     _ui_mode_dispatch_methods = {'gtk':'gtk_do_dispatch', 
                                  'kivy':'kivy_do_dispatch'}
     def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
-        self.running = threading.Event()
-        self.ready_to_dispatch = threading.Event()
-        self.LOG = BaseObject().LOG
-        self.bundles = {}
+        super(OSCDispatchThread, self).__init__(**kwargs)
+        #self.running = threading.Event()
+        #self.ready_to_dispatch = threading.Event()
+        #self.LOG = BaseObject().LOG
+        #self.bundles = {}
         self.osc_tree = kwargs.get('osc_tree')
         self.do_dispatch = self._do_dispatch
         self.ui_module = None
@@ -321,35 +320,20 @@ class OSCDispatchThread(threading.Thread):
             attr = self._ui_mode_dispatch_methods.get(ui)
             if attr:
                 self.do_dispatch = getattr(self, attr)
+        self.callback = self.do_dispatch
         
     def add_element(self, element):
-        def do_add(bundle):
-            #dt = bundle.timetag.datetime
-            ts = timetag_to_timestamp(bundle.timetag)
-            #print 'add bundle: ', dt
-            if ts in self.bundles:
-                self.bundles[ts].elements.append(bundle)
-                #ts += .000001
-                #dt = dt + datetime.timedelta(microseconds=1)
-                #print 'recalc datetime: ', dt
-            else:
-                self.bundles[ts] = bundle
-                #self.ready_to_dispatch.set()
         if not isinstance(element, Bundle) or element.timetag < 0:
-            self._do_dispatch(element)
+            self._do_dispatch(element, element.timestamp)
         else:
+            offset = self.osc_tree.get_epoch_offset_cb()
             bundles = element.split_bundles()
             for bundle in bundles.itervalues():
-                do_add(bundle)
-            self.ready_to_dispatch.set()
+                ts = timetag_to_timestamp(bundle.timetag)
+                ts += offset
+                self.add_item(ts, bundle)
         
-    def get_next_timestamp(self):
-        if len(self.bundles):
-            ts = min(self.bundles.keys())
-            return ts
-        return False
-        
-    def run(self):
+    def old_run(self):
         self.running.set()
         while self.running.isSet():
             self.ready_to_dispatch.wait()
@@ -381,16 +365,20 @@ class OSCDispatchThread(threading.Thread):
                     self.ready_to_dispatch.wait(timeout)
                     self.ready_to_dispatch.set()
                     
-    def _do_dispatch(self, element):
+    def _do_dispatch(self, element, time):
         #for m in messages:
-        self.osc_tree._do_dispatch_message(element)
+        try:
+            self.osc_tree._do_dispatch_message(element)
+        except:
+            tb = traceback.format_exc()
+            self.LOG.warning('OSC dispatch Exception Caught: \n' + tb)
             
-    def gtk_do_dispatch(self, element):
+    def gtk_do_dispatch(self, element, time):
         #self.ui_module.gdk.threads_enter()
-        self._do_dispatch(element)
+        self._do_dispatch(element, time)
         #self.ui_module.gdk.threads_leave()
                 
-    def kivy_do_dispatch(self, element):
+    def kivy_do_dispatch(self, element, time):
         obj = Messenger(element=element, callback=self._on_kivy_msg_cb)
         self.kivy_messengers.add(obj)
         self.ui_module.schedule_once(obj.send, 0)
@@ -398,13 +386,6 @@ class OSCDispatchThread(threading.Thread):
     def _on_kivy_msg_cb(self, messenger):
         self._do_dispatch(messenger.element)
         self.kivy_messengers.discard(messenger)
-
-    def stop(self, **kwargs):
-        blocking = kwargs.get('blocking')
-        self.running.clear()
-        self.ready_to_dispatch.set()
-        if blocking and self.isAlive():
-            self.join()
 
 class Messenger(object):
     __slots__ = ('element', 'callback', '__weakref__')
