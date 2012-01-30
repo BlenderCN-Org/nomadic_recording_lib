@@ -164,6 +164,7 @@ class OSCHandler(BaseObject, PropertyConnector):
         self.send_root_address = kwargs.get('send_root_address')
         self.send_client = kwargs.get('send_client')
         self.all_sessions = kwargs.get('all_sessions', False)
+        self.use_timetags = kwargs.get('use_timetags', True)
         self.Property = kwargs.get('Property')
         
     def unlink(self):
@@ -225,6 +226,16 @@ class OSCHandler(BaseObject, PropertyConnector):
     def on_Property_value_changed(self, **kwargs):
         self.send_Property_value_to_osc()
         
+    def set_message_defaults(self, **kwargs):
+        kwargs.setdefault('all_sessions', self.all_sessions)
+        if not self.use_timetags:
+            kwargs.setdefault('timetag', -1)
+        if self.send_client is not None:
+            kwargs.setdefault('client', self.send_client)
+        if self.send_root_address is not None:
+            kwargs.setdefault('root_address', self.send_root_address)
+        return kwargs
+        
     def send_Property_value_to_osc(self, **kwargs):
         if self.Property_set_by_osc:
             #self.Property_set_by_osc = False
@@ -238,15 +249,9 @@ class OSCHandler(BaseObject, PropertyConnector):
             args = value
         else:
             args = [value]
-        msg_kwargs = dict(value=args, address=kwargs.get('address', 'set-value'), all_sessions=self.all_sessions)
-        if 'client' in kwargs:
-            msg_kwargs['client'] = kwargs['client']
-        elif self.send_client is not None:
-            msg_kwargs['client'] = self.send_client
-        if self.send_root_address is not None:
-            msg_kwargs['root_address'] = self.send_root_address
-        #print msg_kwargs
-        self.osc_node.send_message(**msg_kwargs)
+        kwargs = self.set_message_defaults(**kwargs)
+        kwargs.update(address='set-value', value=args)
+        self.osc_node.send_message(**kwargs)
             
     def on_osc_Property_value_changed(self, **kwargs):
         args = kwargs.get('values')
@@ -270,8 +275,9 @@ class OSCHandler(BaseObject, PropertyConnector):
         self.Property_set_by_osc = False
                 
     def on_osc_Property_value_requested(self, **kwargs):
-        self.send_Property_value_to_osc(client=kwargs.get('client').name, all_sessions=self.all_sessions)
+        self.send_Property_value_to_osc(client=kwargs.get('client').name)
         
     def request_Property_value(self, **kwargs):
-        kwargs.update(dict(address='current-value', all_sessions=self.all_sessions))
+        kwargs = self.set_message_defaults(**kwargs)
+        kwargs['address'] = 'current-value'
         self.osc_node.send_message(**kwargs)
