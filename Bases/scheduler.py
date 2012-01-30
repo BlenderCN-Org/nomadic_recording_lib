@@ -1,18 +1,17 @@
-import threading
 import time
 
-class Scheduler(threading.Thread):
+from threadbases import BaseThread
+
+class Scheduler(BaseThread):
+    _Events = {'waiting':{}}
     def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
+        super(Scheduler, self).__init__(**kwargs)
         self.callback = kwargs.get('callback')
         self.spawn_threads = kwargs.get('spawn_threads', False)
         if self.spawn_threads:
             self._do_callback = self.do_threaded_callback
         else:
             self._do_callback = self.do_callback
-        self.running = threading.Event()
-        self.waiting = threading.Event()
-        self.next_timeout = None
         self.queue = TimeQueue()
         
     def now(self):
@@ -23,46 +22,52 @@ class Scheduler(threading.Thread):
         self.waiting.set()
         
     def run(self):
-        self.running.set()
-        while self.running.isSet():
-            self.waiting.wait(self.next_timeout)
-            if not self.running.isSet():
+        running = self._running
+        waiting = self.waiting
+        next_timeout = None
+        queue = self.queue
+        time_to_next_item = self.time_to_next_item
+        process_next_item = self.process_next_item
+        get_now = self.now
+        running.set()
+        while running.isSet():
+            waiting.wait(next_timeout)
+            if not running.isSet():
                 return
-            if not len(self.queue.times):
-                self.waiting.clear()
-                self.next_timeout = None
+            if not len(queue.times):
+                waiting.clear()
+                next_timeout = None
             else:
-                if self.next_timeout is not None:
-                    self.process_next_item()
+                if next_timeout is not None:
+                    process_next_item()
                 else:
-                    timeout, t = self.time_to_next_item()
+                    timeout, t = time_to_next_item()
                     #print '%011.8f, %011.8f' % (timeout, t)
                     if timeout <= 0:
                         #self.process_item(t)
-                        self.process_next_item()
-                        self.waiting.set()
+                        process_next_item()
+                        waiting.set()
                     else:
-                        self.waiting.clear()
-                        self.next_timeout = timeout
+                        waiting.clear()
+                        next_timeout = timeout
                         #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
-            
+        self._stopped.set()
+        
     def stop(self, **kwargs):
-        blocking = kwargs.get('blocking')
-        self.running.clear()
+        self._running.clear()
         self.waiting.set()
-        if blocking:
-            self.join()
+        super(Scheduler, self).stop(**kwargs)
         
     def process_item(self, time):
         t, item = self.queue.pop(time)
         self._do_callback(item, time)
         
     def process_next_item(self):
-        #now = self.now()
-        queue = self.queue.pop()
-        if not queue:
+        now = self.now()
+        data = self.queue.pop()
+        if not data:
             return
-        t, item = queue
+        t, item = data
         #print 'scheduler processing: t=%010.8f, now=%010.8f, diff=%010.8f' % (t, now, t - now)
         self._do_callback(item, t)
         
@@ -76,7 +81,7 @@ class Scheduler(threading.Thread):
     def time_to_next_item(self):
         t = self.queue.lowest_time()
         if t is None:
-            return False
+            return False, False
         return (t - self.now(), t)
         
 class TimeQueue(object):
@@ -108,4 +113,4 @@ class TimeQueue(object):
     def lowest_time(self):
         if not len(self.times):
             return None
-        return sorted(self.times)[0]
+        return min(self.times)
