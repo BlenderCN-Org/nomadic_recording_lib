@@ -21,7 +21,7 @@ import socket
 
 #from txosc import osc
 #from Bases.osc_node import OSCNode, Bundle
-from Bases import BaseObject, OSCBaseObject, BaseThread, Config
+from Bases import BaseObject, OSCBaseObject, BaseThread, ChildGroup, Config
 
 from .. import BaseIO
 
@@ -47,7 +47,6 @@ class OSCManager(BaseIO.BaseIO, Config):
     _Properties = {'app_address':dict(type=str), 
                    'master_priority':dict(default=10), 
                    'session_name':dict(type=str), 
-                   'discovered_sessions':dict(default={}), 
                    'ring_master':dict(type=str), 
                    'epoch_offset':dict(default=0.)}
     def __init__(self, **kwargs):
@@ -55,6 +54,9 @@ class OSCManager(BaseIO.BaseIO, Config):
         BaseIO.BaseIO.__init__(self, **kwargs)
         Config.__init__(self, **kwargs)
         self.register_signal('client_added', 'client_removed', 'unique_address_changed', 'new_master')
+        self.discovered_sessions = ChildGroup(name='discovered_sessions', 
+                                              child_class=Session, 
+                                              ignore_index=True)
         self.app_address = self.GLOBAL_CONFIG.get('app_name', self.get_conf('app_address', 'OSCApp'))
         self.default_root_address = kwargs.get('root_address', '%s-%s' % (self.app_address, socket.gethostname()))
         self.root_address = self.default_root_address
@@ -297,17 +299,17 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.init_clients()
         #self.root_node.addCallback('/getMaster', self.on_master_requested_by_osc)
         #self.root_node.addCallback('/setMaster', self.on_master_set_by_osc)
-        self.getMasterNode = self.root_node.add_child(name='getMaster')
-        self.getMasterNode.bind(message_received=self.on_master_requested_by_osc)
-        self.setMasterNode = self.root_node.add_child(name='setMaster')
-        self.setMasterNode.bind(message_received=self.on_master_set_by_osc)
+        #self.getMasterNode = self.root_node.add_child(name='getMaster')
+        #self.getMasterNode.bind(message_received=self.on_master_requested_by_osc)
+        #self.setMasterNode = self.root_node.add_child(name='setMaster')
+        #self.setMasterNode.bind(message_received=self.on_master_set_by_osc)
         self.GLOBAL_CONFIG.bind(update=self.on_GLOBAL_CONFIG_update)
         self.comm.ServiceConnector.connect('new_host', self.on_host_discovered)
         self.comm.ServiceConnector.connect('remove_host', self.on_host_removed)
         
         self.Manager.bind(master_priority=self._on_master_priority_set, 
                           session_name=self._on_session_name_set, 
-                          discovered_sessions=self._on_discovered_sessions_set, 
+                          #discovered_sessions=self._on_discovered_sessions_set, 
                           ring_master=self._on_ring_master_set)
     
     @property
@@ -341,19 +343,19 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.Manager.session_name = value
         
     def determine_ring_master(self):
-        session_masters = {}
-        for client in self.clients.itervalues():
-            if not client.isMaster:
+        masters = {}
+        for session in self.discovered_sessions.itervalues():
+            m = session.master
+            if m is None:
                 continue
-            key = int(''.join([s.rjust(3, '0') for s in client.address.split('.')]))
-            session_masters[key] = client
-        if not len(session_masters):
+            key = int(''.join([s.rjust(3, '0') for s in m.address.split('.')]))
+            masters[key] = m
+        if not len(masters):
             return False
-        master = session_masters[min(session_masters.keys())]
+        master = masters[min(masters.keys())]
         if master.name != self.Manager.ring_master:
             self.Manager.ring_master = master.name
         return master
-        
         
     def do_connect(self):
         serv = self.comm.ServiceConnector.add_service(**self.build_zeroconf_data())
@@ -389,16 +391,25 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if client is not None:
             clients.append(client)
         sessions = self.discovered_sessions
-        old = sessions.copy()
-        session = sessions.get(name, {'clients':set()})
-        for client in clients:
-            session['clients'].add(client)
-            if client.isMaster:
-                session['master'] = client
-        if name not in sessions:
-            sessions[name] = session
+        session = sessions.get(name)
+        if session:
+            for c in clients:
+                session.add_member(c)
         else:
-            sessions.parent_property.emit(old)
+            session = sessions.add_child(name=name, members=clients)
+            session.bind(master=self.on_session_master_set, 
+                         members=self.on_session_members_update)
+            
+#        old = sessions.copy()
+#        session = sessions.get(name, {'clients':set()})
+#        for client in clients:
+#            session['clients'].add(client)
+#            if client.isMaster:
+#                session['master'] = client
+#        if name not in sessions:
+#            sessions[name] = session
+#        else:
+#            sessions.parent_property.emit(old)
             
     def remove_from_session(self, **kwargs):
         name = kwargs.get('name')
@@ -407,18 +418,24 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if client is not None:
             clients.append(client)
         sessions = self.discovered_sessions
-        old = sessions.copy()
         session = sessions.get(name)
-        if session is None:
+        if not session:
             return
-        for client in clients:
-            if client == session.get('master'):
-                session['master'] = None
-            session['clients'].discard(client)
-        if not len(sessions[name]['clients']):
-            del sessions[name]
-        else:
-            sessions.parent_property.emit(old)
+        for c in clients:
+            session.del_member(c)
+        
+#        old = sessions.copy()
+#        session = sessions.get(name)
+#        if session is None:
+#            return
+#        for client in clients:
+#            if client == session.get('master'):
+#                session['master'] = None
+#            session['clients'].discard(client)
+#        if not len(sessions[name]['clients']):
+#            del sessions[name]
+#        else:
+#            sessions.parent_property.emit(old)
             
     def add_client(self, **kwargs):
         kwargs.setdefault('port', self.ioManager.hostdata['sendport'])
@@ -439,8 +456,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         #if client.session_name is not None:
         #    self.discovered_sessions.add(client.session_name)
         self.Manager.update_wildcards()
-        if self.check_master_attempts is None:
-            self.check_for_master(client=client.name)
+        #if self.check_master_attempts is None:
+        #    self.check_for_master(client=client.name)
         propkeys = client.Properties.keys()
         self.LOG.info('add_client:', dict(zip(propkeys, [client.Properties[key].value for key in propkeys])))
         keys = ['name', 'address', 'port']
@@ -465,6 +482,25 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if client.session_name is not None:
             self.remove_from_session(name=client.session_name, client=client)
     
+    def on_session_master_set(self, **kwargs):
+        session = kwargs.get('obj')
+        value = kwargs.get('value')
+        self.determine_ring_master()
+        if session.name != self.session_name:
+            return
+        if value != self.oscMaster:
+            if value is None:
+                m = self.determine_next_master()
+                if m == self.local_client:
+                    self.set_master()
+            
+    def on_session_members_update(self, **kwargs):
+        return
+        session = kwargs.get('obj')
+        if not len(session.members):
+            session.unbind(self)
+            self.discovered_sessions.del_child(session)
+            
     def on_client_obj_property_changed(self, **kwargs):
         prop = kwargs.get('Property')
         old = kwargs.get('old')
@@ -473,23 +509,25 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         if prop.name == 'isRingMaster' and value is True:
             if self.Manager.ring_master != client.name:
                 self.Manager.ring_master = client.name
-        elif prop.name == 'isMaster':
-            if value is False:
-                m = self.determine_next_master()
-                if m.name != self.oscMaster:
-                    self.select_new_master()
-                if self.discovered_sessions.get(client.session_name, {}).get('master') == client:
-                    old_session = self.discovered_sessions.copy()
-                    self.discovered_sessions[client.session_name]['master'] = None
-                    self.discovered_sessions.parent_property.emit(old_session)
-            else:
-                self.add_to_session(name=client.session_name, client=client)
-                
         elif prop.name == 'session_name' and value is not None:
-            #self.discovered_sessions.add(value)
-            if old is not None:
-                self.remove_from_session(name=old, client=client)
             self.add_to_session(name=value, client=client)
+#        elif prop.name == 'isMaster':
+#            if value is False:
+#                m = self.determine_next_master()
+#                if m.name != self.oscMaster:
+#                    self.select_new_master()
+#                if self.discovered_sessions.get(client.session_name, {}).get('master') == client:
+#                    old_session = self.discovered_sessions.copy()
+#                    self.discovered_sessions[client.session_name]['master'] = None
+#                    self.discovered_sessions.parent_property.emit(old_session)
+#            else:
+#                self.add_to_session(name=client.session_name, client=client)
+#                
+#        elif prop.name == 'session_name' and value is not None:
+#            #self.discovered_sessions.add(value)
+#            if old is not None:
+#                self.remove_from_session(name=old, client=client)
+#            self.add_to_session(name=value, client=client)
 #        elif prop.name == 'session_name':
 #            if not client.isLocalhost and client.isMaster:
 #                pass
@@ -512,42 +550,6 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
 #                print 'next master: ', m
 #                if m != self.oscMaster:
 #                    self.select_new_master()
-            
-##    def add_client_name(self, name, update_conf=True):
-##        s = self.build_curly_wildcard(self.client_names)
-##        self.osc_tree._wildcardNodes.discard(s)
-##        if name is not None:
-##            self.client_names.add(name)
-##        if len(self.client_names) > 1 and 'null' in self.client_names:
-##            self.client_names.discard('null')
-##        s = self.build_curly_wildcard(self.client_names)
-##        self.root_node.setName(s)
-##        self.osc_tree._wildcardNodes.add(s)
-##        if update_conf:
-##            self.update_conf(client_names=list(self.client_names))
-##        #self.emit('client_added', name=name)
-##        
-##    def remove_client_name(self, name, update_conf=True):
-##        s = self.build_curly_wildcard(self.client_names)
-##        self.osc_tree._wildcardNodes.discard(s)
-##        self.client_names.discard(name)
-##        s = self.build_curly_wildcard(self.client_names)
-##        self.root_node.setName(s)
-##        self.osc_tree._wildcardNodes.add(s)
-##        if update_conf:
-##            self.update_conf(client_names=list(self.client_names))
-##    
-##    def add_client_address(self, address, update_conf=True):
-##        if address is not None:
-##            self.client_addresses.add(address)
-##        if update_conf:
-##            self.update_conf(client_addresses=list(self.client_addresses))
-##        #self.emit('client_added', name=address)
-##        
-##    def remove_client_address(self, address, update_conf=True):
-##        self.client_addresses.discard(address)
-##        if update_conf:
-##            self.update_conf(client_addresses=list(self.client_addresses))
         
     def build_zeroconf_data(self):
         d = dict(name=self.local_name, 
@@ -580,7 +582,14 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.GLOBAL_CONFIG['session_name'] = value
         #data = self.build_zeroconf_data()
         #self.comm.ServiceConnector.update_service(**data)
-        self.select_new_master()
+        #self.select_new_master()
+        if self.local_client is not None:
+            self.add_to_session(name=value, client=self.local_client)
+            #self.local_client.session_name = value
+            master = self.discovered_sessions[value].master
+            if master is not None:
+                master = master.name
+            self.set_master(master)
         
     def on_GLOBAL_CONFIG_update(self, **kwargs):
         keys = kwargs.get('keys')
@@ -593,25 +602,25 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             if value != getattr(self, key):
                 setattr(self, key, value)
             
-    def on_master_requested_by_osc(self, **kwargs):
-        if not self.isRingMaster:
-            return
-        msg = kwargs.get('message')
-        req_session = msg.get_arguments()[0]
-        session = self.discovered_sessions.get(req_session, {})
-        master = session.get('master')
-        if not master:
-            return
-        self.LOG.info('master_requested_by_osc, session=%s, master=%s' % (req_session, master.name))
-        self.setMasterNode.send_message(value=master.name, client=msg.client, timetag=-1)
-            
-    def on_master_set_by_osc(self, **kwargs):
-        msg = kwargs.get('message')
-        name = msg.get_arguments()[0]
-        self.LOG.info('master_set_by_osc', name)
-        self.cancel_check_master_timer()
-        self.check_master_attempts = None
-        self.set_master(name)
+#    def on_master_requested_by_osc(self, **kwargs):
+#        if not self.isRingMaster:
+#            return
+#        msg = kwargs.get('message')
+#        req_session = msg.get_arguments()[0]
+#        session = self.discovered_sessions.get(req_session, {})
+#        master = session.get('master')
+#        if not master:
+#            return
+#        self.LOG.info('master_requested_by_osc, session=%s, master=%s' % (req_session, master.name))
+#        self.setMasterNode.send_message(value=master.name, client=msg.client, timetag=-1)
+#            
+#    def on_master_set_by_osc(self, **kwargs):
+#        msg = kwargs.get('message')
+#        name = msg.get_arguments()[0]
+#        self.LOG.info('master_set_by_osc', name)
+#        self.cancel_check_master_timer()
+#        self.check_master_attempts = None
+#        self.set_master(name)
         
     def on_host_discovered(self, **kwargs):
         host = kwargs.get('host')
@@ -634,26 +643,28 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.LOG.info('remove:', kwargs)
         id = kwargs.get('id')
         self.remove_client(name=id)
-        if id == self.oscMaster:
-            self.select_new_master()
+        #if id == self.oscMaster:
+        #    self.select_new_master()
                 
     def check_for_master(self, **kwargs):
         if self.connected and not self.isMaster:
             name = kwargs.get('name')
-            if self.check_master_attempts is None:
-                self.check_master_attempts = 0
-            self.cancel_check_master_timer()
-            self.set_master_timeout = threading.Timer(3.0, self.on_check_master_timeout)
+            #if self.check_master_attempts is None:
+            #    self.check_master_attempts = 0
+            #self.cancel_check_master_timer()
+            self.set_master_timeout = threading.Timer(10.0, self.on_check_master_timeout)
             self.set_master_timeout.start()
             #new_kwargs = {}#{'address':'getMaster'}
             #if name:
             #    new_kwargs.update({'client':name})
-            element = self.getMasterNode.send_message(value=self.session_name, 
-                                                      all_sessions=True, 
-                                                      timetag=-1)
+            #element = self.getMasterNode.send_message(value=self.session_name, 
+            #                                          all_sessions=True, 
+            #                                          timetag=-1)
             #print 'sent getmaster: ', [str(element)]
             
     def on_check_master_timeout(self):
+        self.set_master()
+        return
         self.check_master_attempts += 1
         if self.check_master_attempts == 3:
             self.check_master_attempts = None
@@ -662,6 +673,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             self.check_for_master()
         
     def set_master(self, name=None):
+        self.cancel_check_master_timer()
         if self.master_takeover_timer:
             self.master_takeover_timer.cancel()
         if name is None:
@@ -683,7 +695,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                 return
             if self.isMaster:
                 self.local_client.isMaster = True
-                self.setMasterNode.send_message(value=self.oscMaster, timetag=-1)
+                #self.setMasterNode.send_message(value=self.oscMaster, timetag=-1)
             else:
                 self.local_client.isMaster = False
                 m = self.determine_next_master()
@@ -729,22 +741,22 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             return None
         return d[min(d)]
         
-    def select_new_master(self):
-        self.oscMaster = None
-        m = self.determine_next_master()
-        if m and m.name == self.local_name:
-            self.set_master()
-        else:
-            self.check_for_master()
-            
-    def _on_discovered_sessions_set(self, **kwargs):
-        #print 'discovered sessions: ', kwargs
-        master = self.determine_ring_master()
-        if master is False:
-            s = 'False'
-        else:
-            s = ': '.join([master.name, master.address])
-        self.LOG.info('ringmaster: ', s)
+#    def select_new_master(self):
+#        self.oscMaster = None
+#        m = self.determine_next_master()
+#        if m and m.name == self.local_name:
+#            self.set_master()
+#        else:
+#            self.check_for_master()
+#            
+#    def _on_discovered_sessions_set(self, **kwargs):
+#        #print 'discovered sessions: ', kwargs
+#        master = self.determine_ring_master()
+#        if master is False:
+#            s = 'False'
+#        else:
+#            s = ': '.join([master.name, master.address])
+#        self.LOG.info('ringmaster: ', s)
         
     def _on_ring_master_set(self, **kwargs):
         value = kwargs.get('value')
@@ -760,6 +772,59 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def _on_oscMaster_set(self, **kwargs):
         self.root_node.oscMaster = self.isMaster
         
+class Session(BaseObject):
+    _Properties = {'master':dict(ignore_type=True), 
+                   'members':dict(default={})}
+    def __init__(self, **kwargs):
+        super(Session, self).__init__(**kwargs)
+        self.name = kwargs.get('name')
+        self.id = self.name
+        self.master = kwargs.get('master')
+        members = kwargs.get('members', [])
+        for m in members:
+            self.add_member(m)
+    def add_member(self, member):
+        if member.session_name != self.name:
+            member.session_name = self.name
+        member.bind(session_name=self.on_member_session_name_set, 
+                    isMaster=self.on_member_isMaster_set)
+        self.members[member.name] = member
+        if member.isMaster:
+            if self.master is None:
+                self.master = member
+            else:
+                member.isMaster = False
+        
+    def del_member(self, member):
+        if type(member) == str:
+            member = self.members.get(member)
+        if not isinstance(member, Client):
+            return
+        if member.name not in self.members:
+            return
+        member.unbind(self)
+        if member.session_name == self.name:
+            member.session_name = None
+        del self.members[member.name]
+        if self.master and self.master.name not in self.members:
+            self.master = None
+    def on_member_session_name_set(self, **kwargs):
+        old = kwargs.get('old')
+        value = kwargs.get('value')
+        member = kwargs.get('obj')
+        if member.session_name != self.name:
+            self.del_member(member)
+        if self.master and self.master.name not in self.members:
+            self.master = None
+    def on_member_isMaster_set(self, **kwargs):
+        value = kwargs.get('value')
+        member = kwargs.get('obj')
+        if member.session_name == self.name and value:
+            self.master = member
+            return
+        if self.master and self.master.name not in self.members:
+            self.master = None
+            
 class ClockSync(OSCBaseObject):
     _Properties = {'isMaster':dict(default=False), 
                    'offset':dict(default=0.)}
@@ -775,7 +840,8 @@ class ClockSync(OSCBaseObject):
             method = getattr(self, 'on_%s_message_received' % (key))
             node.bind(message_received=method)
             self.nodes[key] = node
-        self.bind(isMaster=self._on_isMaster_set)
+        self.bind(isMaster=self._on_isMaster_set, 
+                  offset=self._on_offset_set)
         
     def _on_isMaster_set(self, **kwargs):
         value = kwargs.get('value')
@@ -823,6 +889,9 @@ class ClockSync(OSCBaseObject):
         #print ['='.join([key, times[key].__repr__()]) for key in ['master_sync', 'local_sync', 'master_resp', 'local_resp', 'netdelay']]
         #print 'offset: ', self.offset.__repr__()
         
+    def _on_offset_set(self, **kwargs):
+        offset = kwargs.get('value')
+        self.LOG.info('OSC offset = ' + offset.__repr__())
         
 class ClockSender(BaseThread):
     def __init__(self, **kwargs):

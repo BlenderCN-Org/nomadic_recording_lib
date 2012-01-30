@@ -69,7 +69,10 @@ class Client(OSCBaseObject):
         self.isSameSession = self.session_name == self.GLOBAL_CONFIG.get('session_name')
         self.update_timer = None
         for key in ['isMaster', 'isRingMaster', 'session_name', 'master_priority']:
-            h = self.add_osc_handler(Property=key, all_sessions=True, request_initial_value=False)
+            h = self.add_osc_handler(Property=key, 
+                                     all_sessions=True, 
+                                     use_timetags=False, 
+                                     request_initial_value=False)
         if self.app_name is not None and not self.isLocalhost:
             self.update_timer = threading.Timer(2., self.on_update_timer)
             self.LOG.info('waiting to request props for client ', self.name)
