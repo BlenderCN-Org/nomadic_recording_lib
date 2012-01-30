@@ -1,13 +1,16 @@
+from __future__ import print_function
 import logging
 
 from BaseObject import BaseObject
 from config import Config
 
+LEVELS = ('debug', 'info', 'warning', 'error', 'critical')
+
 class Logger(BaseObject, Config):
     _confsection = 'LOGGING'
     _Properties = {'log_mode':dict(default='stdout', entries=['basicConfig', 'stdout']), 
                    'log_filename':dict(type=str), 
-                   'log_level':dict(default='info'), 
+                   'log_level':dict(default='info', fformat='_format_log_level'), 
                    'log_format':dict(default='%(asctime)-15s %(levelname)-10s %(message)s')}
     _confkeys = ['log_mode', 'log_filename', 'log_level', 'log_format']
     def __init__(self, **kwargs):
@@ -27,6 +30,12 @@ class Logger(BaseObject, Config):
             setattr(self, key, val)
         self.set_logger()
         self.bind(property_changed=self._on_own_property_changed)
+    def _format_log_level(self, value):
+        if type(value) == str and value.isdigit():
+            value = int(value)
+        if type(value) == int:
+            value = LEVELS[value]
+        return value
     def set_logger(self, name=None):
         if name is None:
             name = self.log_mode
@@ -38,7 +47,10 @@ class Logger(BaseObject, Config):
             m = getattr(self._logger, key)
             setattr(self, key, m)
     def _on_own_property_changed(self, **kwargs):
-        pass
+        prop = kwargs.get('Property')
+        value = kwargs.get('value')
+        if prop.name == 'log_level':
+            self._logger.level = value
     
 def format_msg(*args):
     if len(args) <= 1:
@@ -50,7 +62,7 @@ class StdoutLogger(object):
         pass
     def log(self, level, *args, **kwargs):
         msg = format_msg(*args)
-        print (level, msg)
+        print (': '.join([level, msg]))
     def debug(self, *args, **kwargs):
         self.log('debug', *args, **kwargs)
     def info(self, *args, **kwargs):
