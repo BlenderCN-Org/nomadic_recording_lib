@@ -1,4 +1,6 @@
 import array
+import collections
+import struct
 
 from BaseObject import BaseObject
 import incrementor
@@ -6,7 +8,8 @@ import incrementor
 def biphase_encode(data, num_samples, max_value):
     samples_per_period = num_samples / len(data) / 4
     min_value = max_value * -1
-    a = array.array('h')
+    #a = array.array('h')
+    a = []
     for value in data:
         if value:
             l = [max_value, min_value, max_value, min_value]
@@ -126,8 +129,8 @@ class LTCDataBlock(object):
             l.extend(field.get_list_value())
         s = bin(i)[2:]
         if s.count('0') % 2 == 1:
-            i += 1 << self.fields['ParityBit'].start_bit
-            l[self.Fields['ParityBit'].start_bit] = True
+            i += 1 << self.fields_by_name['ParityBit'].start_bit
+            l[self.fields_by_name['ParityBit'].start_bit] = True
         return l
         
 class Field(object):
@@ -271,22 +274,143 @@ def _GET_FIELD_CLASSES():
     return d
     
 FIELD_CLASSES = _GET_FIELD_CLASSES()
+print FIELD_CLASSES
 
 if __name__ == '__main__':
     import time
-    tcgen = LTCGenerator()
-    d = tcgen.frame_obj.get_all_obj()
-    #d['minute'].value = 1
-    #d['hour'].value = 2
-    d['second'].value = 58
-    d['frame'].value = 28
-    keys = ['hour', 'minute', 'second', 'frame']
-    values = tcgen.frame_obj.get_values()
-    #print ':'.join(['%02d' % (values[key]) for key in keys])
-    for i in range(61):
-        tcgen.frame_obj += 1
-        values = tcgen.frame_obj.get_values()
-        #print ':'.join(['%02d' % (values[key]) for key in keys]), '   ', i
-    a = tcgen.build_audio_data()
-    #print a
+    import threading
+    import datetime
+    import gobject, glib
+    import gst
     
+    class A(object):
+        def __init__(self):
+            self.tcgen = LTCGenerator()
+            now = datetime.datetime.now()
+            self.buffer_lock = threading.Lock()
+            self.start = now
+            d = {}
+            for key in ['hour', 'minute', 'second']:
+                d[key] = getattr(now, key)
+            ms = float(now.microsecond) / (10 ** 6)
+            if d['second'] == 0 and d['minute'] % 10 != 0:
+                frame = int(round(ms / (1/28.)))
+                frame += 2
+            else:
+                frame = int(round(ms / (1/30.)))
+            if frame > 29:
+                frame = 29
+            d['frame'] = frame
+            self.tcgen.frame_obj.set_values(**d)
+            print 'start: ', self.tcgen.frame_obj.get_values(), now.strftime('%X.%f')
+            self.last_timestamp = time.time()
+            self.buffer = collections.deque()
+            self.increment_and_build_data(3)
+            #self.buffer.extend(self.tcgen.build_audio_data())
+            print len(self.buffer)
+        def increment_and_build_data(self, count=1):
+            tcgen = self.tcgen
+            fr_obj = tcgen.frame_obj
+            audbuffer = self.buffer
+            buffer_lock = self.buffer_lock
+            for i in range(count):
+                fr_obj += 1
+                abuf = tcgen.build_audio_data()
+                #with buffer_lock:
+                audbuffer.extend(abuf)
+        def on_vident_handoff(self, ident, buffer):
+            #now = time.time()
+            #print now - self.last_timestamp
+            #self.last_timestamp = now
+            self.increment_and_build_data()
+            #print self.tcgen.frame_obj.get_values()
+            return (ident, buffer)
+        def on_aident_handoff(self, ident, buffer):
+            #print len(self.buffer)
+            #if len(self.buffer) < 1600:
+            #   return (ident, buffer)
+            #print buffer.get_caps()
+            print 'buffer flags: ', buffer.flags
+            
+            print buffer.get_caps()
+            audbuffer = self.buffer
+            with self.buffer_lock:
+                tcbuf = array.array('h')
+                for i in range(800):
+                    tcbuf.append(audbuffer.popleft())
+            tcstr = tcbuf.tostring()
+            print 'tcstr len: ', len(tcstr)
+            newbuffer = gst.Buffer(tcstr)
+            caps = buffer.get_caps()
+            if caps is not None:
+                newbuffer.set_caps(caps)
+            newbuffer.stamp(buffer)
+            newbuffer.flag_set(buffer.flags)
+            return (ident, newbuffer)
+        def on_audneeddata(self, element, *args):
+            audbuffer = self.buffer
+            if len(audbuffer) < 800:
+                return
+            #with self.buffer_lock:
+            tcbuf = array.array('h')
+            for i in range(800):
+                tcbuf.append(audbuffer.popleft())
+            tcstr = tcbuf.tostring()
+            buffer = gst.Buffer(tcstr)
+            #buffer.timestamp = element.get_clock().get_time()
+            print 'abuffer: ', len(tcstr)
+            element.emit('push-buffer', buffer)
+    a = A()
+    p = gst.Pipeline()
+    vqueue = gst.element_factory_make('queue')
+    vsrc = gst.element_factory_make('videotestsrc')
+    vident = gst.element_factory_make('identity')
+    toverlay = gst.element_factory_make('cairotimeoverlay')
+    vcapf = gst.element_factory_make('capsfilter')
+    vcaps = gst.Caps('video/x-raw-yuv, framerate=30000/1001')
+    vcapf.set_property('caps', vcaps)
+    vout = gst.element_factory_make('xvimagesink')
+    vident.connect('handoff', a.on_vident_handoff)
+    
+    aqueue = gst.element_factory_make('queue')
+    #asrc = gst.element_factory_make('audiotestsrc')
+    #asrc.set_property('samplesperbuffer', 800)
+    asrc = gst.element_factory_make('appsrc')
+    asrccapf = gst.element_factory_make('capsfilter')
+    asrccaps = gst.Caps('audio/x-raw-int, rate=48000, channels=1')
+    asrccapf.set_property('caps', asrccaps)
+    aident = gst.element_factory_make('identity')
+    #aident.connect('handoff', a.on_aident_handoff)
+    aout = gst.element_factory_make('autoaudiosink')
+    asrc.connect('need-data', a.on_audneeddata)
+    p.add_many(vqueue, vsrc, vident, toverlay, vcapf, vout, 
+               aqueue, asrc, aident, asrccapf, aout)
+    gst.element_link_many(vsrc, vqueue, vident, toverlay, vcapf, vout)
+    gst.element_link_many(asrc, aqueue, aident, asrccapf, aout)
+    
+    gobject.threads_init()
+    p.set_state(gst.STATE_PLAYING)
+    loop = glib.MainLoop()
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        pass
+        
+#if __name__ == '__main__':
+#    import time
+#    tcgen = LTCGenerator()
+#    d = tcgen.frame_obj.get_all_obj()
+#    #d['minute'].value = 1
+#    #d['hour'].value = 2
+#    d['second'].value = 58
+#    d['frame'].value = 28
+#    keys = ['hour', 'minute', 'second', 'frame']
+#    values = tcgen.frame_obj.get_values()
+#    #print ':'.join(['%02d' % (values[key]) for key in keys])
+#    for i in range(61):
+#        tcgen.frame_obj += 1
+#        values = tcgen.frame_obj.get_values()
+#        #print ':'.join(['%02d' % (values[key]) for key in keys]), '   ', i
+#    a = tcgen.build_audio_data()
+#    #print a
+#    
