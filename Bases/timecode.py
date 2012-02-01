@@ -8,7 +8,7 @@ import incrementor
 
 def biphase_encode(data, num_samples, max_value):
     samples_per_period = num_samples / len(data) / 4
-    print 'num_samp=%s, maxv=%s, s_per_period=%s' % (num_samples, max_value, samples_per_period)
+    #print 'num_samp=%s, maxv=%s, s_per_period=%s' % (num_samples, max_value, samples_per_period)
     min_value = max_value * -1
     #a = array.array('h')
     a = []
@@ -328,9 +328,10 @@ if __name__ == '__main__':
             print 'start: ', self.tcgen.frame_obj.get_values(), now.strftime('%X.%f')
             self.last_timestamp = time.time()
             self.buffer = collections.deque()
-            self.increment_and_build_data(150)
+            self.buffer.extend(self.tcgen.build_audio_data())
+            #self.increment_and_build_data(150)
             #self.buffer.extend(self.tcgen.build_audio_data())
-            print len(self.buffer)
+            #print len(self.buffer)
         def increment_and_build_data(self, count=1):
             tcgen = self.tcgen
             fr_obj = tcgen.frame_obj
@@ -347,55 +348,33 @@ if __name__ == '__main__':
             #self.last_timestamp = now
             self.increment_and_build_data()
             #print self.tcgen.frame_obj.get_values()
+            self.timestamp = buffer.timestamp
+            self.asrc.emit('need-data', self.tcgen.samples_per_frame * 2)
             return (ident, buffer)
-        def on_aident_handoff(self, ident, buffer):
-            #if not getattr(self, 'buffer_printed', False):
-            #    self.buffer_printed = True
-            #    bfrarray = array.array('h')
-            #    bfrarray.fromstring(buffer.data)
-            #    print 'bfrarray len: ', len(bfrarray)
-            #    print bfrarray
-            #return 
-            #print len(self.buffer)
-            #if len(self.buffer) < 1600:
-            #   return (ident, buffer)
-            #print buffer.get_caps()
-            #print 'buffer flags: ', buffer.flags
-
-            #print buffer.get_caps()
-            #print 'aident handoff'
-            tcbuf = self.get_samples_from_buffer(800)
-            if tcbuf is False:
-                return (ident, buffer)
-            tcstr = tcbuf.tostring()
-            print 'bfr len=%s, tcstr len=%s' % (len(buffer.data), len(tcstr))
-            newbuffer = gst.Buffer(tcstr)
-            caps = buffer.get_caps()
-            if caps is not None:
-                newbuffer.set_caps(caps)
-            newbuffer.stamp(buffer)
-            newbuffer.flag_set(buffer.flags)
-            return (ident, newbuffer)
+        
         def on_audneeddata(self, element, length):
-            audbuffer = self.buffer
-            print [e.get_caps().to_string() for e in element.src_pads()]
-            print element.get_property('caps')
-            print 'length needed: ', length
-            print 'abuffer len: ', len(audbuffer)
+            #ts = element.get_clock().get_time() - element.get_base_time()
+            #audbuffer = self.buffer
+#            print [e.get_caps().to_string() for e in element.src_pads()]
+#            print element.get_property('caps')
+#            print 'length needed: ', length
+#            print 'abuffer len: ', len(audbuffer)
             #if len(audbuffer) < length / 4:
             #    return
             #with self.buffer_lock:
             tcbuf = self.get_samples_from_buffer(self.tcgen.samples_per_frame)
             if tcbuf is False:
+                print 'BUFFER EMPTY!!!'
                 element.emit('end-of-stream')
                 return
             tcstr = tcbuf.tostring()
             buffer = gst.Buffer(tcstr)
             buffer.set_caps(element.get_property('caps'))
-            #buffer.timestamp = gst.CLOCK_TIME_NONE
+            buffer.timestamp = self.timestamp
+            #print buffer.timestamp
             #buffer.timestamp = element.get_clock().get_time()
-            print 'buffer: ', len(tcstr)
-            print 'new abuffer len: ', len(audbuffer)
+            #print 'buffer: ', len(tcstr)
+            #print 'new abuffer len: ', len(audbuffer)
             element.emit('push-buffer', buffer)
         def get_samples_from_buffer(self, num_samples):
             buffer = self.buffer
@@ -431,14 +410,16 @@ if __name__ == '__main__':
     #asrc.set_property('volume', 1.)
     
     asrc = gst.element_factory_make('appsrc')
+    a.asrc = asrc
     asrc.set_do_timestamp(True)
     #asrc.set_property('size', 800)
 
     asrc.set_property('is-live', True)
     #asrc.set_property('size', 400)
-    asrc.set_property('max-bytes', a.tcgen.samples_per_frame)
+    #asrc.set_property('max-bytes', a.tcgen.samples_per_frame / 2)
     #asrc.set_property('min-percent', 100)
     asrc.set_property('block', True)
+    asrc.set_property('emit-signals', False)
     
     capsstr = 'audio/x-raw-int, rate=%s, channels=1, width=16, signed=true' % (a.tcgen.samplerate)
     asrccaps = gst.caps_from_string(capsstr)
@@ -454,30 +435,37 @@ if __name__ == '__main__':
     audratecapf = gst.element_factory_make('capsfilter')
     audratecapf.set_property('caps', audratecaps)
     aenc = gst.element_factory_make('wavenc')
+    aconv = gst.element_factory_make('audioconvert')
     #aout = gst.element_factory_make('fakesink')
-    aout = gst.element_factory_make('filesink')
-    aout.set_property('location', '/home/nocarrier/ltctest.wav')
+    #aout = gst.element_factory_make('filesink')
+    #aout.set_property('location', '/home/nocarrier/ltctest.wav')
+    #aout = gst.element_factory_make('jackaudiosink')
+    aout = gst.element_factory_make('autoaudiosink')
 
-    #p.add_many(vqueue, vsrc, vident, toverlay, vcapf, vout)
-    audchain = [asrc, aident, audrate, audratecapf, aenc, aout]
+    vidchain = [vqueue, vsrc, vident, toverlay, vcapf, vout]
+    for e in vidchain:
+        p.add(e)
+    audchain = [asrc, aident, audrate, audratecapf, aout]
     for e in audchain:
         p.add(e)
-    #gst.element_link_many(vsrc, toverlay, vcapf, vout)
+    gst.element_link_many(vsrc, vident, toverlay, vcapf, vout)
     gst.element_link_many(*audchain)
     asrc.connect('need-data', a.on_audneeddata)
     #aident.connect('handoff', a.on_aident_handoff)
     #asrc.connect('push-buffer', a.on_atestsrc_push)
     gobject.threads_init()
     p.set_state(gst.STATE_PLAYING)
-    time.sleep(5.)
-    p.set_state(gst.STATE_NULL)
+    #time.sleep(5.)
+    #p.set_state(gst.STATE_NULL)
+    #print 'finish'
+    loop = glib.MainLoop()
+    #t = threading.Timer(5., loop.quit)
+    #t.start()
+    try:
+        loop.run()
+    except KeyboardInterrupt:
+        pass
     print 'finish'
-#    loop = glib.MainLoop()
-#    try:
-#        loop.run()
-#    except KeyboardInterrupt:
-#        pass
-
 #if __name__ == '__main__':
 #    import time
 #    tcgen = LTCGenerator()
