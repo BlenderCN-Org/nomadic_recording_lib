@@ -8,6 +8,7 @@ import incrementor
 
 def biphase_encode(data, num_samples, max_value):
     samples_per_period = num_samples / len(data) / 4
+    print 'num_samp=%s, maxv=%s, s_per_period=%s' % (num_samples, max_value, samples_per_period)
     min_value = max_value * -1
     #a = array.array('h')
     a = []
@@ -24,11 +25,23 @@ def biphase_encode(data, num_samples, max_value):
 class LTCGenerator(BaseObject):
     def __init__(self, **kwargs):
         self.framerate = kwargs.get('framerate', 29.97)
-        self.samplerate = kwargs.get('samplerate', 48000)
+        best_sr = kwargs.get('use_best_samplerate', False)
+        if best_sr:
+            fr = self.framerate
+            #r, frac = divmod(fr, int(fr))
+            r = int(fr)
+            frac = fr % r
+            sr = (r * 100) + int(round(frac * 100))
+            while (sr / fr) / 80 < 16:
+                sr *= 2
+            self.samplerate = sr
+            self.samples_per_frame = int(round(sr / fr))
+            print 'samplerate=%s, s_per_frame=%s' % (self.samplerate, self.samples_per_frame)
+        else:
+            self.samplerate = kwargs.get('samplerate', 48000)
+            self.samples_per_frame = int(round(self.samplerate / self.framerate))
         self.bitdepth = kwargs.get('bitdepth', 16)
         self.max_sampleval = 1 << (self.bitdepth - 2)
-        print 'max_sampleval: ', self.max_sampleval
-        self.samples_per_frame = self.samplerate / int(round(self.framerate))
         if type(self.framerate) == float:
             cls = DropFrame
         else:
@@ -276,8 +289,16 @@ def _GET_FIELD_CLASSES():
     return d
 
 FIELD_CLASSES = _GET_FIELD_CLASSES()
-print FIELD_CLASSES
 
+if False:#__name__ == '__main__':
+    tcgen = LTCGenerator(use_best_samplerate=True)
+    d = {'frame':10, 'second':5, 'minute':20, 'hour':2}
+    tcgen.frame_obj.set_values(**d)
+    print tcgen.frame_obj.get_values()
+    data = tcgen.build_datablock()
+    print len(data), data
+    print tcgen.build_audio_data()
+    
 if __name__ == '__main__':
     import time
     import threading
@@ -287,7 +308,7 @@ if __name__ == '__main__':
 
     class A(object):
         def __init__(self):
-            self.tcgen = LTCGenerator()
+            self.tcgen = LTCGenerator(use_best_samplerate=True)
             now = datetime.datetime.now()
             self.buffer_lock = threading.Lock()
             self.start = now
@@ -364,13 +385,13 @@ if __name__ == '__main__':
             #if len(audbuffer) < length / 4:
             #    return
             #with self.buffer_lock:
-            tcbuf = self.get_samples_from_buffer(length / 2)
+            tcbuf = self.get_samples_from_buffer(self.tcgen.samples_per_frame)
             if tcbuf is False:
                 element.emit('end-of-stream')
                 return
             tcstr = tcbuf.tostring()
             buffer = gst.Buffer(tcstr)
-            #buffer.set_caps(element.get_property('caps'))
+            buffer.set_caps(element.get_property('caps'))
             #buffer.timestamp = gst.CLOCK_TIME_NONE
             #buffer.timestamp = element.get_clock().get_time()
             print 'buffer: ', len(tcstr)
@@ -410,45 +431,52 @@ if __name__ == '__main__':
     #asrc.set_property('volume', 1.)
     
     asrc = gst.element_factory_make('appsrc')
+    asrc.set_do_timestamp(True)
     #asrc.set_property('size', 800)
 
     asrc.set_property('is-live', True)
     #asrc.set_property('size', 400)
-    asrc.set_property('max-bytes', 400)
-    asrc.set_property('min-percent', 100)
+    asrc.set_property('max-bytes', a.tcgen.samples_per_frame)
+    #asrc.set_property('min-percent', 100)
     asrc.set_property('block', True)
     
-    capsstr = 'audio/x-raw-int, rate=48000, channels=1, endianness=1234, width=16, depth=16, signed=true'
+    capsstr = 'audio/x-raw-int, rate=%s, channels=1, width=16, signed=true' % (a.tcgen.samplerate)
     asrccaps = gst.caps_from_string(capsstr)
-    #asrc.set_property('caps', asrccaps)
-    asrccapf = gst.element_factory_make('capsfilter')
+    asrc.set_property('caps', asrccaps)
+    #asrccapf = gst.element_factory_make('capsfilter')
     #asrccaps = gst.Caps()
-    asrccapf.set_property('caps', asrccaps)
+    #asrccapf.set_property('caps', asrccaps)
     #asrc.set_property('caps', asrccaps)
     aident = gst.element_factory_make('identity')
-    audrate = gst.element_factory_make('audiorate')
+    audrate = gst.element_factory_make('audioresample')
+    audrate.set_property('quality', 10)
+    audratecaps = gst.caps_from_string('audio/x-raw-int, rate=48000')
+    audratecapf = gst.element_factory_make('capsfilter')
+    audratecapf.set_property('caps', audratecaps)
     aenc = gst.element_factory_make('wavenc')
-    aout = gst.element_factory_make('fakesink')
-    #aout = gst.element_factory_make('filesink')
-    #aout.set_property('location', '/home/nocarrier/ltctest.wav')
+    #aout = gst.element_factory_make('fakesink')
+    aout = gst.element_factory_make('filesink')
+    aout.set_property('location', '/home/nocarrier/ltctest.wav')
 
     #p.add_many(vqueue, vsrc, vident, toverlay, vcapf, vout)
-    p.add_many(asrc, asrccapf, aident, audrate, aenc, aout)
+    audchain = [asrc, aident, audrate, audratecapf, aenc, aout]
+    for e in audchain:
+        p.add(e)
     #gst.element_link_many(vsrc, toverlay, vcapf, vout)
-    gst.element_link_many(asrc, asrccapf, aident, audrate, aenc, aout)
+    gst.element_link_many(*audchain)
     asrc.connect('need-data', a.on_audneeddata)
     #aident.connect('handoff', a.on_aident_handoff)
     #asrc.connect('push-buffer', a.on_atestsrc_push)
     gobject.threads_init()
     p.set_state(gst.STATE_PLAYING)
-    #time.sleep(5.)
-    #p.set_state(gst.STATE_NULL)
-    #print 'finish'
-    loop = glib.MainLoop()
-    try:
-        loop.run()
-    except KeyboardInterrupt:
-        pass
+    time.sleep(5.)
+    p.set_state(gst.STATE_NULL)
+    print 'finish'
+#    loop = glib.MainLoop()
+#    try:
+#        loop.run()
+#    except KeyboardInterrupt:
+#        pass
 
 #if __name__ == '__main__':
 #    import time
