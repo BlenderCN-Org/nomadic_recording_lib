@@ -350,6 +350,8 @@ if __name__ == '__main__':
             #print self.tcgen.frame_obj.get_values()
             self.timestamp = buffer.timestamp
             self.asrc.emit('need-data', self.tcgen.samples_per_frame * 2)
+            d = self.tcgen.frame_obj.get_values()
+            self.toverlay.set_property('text', ':'.join(['%02i' % (d[key]) for key in ['hour', 'minute', 'second', 'frame']]))
             return (ident, buffer)
         
         def on_audneeddata(self, element, length):
@@ -396,7 +398,8 @@ if __name__ == '__main__':
     vqueue = gst.element_factory_make('queue')
     vsrc = gst.element_factory_make('videotestsrc')
     vident = gst.element_factory_make('identity')
-    toverlay = gst.element_factory_make('cairotimeoverlay')
+    toverlay = gst.element_factory_make('cairotextoverlay')
+    a.toverlay = toverlay
     vcapf = gst.element_factory_make('capsfilter')
     vcaps = gst.Caps('video/x-raw-yuv, framerate=30000/1001')
     vcapf.set_property('caps', vcaps)
@@ -437,15 +440,15 @@ if __name__ == '__main__':
     aenc = gst.element_factory_make('wavenc')
     aconv = gst.element_factory_make('audioconvert')
     #aout = gst.element_factory_make('fakesink')
-    #aout = gst.element_factory_make('filesink')
-    #aout.set_property('location', '/home/nocarrier/ltctest.wav')
+    aout = gst.element_factory_make('filesink')
+    aout.set_property('location', '/home/nocarrier/ltctest.wav')
     #aout = gst.element_factory_make('jackaudiosink')
-    aout = gst.element_factory_make('autoaudiosink')
+    #aout = gst.element_factory_make('autoaudiosink')
 
-    vidchain = [vqueue, vsrc, vident, toverlay, vcapf, vout]
+    vidchain = [vsrc, vident, toverlay, vcapf, vout]
     for e in vidchain:
         p.add(e)
-    audchain = [asrc, aident, audrate, audratecapf, aout]
+    audchain = [asrc, aident, audrate, audratecapf, aenc, aout]
     for e in audchain:
         p.add(e)
     gst.element_link_many(vsrc, vident, toverlay, vcapf, vout)
@@ -459,8 +462,8 @@ if __name__ == '__main__':
     #p.set_state(gst.STATE_NULL)
     #print 'finish'
     loop = glib.MainLoop()
-    #t = threading.Timer(5., loop.quit)
-    #t.start()
+    t = threading.Timer(5., loop.quit)
+    t.start()
     try:
         loop.run()
     except KeyboardInterrupt:
