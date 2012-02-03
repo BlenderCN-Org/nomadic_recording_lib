@@ -143,12 +143,15 @@ class DropFrame(incrementor.Incrementor):
         value = kwargs.get('value')
         if value in [0, 1]:
             self.value = 2
+        self.enable_drop = False
 
 class DropFrameSecond(incrementor.Second):
     def __init__(self, **kwargs):
         super(DropFrameSecond, self).__init__(**kwargs)
         self.children['minute'].bind(value=self._on_minute_value_set)
     def check_for_drop(self):
+        if self.value > 0:
+            return
         if self.children['minute'].value % 10 != 0:
             self.parent.enable_drop = True
         else:
@@ -417,7 +420,7 @@ if __name__ == '__main__':
                 #with buffer_lock:
                 audbuffer.extend(abuf)
         def on_vident_handoff(self, ident, buffer):
-            #now = time.time()
+            now = time.time()
             #self.frametimes.append(now)
             #self.buffersizes.append(buffer.size)
             #print now - self.last_timestamp
@@ -425,12 +428,14 @@ if __name__ == '__main__':
             self.increment_and_build_data()
             #print self.tcgen.frame_obj.get_values()
             self.timestamp = buffer.timestamp
-            print 'vident ts: ', self.timestamp
+            #print 'vident ts: ', self.timestamp
             spf = self.tcgen.samples_per_frame
             #print 'spf: ', spf
-            #self.asrc.emit('need-data', spf * 2)
-            #d = self.tcgen.frame_obj.get_values()
-            #self.toverlay.set_property('text', ':'.join(['%02i' % (d[key]) for key in ['hour', 'minute', 'second', 'frame']]))
+            self.asrc.emit('need-data', spf * 2)
+            d = self.tcgen.frame_obj.get_values()
+            timestr = ':'.join(['%02i' % (d[key]) for key in ['hour', 'minute', 'second', 'frame']])
+            print timestr, '%s.%02i' % (time.strftime('%H:%M:%S', time.localtime(now)), round((now - int(now)) * 1000 / 29.97))
+            self.toverlay.set_property('text', timestr)
             return (ident, buffer)
         
         def on_audneeddata(self, element, length):
@@ -445,10 +450,10 @@ if __name__ == '__main__':
             #if len(audbuffer) < length / 4:
             #    return
             #with self.buffer_lock:
-            if True:#element.get_state() != gst.STATE_PLAYING:
-                buffer = gst.Buffer(chr(0)*length)
-                element.emit('push-buffer', buffer)
-                #tcbuf = array.array('h', [0]*(length/2))
+            if False:#element.get_state() != gst.STATE_PLAYING:
+                #buffer = gst.Buffer(chr(0)*length)
+                #element.emit('push-buffer', buffer)
+                tcbuf = array.array('h', [0]*(length/2))
                 #print 'not playing, filling with zeros', element.get_state()
             else:
                 tcbuf = self.get_samples_from_buffer(self.tcgen.samples_per_frame)
@@ -457,9 +462,10 @@ if __name__ == '__main__':
                     element.emit('end-of-stream')
                     return
             tcstr = tcbuf.tostring()
+            print tcbuf
             buffer = gst.Buffer(tcstr)
-            #buffer.set_caps(element.get_property('caps'))
-            #buffer.timestamp = self.timestamp
+            buffer.set_caps(element.get_property('caps'))
+            buffer.timestamp = self.timestamp
             #self.timestamp = None
             print 'appsrc ts: ', buffer.timestamp
             #buffer.timestamp = element.get_clock().get_time()
@@ -485,7 +491,7 @@ if __name__ == '__main__':
     bus.connect('message', a.on_bus_message)
     vqueue = gst.element_factory_make('queue')
     vsrc = gst.element_factory_make('videotestsrc')
-    #vsrc.set_property('is-live', True)
+    vsrc.set_property('is-live', True)
     vident = gst.element_factory_make('identity')
     toverlay = gst.element_factory_make('cairotextoverlay')
     a.toverlay = toverlay
@@ -506,9 +512,9 @@ if __name__ == '__main__':
     #asrc.set_do_timestamp(True)
     #asrc.set_property('size', 800)
 
-    #asrc.set_property('is-live', True)
-    asrc.set_property('size', 3200)
-    asrc.set_property('max-bytes', 3200)
+    asrc.set_property('is-live', True)
+    #asrc.set_property('size', 3200)
+    #asrc.set_property('max-bytes', 3200)
     #asrc.set_property('min-percent', 100)
     asrc.set_property('block', True)
     asrc.set_property('emit-signals', False)
@@ -537,7 +543,10 @@ if __name__ == '__main__':
     #aout = gst.element_factory_make('jackaudiosink')
     aout = gst.element_factory_make('autoaudiosink')
     
-    vidchain = [vsrc, vident, vcapf, vout]
+    vident.connect('handoff', a.on_vident_handoff)
+    asrc.connect('need-data', a.on_audneeddata)
+    
+    vidchain = [vsrc, vident, toverlay, vcapf, vout]
     for e in vidchain:
         p.add(e)
     gst.element_link_many(*vidchain)
