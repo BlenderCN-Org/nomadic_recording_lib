@@ -420,58 +420,60 @@ if __name__ == '__main__':
                 #with buffer_lock:
                 audbuffer.extend(abuf)
         def on_vident_handoff(self, ident, buffer):
-            now = time.time()
+            #now = time.time()
             #self.frametimes.append(now)
             #self.buffersizes.append(buffer.size)
             #print now - self.last_timestamp
             #self.last_timestamp = now
-            self.increment_and_build_data()
+            #self.increment_and_build_data()
+            self.tcgen.frame_obj += 1
             #print self.tcgen.frame_obj.get_values()
-            self.timestamp = buffer.timestamp
+            #self.timestamp = buffer.timestamp
             #print 'vident ts: ', self.timestamp
-            spf = self.tcgen.samples_per_frame
+            #spf = self.tcgen.samples_per_frame
             #print 'spf: ', spf
-            self.asrc.emit('need-data', spf * 2)
-            d = self.tcgen.frame_obj.get_values()
-            timestr = ':'.join(['%02i' % (d[key]) for key in ['hour', 'minute', 'second', 'frame']])
-            print timestr, '%s.%02i' % (time.strftime('%H:%M:%S', time.localtime(now)), round((now - int(now)) * 1000 / 29.97))
-            self.toverlay.set_property('text', timestr)
+            #self.asrc.emit('need-data', spf * 2)
+#            d = self.tcgen.frame_obj.get_values()
+#            timestr = ':'.join(['%02i' % (d[key]) for key in ['hour', 'minute', 'second', 'frame']])
+#            print timestr, '%s.%02i' % (time.strftime('%H:%M:%S', time.localtime(now)), round((now - int(now)) * 1000 / 29.97))
+#            self.toverlay.set_property('text', timestr)
             return (ident, buffer)
-        
+        def on_aident_handoff(self, ident, buffer):
+            self.asrc.emit('need-data', buffer.size)
+            return (ident, buffer)
         def on_audneeddata(self, element, length):
             #if self.timestamp is None:
             #    return
             #ts = element.get_clock().get_time() - element.get_base_time()
-            audbuffer = self.buffer
+            #audbuffer = self.buffer
 #            print [e.get_caps().to_string() for e in element.src_pads()]
-            print element.get_property('caps')
-            print 'length needed: ', length
-            print 'abuffer len: ', len(audbuffer)
+            #print element.get_property('caps')
+            #print 'length needed: ', length
+            #print 'abuffer len: ', len(audbuffer)
             #if len(audbuffer) < length / 4:
             #    return
             #with self.buffer_lock:
-            if False:#element.get_state() != gst.STATE_PLAYING:
-                #buffer = gst.Buffer(chr(0)*length)
-                #element.emit('push-buffer', buffer)
+            tcbuf = array.array('h', self.tcgen.build_audio_data())
+            #tcbuf = self.get_samples_from_buffer(length / 2)
+            if False:#tcbuf is False:
+                print 'BUFFER EMPTY!!!'
+                #element.emit('end-of-stream')
+                #return
                 tcbuf = array.array('h', [0]*(length/2))
-                #print 'not playing, filling with zeros', element.get_state()
-            else:
-                tcbuf = self.get_samples_from_buffer(self.tcgen.samples_per_frame)
-                if tcbuf is False:
-                    print 'BUFFER EMPTY!!!'
-                    element.emit('end-of-stream')
-                    return
             tcstr = tcbuf.tostring()
-            print tcbuf
             buffer = gst.Buffer(tcstr)
-            buffer.set_caps(element.get_property('caps'))
-            buffer.timestamp = self.timestamp
+            #tcgen = self.tcgen
+            #buffer.duration = long((tcgen.samplerate / float(length / 2)) * (10 ** 9))
+            #buffer.timestamp = gst.CLOCK_TIME_NONE
+            #buffer.set_caps(self.asrccaps.copy())
+            #buffer.timestamp = self.timestamp
             #self.timestamp = None
-            print 'appsrc ts: ', buffer.timestamp
+            #print 'appsrc ts: ', buffer.timestamp
             #buffer.timestamp = element.get_clock().get_time()
-            print 'buffer: ', len(tcstr)
-            print 'new abuffer len: ', len(audbuffer)
-            element.emit('push-buffer', buffer)
+            #print 'buffer: ', len(tcstr)
+            #print 'new abuffer len: ', len(audbuffer)
+            result = element.emit('push-buffer', buffer)
+            #print 'push-buffer result: ', result
         def get_samples_from_buffer(self, num_samples):
             buffer = self.buffer
             if len(buffer) < num_samples:
@@ -492,19 +494,23 @@ if __name__ == '__main__':
     vqueue = gst.element_factory_make('queue')
     vsrc = gst.element_factory_make('videotestsrc')
     vsrc.set_property('is-live', True)
+    vsrc.set_property('pattern', 2)
     vident = gst.element_factory_make('identity')
     toverlay = gst.element_factory_make('cairotextoverlay')
     a.toverlay = toverlay
     vcapf = gst.element_factory_make('capsfilter')
     vcaps = gst.Caps('video/x-raw-yuv, framerate=30000/1001')
     vcapf.set_property('caps', vcaps)
-    vout = gst.element_factory_make('xvimagesink')
+    vrate = gst.element_factory_make('videorate')
+    #vout = gst.element_factory_make('xvimagesink')
+    vout = gst.element_factory_make('fakesink')
     
-
     aqueue = gst.element_factory_make('queue')
+    aqueue2 = gst.element_factory_make('queue')
     testasrc = gst.element_factory_make('audiotestsrc')
+    #asrc = testasrc
     #asrc.set_property('wave', 1)
-    #asrc.set_property('samplesperbuffer', 800)
+    testasrc.set_property('samplesperbuffer', 1600)
     #asrc.set_property('volume', 1.)
     
     asrc = gst.element_factory_make('appsrc')
@@ -514,20 +520,24 @@ if __name__ == '__main__':
 
     asrc.set_property('is-live', True)
     #asrc.set_property('size', 3200)
-    #asrc.set_property('max-bytes', 3200)
-    #asrc.set_property('min-percent', 100)
+    asrc.set_property('max-bytes', 3200)
+    asrc.set_property('min-percent', 100)
     asrc.set_property('block', True)
     asrc.set_property('emit-signals', False)
     
     capsstr = 'audio/x-raw-int, endianness=1234, rate=%s, channels=1, width=16, signed=true' % (a.tcgen.samplerate)
     asrccaps = gst.caps_from_string(capsstr)
-    asrc.set_property('caps', asrccaps)
+    a.asrccaps = asrccaps
+    #asrc.set_property('caps', asrccaps)
     #print 'asrc caps: ', asrccaps.to_string()
-    #asrccapf = gst.element_factory_make('capsfilter')
+    asrccapf = gst.element_factory_make('capsfilter')
     #asrccaps = gst.Caps()
-    #asrccapf.set_property('caps', asrccaps)
+    asrccapf.set_property('caps', asrccaps.copy())
+    testasrccapf = gst.element_factory_make('capsfilter')
+    testasrccapf.set_property('caps', asrccaps.copy())
     #asrc.set_property('caps', asrccaps)
     aident = gst.element_factory_make('identity')
+    #aident.set_property('datarate', a.tcgen.samplerate * 2)
     audrate = gst.element_factory_make('audiorate')
     #audrate.set_property('quality', 10)
     #audratecaps = gst.caps_from_string('audio/x-raw-int, rate=48000')
@@ -536,25 +546,28 @@ if __name__ == '__main__':
     audratecapf.set_property('caps', audratecaps)
     aenc = gst.element_factory_make('wavenc')
     aconv = gst.element_factory_make('audioconvert')
-    arate = gst.element_factory_make('audiorate')
+    #arate = gst.element_factory_make('audiorate')
     #aout = gst.element_factory_make('fakesink')
     #aout = gst.element_factory_make('filesink')
     #aout.set_property('location', '/home/nocarrier/ltctest.wav')
     #aout = gst.element_factory_make('jackaudiosink')
     aout = gst.element_factory_make('autoaudiosink')
+    testout = gst.element_factory_make('fakesink')
     
-    vident.connect('handoff', a.on_vident_handoff)
-    asrc.connect('need-data', a.on_audneeddata)
-    
-    vidchain = [vsrc, vident, toverlay, vcapf, vout]
+    vidchain = [vsrc, vrate, vqueue, vident, vcapf, vout]
     for e in vidchain:
         p.add(e)
     gst.element_link_many(*vidchain)
-    audchain = [asrc, aconv, arate, audratecapf, aout]
+    audchain = [asrc, asrccapf, audrate, aout]
     for e in audchain:
         p.add(e)
     gst.element_link_many(*audchain)
+    audchain2 = [testasrc, aqueue2, aident, testasrccapf, testout]
+    for e in audchain2:
+        p.add(e)
+    gst.element_link_many(*audchain2)
     vident.connect('handoff', a.on_vident_handoff)
+    aident.connect('handoff', a.on_aident_handoff)
     asrc.connect('need-data', a.on_audneeddata)
     
     gobject.threads_init()
