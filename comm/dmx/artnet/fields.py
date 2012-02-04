@@ -161,6 +161,8 @@ class Field(BaseObject):
         s = '=%s' % (self.type.struct_fmt * self.length)
         return struct.pack(s, *value)
     
+    def __str__(self):
+        return ': '.join([self.id, str(self.value)])
     
 class ID(Field):
     type = int8
@@ -306,6 +308,7 @@ class Style(Field):
     
 class MAC(Field):
     type = int8
+    pytype = long
     byte_split = 6
     
 class BindIp(Field):

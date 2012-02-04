@@ -109,6 +109,11 @@ class ArtBaseMsg(object):
         l, fmt = self.get_data()
         return struct.pack(fmt, *l)
         
+    def __str__(self):
+        keys = sorted(self.Fields.indexed_items.keys())
+        fields = ', '.join([str(self.Fields.indexed_items[key]) for key in keys])
+        return ': '.join([self.msg_type, fields])
+        
 class ArtPoll(ArtBaseMsg):
     _fields = {3:'ProtVer', 5:'TalkToMe', 6:'Priority'}
     _num_fields = 6
