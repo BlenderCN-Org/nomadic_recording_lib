@@ -160,8 +160,12 @@ class ArtnetManager(BaseIO.BaseIO):
         univ_obj = kwargs.get('univ_obj')
         blocking = kwargs.get('blocking')
         key = (univ_obj.Artnet_Subnet, univ_obj.Artnet_Universe)
+        for ukey, uval in self.Universes.iteritems():
+            if uval.universe_obj == univ_obj:
+                key = ukey
         univ_thread = self.Universes.get(key)
         if univ_thread:
+            self.LOG.info('Artnet detach universe: ', key)
             univ_thread.stop(blocking=blocking)
             del self.Universes[key]
         
@@ -417,6 +421,9 @@ class UniverseThread(BaseThread):
         
     def stop(self, **kwargs):
         self.universe_obj.unbind(self)
+        self._running.clear()
+        self.need_update.set()
+        self.refresh_wait.set()
         super(UniverseThread, self).stop(**kwargs)
         
     def old_run(self):
