@@ -132,6 +132,7 @@ class Field(BaseObject):
                 current, remaining = divmod(remaining, byteval)
                 shifted = current >> (numBits - 8)
                 split.append(self.type(shifted))
+            split.reverse()
             #print 'bytesplit=%s, value=%s, split=%s' % (self.byte_split, value, split)
             value = split
         elif isinstance(value, str):
@@ -308,7 +309,7 @@ class Style(Field):
     
 class MAC(Field):
     type = int8
-    pytype = long
+    #pytype = long
     byte_split = 6
     
 class BindIp(Field):
