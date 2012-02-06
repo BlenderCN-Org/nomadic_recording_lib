@@ -891,7 +891,7 @@ class ClockSync(OSCBaseObject):
         
     def _on_offset_set(self, **kwargs):
         offset = kwargs.get('value')
-        self.LOG.info('OSC offset = ' + offset.__repr__())
+        #self.LOG.info('OSC offset = ' + offset.__repr__())
         
 class ClockSender(BaseThread):
     def __init__(self, **kwargs):
