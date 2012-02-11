@@ -19,7 +19,7 @@ from misc import setID
 
 class Category(BaseObject):
     _saved_class_name = 'Category'
-    _saved_attributes = ['name', 'id', 'members_id']
+    _saved_attributes = ['name', 'id', 'parent_id', 'members_id']
     _saved_child_objects = ['subcategories']
     def __init__(self, **kwargs):
         self.subcategories = {}
@@ -30,13 +30,21 @@ class Category(BaseObject):
         if 'deserialize' not in kwargs:
             self.name = kwargs.get('name')
             self.id = setID(kwargs.get('id'))
-            
             self.members_id = kwargs.get('members_id', set())
         if not hasattr(self, 'members'):
             self.members = set()
         if not hasattr(self, 'members_id'):
             self.members_id = set()
-            
+        
+    @property
+    def parent_id(self):
+        if self.parent:
+            return self.parent.id
+        return self._parent_id
+    @parent_id.setter
+    def parent_id(self, value):
+        self._parent_id = value
+        
 #    def _check_member_obj(self):
 #        obj_ids = set()
 #        for member in self.members:

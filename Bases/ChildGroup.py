@@ -22,19 +22,24 @@ from osc_base import OSCBaseObject
 
 class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_class_name = 'ChildGroup'
+    _IsChildGroup_ = True
     _Properties = {'name':dict(type=str)}
+    _saved_attributes = ['name', 'ignore_index']
+    _saved_child_objects = ['indexed_items']
     def __init__(self, **kwargs):
+        UserDict.UserDict.__init__(self)
+        self.indexed_items = {}
+        self.child_class = kwargs.get('child_class')
+        self.deserialize_callback = kwargs.get('deserialize_callback')
+        self.parent_obj = kwargs.get('parent_obj')
         name = kwargs.get('name')
         if name:
             kwargs.setdefault('osc_address', name)
         OSCBaseObject.__init__(self, **kwargs)
-        self.name = kwargs.get('name')
         self.register_signal('child_added', 'child_removed', 'child_index_changed', 'child_update')
-        self.child_class = kwargs.get('child_class')
-        self.ignore_index = kwargs.get('ignore_index', False)
-        
-        UserDict.UserDict.__init__(self)
-        self.indexed_items = {}
+        if 'deserialize' not in kwargs:
+            self.name = kwargs.get('name')
+            self.ignore_index = kwargs.get('ignore_index', False)
         
     def add_child(self, cls=None, **kwargs):
         def do_add_child(child):
@@ -66,12 +71,20 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             c_kwargs.update({'osc_parent_node':self.osc_node})
         c_kwargs.update({'ChildGroup_parent':self})
         if not self.ignore_index:
-            index = kwargs.get('Index', self.find_max_index() + 1)
+            try:
+                index = kwargs.get('Index', self.find_max_index() + 1)
+            except:
+                print self.indexed_items
+                raise
             if not self.check_valid_index(index):
                 return
             c_kwargs['Index'] = index
         if cls is None:
             cls = self.child_class
+        if self.parent_obj is not None:
+            cls, c_kwargs = self.parent_obj.ChildGroup_prepare_child_instance(self, cls, **c_kwargs)
+        if cls is None:
+            return
         child = cls(**c_kwargs)
         return do_add_child(child)
         
@@ -123,3 +136,42 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         self.unbind(*args)
         for child in self.itervalues():
             child.unbind(*args)
+            
+    def _load_saved_attr(self, d, **kwargs):
+        if 'saved_class_name' not in d:
+            newd = self._get_saved_attr()
+            items = {}
+            for key, val in d.iteritems():
+                i = val['attrs']['Index']
+                items[i] = val
+            newd['saved_children'] = {'indexed_items':items}
+            d = newd
+        items = d['saved_children']['indexed_items']
+        for key in items.keys()[:]:
+            if type(key) != int:
+                items[int(key)] = items[key]
+                del items[key]
+        if self._saved_class_name == 'CategoryPaletteGroup':
+            print 'CategoryPaletteGroup load_attr: ', d, kwargs
+        super(ChildGroup, self)._load_saved_attr(d, **kwargs)
+        
+    def _deserialize_child(self, d, **kwargs):
+        #print 'ChildGroup deserialize child: ', kwargs, d
+        key = kwargs.get('key')
+        if d['saved_class_name'] == 'CategoryPalette':
+            print 'ChildGroup deserialize palette: ', key, key in self, d
+        i = d['attrs']['Index']
+        if self.deserialize_callback is not None:
+            obj = self.deserialize_callback(d)
+            ckwargs = dict(existing_object=obj)
+            if True:#obj.Index is None:
+                ckwargs['Index'] = i
+            self.add_child(**ckwargs)
+        elif key is not None and key in self:
+            obj = self[key]
+            print 'ChildGroup load_attr for child: ', obj, d
+            obj._load_saved_attr(d)
+        else:
+            obj = self.add_child(Index=i, deserialize=d)
+            #obj = super(ChildGroup, self)._deserialize_child(d, **kwargs)
+        return obj

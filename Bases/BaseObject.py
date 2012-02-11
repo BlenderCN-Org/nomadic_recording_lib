@@ -123,7 +123,11 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                         self.SettingsProperties.update({propname:prop})
                 save_dict['saved_attributes'] |= set(cls._SettingsProperties)
             if hasattr(cls, '_ChildGroups'):
-                childgroups.update(cls._ChildGroups)
+                for cgkey, cgval in cls._ChildGroups.iteritems():
+                    if cgkey in childgroups:
+                        childgroups[cgkey].update(cgval)
+                    else:
+                        childgroups[cgkey] = cgval
             cls = cls.__bases__[0]
         self.SettingsPropKeys.reverse()
         self.SettingsPropKeys = tuple(self.SettingsPropKeys)
@@ -149,6 +153,9 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         for key, val in childgroups.iteritems():
             cgkwargs = val.copy()
             cgkwargs.setdefault('name', key)
+            ds_cb = cgkwargs.get('deserialize_callback')
+            if type(ds_cb) == str:
+                cgkwargs['deserialize_callback'] = getattr(self, ds_cb, None)
             self.add_ChildGroup(**cgkwargs)
         
         Serializer.__init__(self, **kwargs)
@@ -160,11 +167,13 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         self.register_signal('category_update')
         
         for c_id in self.categories_id:
+            if not getattr(self, 'root_category', None):
+                self.root_category = self.GLOBAL_CONFIG.get('ROOT_CATEGORY')
             category = self.root_category.find_category(id=c_id)
             if category:
                 self.add_category(category)
             else:
-                bob
+                self.LOG.warning('could not locate category id: ' + str(c_id))
             
         f = getattr(self, 'on_program_exit', None)
         if f:
@@ -265,10 +274,17 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     def add_ChildGroup(self, **kwargs):
         if getattr(self, 'osc_enabled', False):
             kwargs.setdefault('osc_parent_node', self.osc_node)
+        kwargs.setdefault('parent_obj', self)
         cg = ChildGroup(**kwargs)
         self.ChildGroups.update({cg.name:cg})
         setattr(self, cg.name, cg)
         return cg
+        
+    def ChildGroup_prepare_child_instance(self, childgroup, cls, **kwargs):
+        '''Default method to modify a childgroup's child object instantiation.
+        Subclasses must return cls and kwargs, but they can be modified.
+        '''
+        return cls, kwargs
         
     @property
     def GLOBAL_CONFIG(self):
