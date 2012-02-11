@@ -151,29 +151,40 @@ class Serializer(object):
                 else:
                     raise
             return c
+        def is_ChildGroup(obj, key, d):
+            if d.get('saved_class_name') == 'ChildGroup':
+                return True
+            if type(key) == str and getattr(getattr(obj, key, None), '_IsChildGroup_', False):
+                return True
+            if val.get('attrs', {}).get('_IsChildGroup_'):
+                return True
         if 'saved_children' in d:
             keys = kwargs.get('saved_child_objects', d['saved_children'].keys())
             for key in keys:
                 val = d['saved_children'].get(key)
-                if val:
-                    if type(val) == dict:
-                        if val.get('saved_class_name') == 'ChildGroup' or getattr(getattr(self, key, None), '_IsChildGroup_', False):
-                            cg = getattr(self, key)
-                            cg._load_saved_attr(val)
-                            continue
-                        if hasattr(self, key):
-                            cdict = getattr(self, key)
-                        else:
-                            cdict = {}
-                            setattr(self, key, cdict)
-                        for ckey, cval in val.iteritems():
-                            child = deserialize_child(cval, saved_child_obj=key, key=ckey)
-                            if child and ckey not in cdict:
-                                cdict.update({ckey:child})
-                    else:
-                        obj = deserialize_child(val, saved_child_obj=key)
-                        if obj:
-                            setattr(self, key, obj)
+                if val is None:
+                    continue
+                if is_ChildGroup(self, key, val):
+                    cg = getattr(self, key)
+                    cg._load_saved_attr(val)
+                    continue
+                if hasattr(self, key):
+                    cdict = getattr(self, key)
+                else:
+                    cdict = {}
+                    setattr(self, key, cdict)
+                for ckey, cval in val.iteritems():
+                    if is_ChildGroup(cdict, ckey, cval):
+                        cg = cdict[ckey]
+                        cg._load_saved_attr(cval)
+                        continue
+                    dskwargs = dict(saved_child_obj=key, key=ckey)
+                    child = deserialize_child(cval, **dskwargs)
+                    if ckey != dskwargs['key']:
+                        print 'ckey != kwargs: ', (ckey, type(ckey)), (dskwargs['key'], type(dskwargs['key']))
+                    ckey = dskwargs['key']
+                    if child and ckey not in cdict:
+                        cdict.update({ckey:child})
 
     def _deserialize_child(self, d, **kwargs):
         name = d.get('saved_class_name')

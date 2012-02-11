@@ -24,7 +24,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_class_name = 'ChildGroup'
     _IsChildGroup_ = True
     _Properties = {'name':dict(type=str)}
-    _saved_attributes = ['name', 'ignore_index']
+    _saved_attributes = ['name', 'ignore_index', '_IsChildGroup_']
     _saved_child_objects = ['indexed_items']
     def __init__(self, **kwargs):
         UserDict.UserDict.__init__(self)
@@ -150,26 +150,28 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         for key in items.keys()[:]:
             if type(key) != int:
                 items[int(key)] = items[key]
+                #print 'replacing str index: ', key, int(key), items[int(key)], self
                 del items[key]
-        if self._saved_class_name == 'CategoryPaletteGroup':
-            print 'CategoryPaletteGroup load_attr: ', d, kwargs
         super(ChildGroup, self)._load_saved_attr(d, **kwargs)
         
     def _deserialize_child(self, d, **kwargs):
         #print 'ChildGroup deserialize child: ', kwargs, d
-        key = kwargs.get('key')
-        if d['saved_class_name'] == 'CategoryPalette':
-            print 'ChildGroup deserialize palette: ', key, key in self, d
+        if kwargs.get('saved_child_obj') != 'indexed_items':
+            return super(ChildGroup, self)._deserialize_child(d, **kwargs)
         i = d['attrs']['Index']
+        key = kwargs.get('key')
+        if type(key) == str:
+            key = int(key)
+            kwargs['key'] = key
+            print kwargs
         if self.deserialize_callback is not None:
             obj = self.deserialize_callback(d)
             ckwargs = dict(existing_object=obj)
             if True:#obj.Index is None:
                 ckwargs['Index'] = i
             self.add_child(**ckwargs)
-        elif key is not None and key in self:
-            obj = self[key]
-            print 'ChildGroup load_attr for child: ', obj, d
+        elif key is not None and key in self.indexed_items:
+            obj = self.indexed_items[key]
             obj._load_saved_attr(d)
         else:
             obj = self.add_child(Index=i, deserialize=d)
