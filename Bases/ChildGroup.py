@@ -165,9 +165,9 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         i = values[2]
         if mode == 'add':
             js = values[3]
-            d = Serialization.from_json(js)
-            obj = self.add_child(Index=i, deserialize=d)
-            print 'childgroup deserialize: ', obj, d
+            d = self._get_saved_attr(saved_child_objects=[])
+            d['saved_children']['indexed_items'] = {i:Serialization.from_json(js)}
+            self._load_saved_attr(d)
         elif mode == 'remove':
             child = self.get(key)
             if child is not None:
@@ -175,7 +175,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         self.updating_child_from_osc = False
             
     def _load_saved_attr(self, d, **kwargs):
-        if 'saved_class_name' not in d:
+        if 'saved_class_name' not in d and not self.updating_child_from_osc:
             newd = self._get_saved_attr()
             items = {}
             for key, val in d.iteritems():
@@ -186,9 +186,10 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         items = d['saved_children']['indexed_items']
         for key in items.keys()[:]:
             if type(key) != int:
-                items[int(key)] = items[key]
+                item = items[key]
                 #print 'replacing str index: ', key, int(key), items[int(key)], self
                 del items[key]
+                items[int(key)] = item
         super(ChildGroup, self)._load_saved_attr(d, **kwargs)
         
     def _deserialize_child(self, d, **kwargs):
