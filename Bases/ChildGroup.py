@@ -19,6 +19,7 @@ try:
 except:
     import collections as UserDict
 from osc_base import OSCBaseObject
+import Serialization
 
 class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_class_name = 'ChildGroup'
@@ -32,6 +33,8 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         self.child_class = kwargs.get('child_class')
         self.deserialize_callback = kwargs.get('deserialize_callback')
         self.parent_obj = kwargs.get('parent_obj')
+        self.send_child_updates_to_osc = kwargs.get('send_child_updates_to_osc', False)
+        self.updating_child_from_osc = False
         name = kwargs.get('name')
         if name:
             kwargs.setdefault('osc_address', name)
@@ -40,6 +43,9 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         if 'deserialize' not in kwargs:
             self.name = kwargs.get('name')
             self.ignore_index = kwargs.get('ignore_index', False)
+        if self.send_child_updates_to_osc:
+            self.add_osc_handler(callbacks={'child-update':self._on_osc_child_update})
+        self.bind(child_update=self._ChildGroup_on_own_child_update)
         
     def add_child(self, cls=None, **kwargs):
         def do_add_child(child):
@@ -136,6 +142,37 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         self.unbind(*args)
         for child in self.itervalues():
             child.unbind(*args)
+        
+    def _ChildGroup_on_own_child_update(self, **kwargs):
+        if self.updating_child_from_osc:
+            return
+        if not self.send_child_updates_to_osc:
+            return
+        mode = kwargs.get('mode')
+        child = kwargs.get('obj')
+        values = [mode, child.id, child.Index]
+        if mode == 'Index':
+            return
+        if mode == 'add':
+            values.append(child.to_json())
+        self.osc_node.send_message(address='child-update', value=values)
+        
+    def _on_osc_child_update(self, **kwargs):
+        self.updating_child_from_osc = True
+        message = kwargs.get('message')
+        values = message.get_arguments()
+        mode = values[0]
+        key = values[1]
+        i = values[2]
+        if mode == 'add':
+            js = values[3]
+            d = Serialization.from_json(js)
+            obj = self.add_child(Index=i, deserialize=d)
+        elif mode == 'remove':
+            child = self.get(key)
+            if child is not None:
+                self.del_child(child)
+        self.updating_child_from_osc = False
             
     def _load_saved_attr(self, d, **kwargs):
         if 'saved_class_name' not in d:
