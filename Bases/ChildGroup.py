@@ -159,8 +159,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         
     def _on_osc_child_update(self, **kwargs):
         self.updating_child_from_osc = True
-        message = kwargs.get('message')
-        values = message.get_arguments()
+        values = kwargs.get('values')
         mode = values[0]
         key = values[1]
         i = values[2]
@@ -168,6 +167,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             js = values[3]
             d = Serialization.from_json(js)
             obj = self.add_child(Index=i, deserialize=d)
+            print 'childgroup deserialize: ', obj, d
         elif mode == 'remove':
             child = self.get(key)
             if child is not None:
