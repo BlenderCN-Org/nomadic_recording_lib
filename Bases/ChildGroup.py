@@ -50,9 +50,17 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
     def add_child(self, cls=None, **kwargs):
         def do_add_child(child):
             self.update({child.id:child})
-            if not self.ignore_index:
+            if self.ignore_index:
+                osc_address = child.id
+            else:
+                osc_address = child.Index
                 self.indexed_items.update({child.Index:child})
                 child.bind(Index=self.on_child_Index_changed)
+            if self.osc_enabled and isinstance(child, OSCBaseObject) and not child.osc_enabled:
+                osc_address = str(osc_address)
+                self.LOG.info('ChildGroup %s auto add osc_address %s' % (self.name, osc_address))
+                child.osc_address = osc_address
+                child.init_osc_attrs()
             self.emit('child_added', ChildGroup=self, obj=child)
             self.emit('child_update', ChildGroup=self, mode='add', obj=child)
             return child
@@ -83,6 +91,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 print self.indexed_items
                 raise
             if not self.check_valid_index(index):
+                self.LOG.warning('ChildGroup %s invalid index: %s' % (self.name, index))
                 return
             c_kwargs['Index'] = index
         if cls is None:
@@ -179,7 +188,14 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             newd = self._get_saved_attr()
             items = {}
             for key, val in d.iteritems():
-                i = val['attrs']['Index']
+                if val['attrs']['Index'] is not None:
+                    i = int(val['attrs']['Index'])
+                else:
+                    if not len(items):
+                        i = self.find_max_index() + 1
+                    else:
+                        i = max(items.keys()) + 1
+                    val['attrs']['Index'] = i
                 items[i] = val
             newd['saved_children'] = {'indexed_items':items}
             d = newd
@@ -187,7 +203,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         for key in items.keys()[:]:
             if type(key) != int:
                 item = items[key]
-                #print 'replacing str index: ', key, int(key), items[int(key)], self
+                print 'replacing str index: ', key, int(key), items[int(key)], self
                 del items[key]
                 items[int(key)] = item
         super(ChildGroup, self)._load_saved_attr(d, **kwargs)
@@ -201,7 +217,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         if type(key) == str:
             key = int(key)
             kwargs['key'] = key
-            print kwargs
+            #print 'ChildGroup %s deserialize child, key is string: %s' % (key, kwargs)
         if self.deserialize_callback is not None:
             obj = self.deserialize_callback(d)
             ckwargs = dict(existing_object=obj)
