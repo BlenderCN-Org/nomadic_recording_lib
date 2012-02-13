@@ -203,7 +203,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         for key in items.keys()[:]:
             if type(key) != int:
                 item = items[key]
-                print 'replacing str index: ', key, int(key), items[int(key)], self
+                #print 'replacing str index: ', key, int(key), item, self
                 del items[key]
                 items[int(key)] = item
         super(ChildGroup, self)._load_saved_attr(d, **kwargs)
