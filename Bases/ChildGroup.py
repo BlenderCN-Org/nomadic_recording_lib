@@ -56,10 +56,10 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 osc_address = child.Index
                 self.indexed_items.update({child.Index:child})
                 child.bind(Index=self.on_child_Index_changed)
-            if self.osc_enabled and isinstance(child, OSCBaseObject) and not child.osc_enabled:
+            if False:#self.osc_enabled and isinstance(child, OSCBaseObject) and not child.osc_enabled:
                 osc_address = str(osc_address)
                 self.LOG.info('ChildGroup %s auto add osc_address %s' % (self.name, osc_address))
-                child.osc_address = osc_address
+                child.set_osc_address(osc_address)
                 child.init_osc_attrs()
             self.emit('child_added', ChildGroup=self, obj=child)
             self.emit('child_update', ChildGroup=self, mode='add', obj=child)
@@ -153,6 +153,8 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             child.unbind(*args)
         
     def _ChildGroup_on_own_child_update(self, **kwargs):
+        if not self.osc_enabled:
+            return
         if self.updating_child_from_osc:
             return
         if not self.send_child_updates_to_osc:
