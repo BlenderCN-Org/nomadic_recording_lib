@@ -238,7 +238,7 @@ class MidiIn(BaseObject):
         #nowdiff = now - self.midi_io.start_time['time']
         #tdiff = t - self.midi_io.start_time['time']
         #print 'realtime=%010.8f, modtime=%010.8f, diff=%010.8f' % (nowdiff, tdiff, tdiff - nowdiff)
-        msg = messages.parse_midi_message(data)
+        msg = messages.parse_midi_message(data, timestamp=t)
         if msg is None:
             return
         self.scheduler.add_item(t, msg)
