@@ -73,6 +73,12 @@ class ArtnetManager(BaseIO.BaseIO):
         else:
             self.comm.bind(MainController_set=self.on_comm_MainController_set)
         
+    def unlink(self):
+        self.comm.unbind(self)
+        if type(self.ds_universes) != dict:
+            self.ds_universes.unbind(self)
+        super(ArtnetManager, self).unlink()
+        
     def on_comm_MainController_set(self, **kwargs):
         self.ds_universes = self.comm.MainController.DeviceSystem.universes
         self.update_ds_universes()
@@ -159,6 +165,7 @@ class ArtnetManager(BaseIO.BaseIO):
     def detach_universe(self, **kwargs):
         univ_obj = kwargs.get('univ_obj')
         blocking = kwargs.get('blocking')
+        univ_obj.unbind(self)
         key = (univ_obj.Artnet_Subnet, univ_obj.Artnet_Universe)
         for ukey, uval in self.Universes.iteritems():
             if uval.universe_obj == univ_obj:
