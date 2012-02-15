@@ -221,13 +221,13 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                     result = True
             results.append(result)
         if False in results:
-            self.LOG.warning('could not unbind', self, zip(args, results))
+            self.LOG.debug('could not unbind', self, zip(args, results))
         return results
         
     def disconnect(self, **kwargs):
         result = SignalDispatcher.dispatcher.disconnect(self, **kwargs)
         if not result:
-            self.LOG.warning('could not disconnect', self, kwargs)
+            self.LOG.debug('could not disconnect', self, kwargs)
         return result
     
     def add_category(self, category):
