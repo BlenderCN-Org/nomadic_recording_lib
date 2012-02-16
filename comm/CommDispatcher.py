@@ -53,7 +53,7 @@ class CommDispatcherBase(BaseIO.BaseIO):
         
     def do_disconnect(self, **kwargs):
         updnobj = self.IO_MODULE_UPDN_ORDER['dn'].indexed_items
-        for key in sorted(updnobj.keys()):
+        for key in reversed(sorted(updnobj.keys())):
             obj = updnobj[key].io_obj
             obj.do_disconnect(**kwargs)
         self.ServiceConnector.unpublish()
@@ -61,7 +61,7 @@ class CommDispatcherBase(BaseIO.BaseIO):
         
     def shutdown(self):
         updnobj = self.IO_MODULE_UPDN_ORDER['dn'].indexed_items
-        for key in sorted(updnobj.keys()):
+        for key in reversed(sorted(updnobj.keys())):
             obj = updnobj[key].io_obj
             if hasattr(obj, 'shutdown'):
                 obj.shutdown()

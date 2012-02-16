@@ -93,12 +93,14 @@ class MidiIO(BaseIO, Config):
         for key, val in self.devices.iteritems():
             for id in val.iterkeys():
                 self.change_device_state(type=key, id=id, state=True)
+        self.LOG.info('MIDI connected')
         self.connected = True
     
     def do_disconnect(self, blocking=False):
         for key, val in self.devices.iteritems():
             for id in val.iterkeys():
                 self.change_device_state(type=key, id=id, state=False)
+        self.LOG.info('MIDI disconnected')
         self.connected = False
         
     def update_devices(self):

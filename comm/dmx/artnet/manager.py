@@ -362,6 +362,7 @@ class UniverseThread(BaseThread):
         self.is_input = self.universe_obj.saved_class_name == 'InputUniverse'
         self.subnet = kwargs.get('subnet')
         self.universe_index = kwargs.get('universe_index')
+        self._values_cleared = False
         kwargs['thread_id'] = 'ArtnetUniverseThread_%s-%s_%s' % (self.subnet, self.universe_index, {True:'Input', False:'Output'}.get(self.is_input))
         kwargs['disable_threaded_call_waits'] = True
         super(UniverseThread, self).__init__(**kwargs)
@@ -385,6 +386,7 @@ class UniverseThread(BaseThread):
             data = list(self.universe_obj.values)[:maxchan]
         else:
             data = [0]*512
+            self._values_cleared = True
         self.updates_to_send.clear()
         self.manager.send_dmx(universe=self.universe_index, 
                               subnet=self.subnet, 
@@ -425,6 +427,8 @@ class UniverseThread(BaseThread):
     def run(self):
         self.universe_obj.bind(value_update=self.on_universe_value_update)
         super(UniverseThread, self).run()
+        if not self._values_cleared:
+            self.send_dmx()
         
     def stop(self, **kwargs):
         self.universe_obj.unbind(self)
