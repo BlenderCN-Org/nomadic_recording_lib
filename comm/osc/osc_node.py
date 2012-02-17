@@ -362,6 +362,7 @@ class OSCDispatchThread(Scheduler):
     _ui_mode_dispatch_methods = {'gtk':'gtk_do_dispatch', 
                                  'kivy':'kivy_do_dispatch'}
     def __init__(self, **kwargs):
+        kwargs.setdefault('thread_id', 'OSCDispatcher')
         super(OSCDispatchThread, self).__init__(**kwargs)
         #self.running = threading.Event()
         #self.ready_to_dispatch = threading.Event()
