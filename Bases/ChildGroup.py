@@ -46,9 +46,6 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         if self.send_child_updates_to_osc:
             self.add_osc_handler(callbacks={'child-update':self._on_osc_child_update})
         self.bind(child_update=self._ChildGroup_on_own_child_update)
-        self.ChildGroupUpdateInterrupt.bind(recursive=self.on_ChildGroupUpdateInterrupt_recursive_set, 
-                                            interrupted=self.on_ChildGroupUpdateInterrupt_interrupted, 
-                                            restored=self.on_ChildGroupUpdateInterrupt_restored)
         
     def add_child(self, cls=None, **kwargs):
         def do_add_child(child):
@@ -187,26 +184,6 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             if child is not None:
                 self.del_child(child)
         self.updating_child_from_osc = False
-        
-    def on_ChildGroupUpdateInterrupt_recursive_set(self, **kwargs):
-        value = kwargs.get('value')
-        for child in self.itervalues():
-            if isinstance(child, OSCBaseObject):
-                child.ChildGroupUpdateInterrupt.recursive = value
-            
-    def on_ChildGroupUpdateInterrupt_interrupted(self, **kwargs):
-        if not self.ChildGroupUpdateInterrupt.recursive:
-            return
-        for child in self.itervalues():
-            if isinstance(child, OSCBaseObject):
-                child.ChildGroupUpdateInterrupt.interrupt()
-                
-    def on_ChildGroupUpdateInterrupt_restored(self, **kwargs):
-        if not self.ChildGroupUpdateInterrupt.recursive:
-            return
-        for child in self.itervalues():
-            if isinstance(child, OSCBaseObject):
-                child.ChildGroupUpdateInterrupt.restore()
             
     def _load_saved_attr(self, d, **kwargs):
         if 'saved_class_name' not in d and not self.updating_child_from_osc:

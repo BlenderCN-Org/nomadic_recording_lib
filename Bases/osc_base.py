@@ -74,7 +74,6 @@ class OSCBaseObject(BaseObject):
         if 'deserialize' in kwargs and self.osc_enabled:
             kwargs['deserialize']['attrs']['osc_address'] = self.osc_address
         super(OSCBaseObject, self).__init__(**kwargs)
-        self.ChildGroupUpdateInterrupt = ChildGroupUpdateInterrupt(parent_obj=self)
             
     @property
     def osc_enabled(self):
@@ -171,56 +170,6 @@ class OSCBaseObject(BaseObject):
         if key in self.osc_handlers:
             self.osc_handlers[key].remove_callbacks()
             del self.osc_handlers[key]
-    
-class ChildGroupUpdateInterrupt(BaseObject):
-    _Properties = {'recursive':dict(default=False)}
-    def __init__(self, **kwargs):
-        super(ChildGroupUpdateInterrupt, self).__init__(**kwargs)
-        self.register_signal('interrupted', 'restored')
-        self.recursive = kwargs.get('recursive', False)
-        self.parent_obj = kwargs.get('parent_obj')
-        self.ChildGroups_to_restore = set()
-        for key, val in self.ChildGroup_dict.iteritems():
-            if val.send_child_updates_to_osc:
-                self.ChildGroups_to_restore.add(key)
-        self.bind(recursive=self._on_recursive_set)
-        
-    @property
-    def ChildGroup_dict(self):
-        return self.parent_obj.ChildGroups
-        
-    def interrupt(self):
-        for key, val in self.ChildGroup_dict.iteritems():
-            if val.send_child_updates_to_osc:
-                self.ChildGroups_to_restore.add(key)
-            val.send_child_updates_to_osc = False
-            if self.recursive:
-                if hasattr(val, 'ChildGroupUpdateInterrupt'):
-                    val.ChildGroupUpdateInterrupt.interrupt()
-        self.emit('interrupted', parent_obj=self.parent_obj)
-        
-    def restore(self):
-        for key in self.ChildGroups_to_restore:
-            cg = self.ChildGroup_dict.get(key)
-            if cg is None:
-                continue
-            cg.send_child_updates_to_osc = True
-            if self.recursive:
-                if hasattr(cg, 'ChildGroupUpdateInterrupt'):
-                    cg.ChildGroupUpdateInterrupt.restore()
-        self.emit('restored', parent_obj=self.parent_obj)
-        
-    def _on_recursive_set(self, **kwargs):
-        value = kwargs.get('value')
-        for cg in self.ChildGroup_dict.itervalues():
-            cg.ChildGroupUpdateInterrupt.recursive = value
-            
-    def __enter__(self):
-        self.interrupt()
-        return self
-        
-    def __exit__(self, *args):
-        self.restore()
 
 class OSCHandler(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
