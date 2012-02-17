@@ -703,7 +703,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                     t = threading.Timer(10.0, self.on_master_takeover_timeout)
                     self.master_takeover_timer = t
                     t.start()
-        self.root_node.oscMaster = self.isMaster
+            #self.root_node.oscMaster = self.isMaster
         self.LOG.info('master = ', self.oscMaster)
         #self.root_node.oscMaster = self.isMaster
         #self.Manager.stop_clock_send_thread()
@@ -770,8 +770,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             #self.Manager.start_clock_send_thread()
             
     def _on_oscMaster_set(self, **kwargs):
-        pass
-        #self.root_node.oscMaster = self.isMaster
+        self.root_node.oscMaster = self.isMaster
         
 class Session(BaseObject):
     _Properties = {'master':dict(ignore_type=True), 
