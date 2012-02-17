@@ -142,6 +142,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
         blocking = kwargs.get('blocking', False)
         wait_for_queues = kwargs.get('wait_for_queues', True)
         self._running.clear()
+        if self._thread_id in _THREADS:
+            del _THREADS[self._thread_id]
         if wait_for_queues:
             if not len(self._threaded_calls_queue):
                 self._threaded_call_ready.set()
@@ -149,8 +151,11 @@ class BaseThread(OSCBaseObject, threading.Thread):
         else:
             self._threaded_calls_queue.clear()
             self._threaded_call_ready.set()
-        if blocking and self.isAlive():
-            self.join()
+        if not self.isAlive():
+            self._stopped.set()
+        if blocking:
+            self._stopped.wait()
+        
     def _thread_loop_iteration(self):
         pass
     def _do_threaded_calls(self):

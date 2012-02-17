@@ -73,6 +73,12 @@ class ArtnetManager(BaseIO.BaseIO):
         else:
             self.comm.bind(MainController_set=self.on_comm_MainController_set)
         
+    def unlink(self):
+        self.comm.unbind(self)
+        if type(self.ds_universes) != dict:
+            self.ds_universes.unbind(self)
+        super(ArtnetManager, self).unlink()
+        
     def on_comm_MainController_set(self, **kwargs):
         self.ds_universes = self.comm.MainController.DeviceSystem.universes
         self.update_ds_universes()
@@ -110,7 +116,8 @@ class ArtnetManager(BaseIO.BaseIO):
             self.update_ds_universes(univ_obj=obj)
         
     def do_connect(self):
-        self.do_disconnect()
+        if self.connected:
+            self.do_disconnect(blocking=True)
         self.artnet_io.do_connect()
 #        clslist = [communication.MulticastSender, communication.MulticastReceiver]
 #        for key, cls in zip(['sender', 'receiver'], clslist):
@@ -152,20 +159,23 @@ class ArtnetManager(BaseIO.BaseIO):
         kwargs.setdefault('manager', self)
         univ = UniverseThread(**kwargs)
         self.Universes[(univ.subnet, univ.universe_index)] = univ
-        self.LOG.info('Artnet attached universe: ', kwargs)
+        keys = ['subnet', 'universe_index', '_thread_id']
+        d = dict(zip(keys, [getattr(univ, key) for key in keys]))
+        self.LOG.info('Artnet attached universe: ', d)
         if self.connected:
             univ.start()
             
     def detach_universe(self, **kwargs):
         univ_obj = kwargs.get('univ_obj')
-        blocking = kwargs.get('blocking')
+        blocking = kwargs.get('blocking', True)
+        univ_obj.unbind(self)
         key = (univ_obj.Artnet_Subnet, univ_obj.Artnet_Universe)
         for ukey, uval in self.Universes.iteritems():
             if uval.universe_obj == univ_obj:
                 key = ukey
         univ_thread = self.Universes.get(key)
         if univ_thread:
-            self.LOG.info('Artnet detach universe: ', key)
+            self.LOG.info('Artnet detach universe: ', key, univ_thread._thread_id)
             univ_thread.stop(blocking=blocking)
             del self.Universes[key]
         
@@ -420,8 +430,6 @@ class UniverseThread(BaseThread):
     def run(self):
         self.universe_obj.bind(value_update=self.on_universe_value_update)
         super(UniverseThread, self).run()
-        if not self._values_cleared:
-            self.send_dmx()
         
     def stop(self, **kwargs):
         self.universe_obj.unbind(self)
@@ -429,6 +437,10 @@ class UniverseThread(BaseThread):
         self.need_update.set()
         self.refresh_wait.set()
         super(UniverseThread, self).stop(**kwargs)
+        self._stopped.wait()
+        if not self._values_cleared:
+            self.send_dmx()
+        
         
     def old_run(self):
         self.running.set()

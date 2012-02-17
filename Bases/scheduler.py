@@ -33,7 +33,7 @@ class Scheduler(BaseThread):
         while running.isSet():
             waiting.wait(next_timeout)
             if not running.isSet():
-                return
+                break
             if not len(queue.times):
                 waiting.clear()
                 next_timeout = None
