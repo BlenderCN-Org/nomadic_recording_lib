@@ -166,7 +166,7 @@ class MidiIO(BaseIO, Config):
             self.devices['out'][id].send(data)
         else:
             for dev in self.devices['out'].itervalues():
-                dev.send(data)
+                dev.send(data=data)
     
     def on_msg_received(self, **kwargs):
         self.emit('msg_received', **kwargs)
