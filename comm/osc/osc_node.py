@@ -70,12 +70,6 @@ class Interruptor(BaseObject):
         value = kwargs.get('value')
         if self.recursive:
             self.enabled = value
-    def __enter__(self):
-        self.enabled = True
-        return self
-    def __exit__(self, *args):
-        self.enabled = False
-
 
 class OSCNode(BaseObject):
     _Properties = {'name':dict(default=''), 
@@ -109,6 +103,7 @@ class OSCNode(BaseObject):
             i = Interruptor(name=key, node=self)
             i.bind(property_changed=self._on_interruptor_property_changed)
             self.interruptors[key] = i
+        self.bind(property_changed=self.on_own_property_changed)
     @property
     def oscMaster(self):
         return self._oscMaster
@@ -116,12 +111,20 @@ class OSCNode(BaseObject):
     def oscMaster(self, value):
         if value != self.oscMaster:
             self.get_root_node()._set_oscMaster(value)
+        
     @property
     def send_interrupt(self):
-        return self.interruptors['send']
+        return self.interruptors['send'].enabled
+    @send_interrupt.setter
+    def send_interrupt(self, value):
+        self.interruptors['send'].enabled = value
     @property
     def receive_interrupt(self):
-        return self.interruptors['receive']
+        return self.interruptors['receive'].enabled
+    @receive_interrupt.setter
+    def receive_interrupt(self, value):
+        self.interruptors['receive'].enabled = value
+        
     @property
     def dispatch_thread(self):
         return self.get_root_node()._dispatch_thread
@@ -133,7 +136,20 @@ class OSCNode(BaseObject):
         if prop.name not in ['recursive', 'enabled']:
             return
         propname = '_'.join([obj.name, 'interrupt', prop.name])
+        if getattr(self, propname) == value:
+            return
         setattr(self, propname, value)
+        
+    def on_own_property_changed(self, **kwargs):
+        prop = kwargs.get('Property')
+        if 'interrupt' not in prop.name:
+            return
+        value = kwargs.get('value')
+        key, i, attr = prop.name.split('_')
+        interruptor = self.interruptors.get(key)
+        if getattr(interruptor, attr) == value:
+            return
+        setattr(interruptor, attr, value)
         
     def _set_oscMaster(self, value):
         self._oscMaster = value
@@ -287,7 +303,7 @@ class OSCNode(BaseObject):
             
         
     def dispatch_message(self, **kwargs):
-        if self.receive_interrupt.enabled:
+        if self.receive_interrupt:
             return
         if not self.is_root_node:
             self.get_root_node().dispatch_message(**kwargs)
@@ -317,7 +333,7 @@ class OSCNode(BaseObject):
                 self.LOG.info('OSC msg not dispatched: ', msg.address, msg.get_arguments(), self.children.keys(), msg.client.name)
             
     def send_message(self, **kwargs):
-        if self.send_interrupt.enabled:
+        if self.send_interrupt:
             return
         if 'full_path' not in kwargs:
             address = kwargs.get('address')
