@@ -19,6 +19,9 @@ import sys
 from BaseObject import BaseObject
 from Properties import PropertyConnector
 
+ILLEGAL_ADDRESS_CHARS = ' #*,/?[]{}()'
+REPLACE_ADDRESS_CHARS = {' ':'_', ',':'-'}
+
 def join_address(*args):
     s = '/'.join(['/'.join(arg.split('/')) for arg in args])
     return s
@@ -40,9 +43,10 @@ def get_node_path(node):
     return join_address(*path)
 
 def format_address(address):
-    for c in ['/', ' ']:
+    for c in ILLEGAL_ADDRESS_CHARS:
         if c in address:
-            address = '_'.join(address.split(c))
+            r = REPLACE_ADDRESS_CHARS.get(c, '')
+            address = r.join(address.split(c))
     if "'" in address:
         address = ''.join(address.split("'"))
     return address
@@ -50,8 +54,11 @@ def format_address(address):
 class OSCBaseObject(BaseObject):
     _saved_attributes = ['osc_address']
     def __init__(self, **kwargs):
-        self.osc_enabled = False
-        address = kwargs.get('osc_address')
+        #self.osc_enabled = False
+        address = kwargs.get('deserialize', {}).get('attrs', {}).get('osc_address')
+        if not address:
+            address = kwargs.get('osc_address')
+        #address = kwargs.get('deserialize', {}).get('attrs', {}).get('osc_address', kwargs.get('osc_address'))
         if address is None and hasattr(self, 'osc_address'):
             address = getattr(self, 'osc_address')
         if address is not None:
@@ -61,18 +68,33 @@ class OSCBaseObject(BaseObject):
             parent = getattr(self, 'osc_parent_node')
         if parent is not None:
             self.osc_parent_node = parent
-        self.osc_enabled = parent is not None and address is not None
-        
-        if self.osc_enabled:
-            self.osc_handlers = {}
-            self.osc_child_nodes = set()
-            self.osc_node = self.osc_parent_node.add_child(name=self.osc_address)
-            self.set_osc_address(self.osc_address)
-        else:
+        self.init_osc_attrs()
+        if not self.osc_enabled:
             self.osc_address = None
-            
+        if 'deserialize' in kwargs and self.osc_enabled:
+            kwargs['deserialize']['attrs']['osc_address'] = self.osc_address
         super(OSCBaseObject, self).__init__(**kwargs)
             
+    @property
+    def osc_enabled(self):
+        parent = getattr(self, 'osc_parent_node', None)
+        addr = getattr(self, 'osc_address', None)
+        return None not in [parent, addr]
+        
+    def init_osc_attrs(self, **kwargs):
+        osc_address = kwargs.get('osc_address')
+        if osc_address:
+            self.osc_address = format_address(osc_address)
+        if not self.osc_enabled:
+            return
+        if not hasattr(self, 'osc_handlers'):
+            self.osc_handlers = {}
+        if not hasattr(self, 'osc_child_nodes'):
+            self.osc_child_nodes = set()
+        if not hasattr(self, 'osc_node'):
+            self.osc_node = self.osc_parent_node.add_child(name=self.osc_address)
+        self.set_osc_address(self.osc_address)
+        
     def unlink(self):
         def remove_node(n):
             if n.parent is not None:
@@ -148,7 +170,6 @@ class OSCBaseObject(BaseObject):
         if key in self.osc_handlers:
             self.osc_handlers[key].remove_callbacks()
             del self.osc_handlers[key]
-    
 
 class OSCHandler(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):

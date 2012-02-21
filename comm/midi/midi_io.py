@@ -166,7 +166,7 @@ class MidiIO(BaseIO, Config):
             self.devices['out'][id].send(data)
         else:
             for dev in self.devices['out'].itervalues():
-                dev.send(data)
+                dev.send(data=data)
     
     def on_msg_received(self, **kwargs):
         self.emit('msg_received', **kwargs)
@@ -240,7 +240,7 @@ class MidiIn(BaseObject):
         #nowdiff = now - self.midi_io.start_time['time']
         #tdiff = t - self.midi_io.start_time['time']
         #print 'realtime=%010.8f, modtime=%010.8f, diff=%010.8f' % (nowdiff, tdiff, tdiff - nowdiff)
-        msg = messages.parse_midi_message(data)
+        msg = messages.parse_midi_message(data, timestamp=t)
         if msg is None:
             return
         self.scheduler.add_item(t, msg)

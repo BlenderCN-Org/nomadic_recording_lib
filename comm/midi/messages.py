@@ -33,11 +33,15 @@ class MidiMessage(object):
         byte_order.reverse()
         self.byte_order = byte_order
         self.data = kwargs.get('data')
+        self.timestamp = kwargs.get('timestamp')
         if self.data is not None:
             result = self.parse(**kwargs)
             self.parse_fail = result is False
         else:
             self.init_message(**kwargs)
+    @staticmethod
+    def from_binary(cls, **kwargs):
+        return cls(**kwargs)
     def init_message(self, **kwargs):
         self.status = self._valid_status_byte
     def parse(self, **kwargs):
@@ -47,6 +51,13 @@ class MidiMessage(object):
     def build_string(self):
         a = array.array('B', self.build_data())
         return a.tostring()
+    def __str__(self):
+        name = self.__class__.__name__
+        if 'Message' in name:
+            name = ''.join(name.split('Message'))
+        values = ', '.join(['%s=%s' % (key, getattr(self, key)) for key in self.byte_order[1:]])
+        data = ','.join([hex(v) for v in self.build_data()]).join(['(', ')'])
+        return ' '.join([name, values, data])
         
 class ChannelMessage(MidiMessage):
     def init_message(self, **kwargs):
@@ -73,6 +84,12 @@ class NoteOffMessage(NoteMessage):
     
 class NoteOnMessage(NoteMessage):
     _valid_status_byte = 0x90
+    @staticmethod
+    def from_binary(cls, **kwargs):
+        msg = cls(**kwargs)
+        if msg.velocity == 0:
+            msg = NoteOffMessage(**kwargs)
+        return msg
     
 class AftertouchMessage(ChannelMessage):
     _valid_status_byte = 0xA0
@@ -252,17 +269,17 @@ _status_byte_order.reverse()
 
 SYSEX_MESSAGES = (MTCFullMessage, )
 
-def parse_midi_message(data):
+def parse_midi_message(data, timestamp=None):
     for key in _status_byte_order:
         if data[0] & key == key:
             cls = MIDI_MESSAGES[key]
             if cls == SysexMessage:
                 for sxcls in SYSEX_MESSAGES:
-                    msg = sxcls(data=data)
+                    msg = sxcls(data=data, timestamp=timestamp)
                     if msg.parse_fail:
                         continue
                     return msg
-            return cls(data=data)
+            return cls.from_binary(cls, data=data, timestamp=timestamp)
             
 #if __name__ == '__main__':
 #    cm = ControlMessage(channel=1, controller=7, value=63)

@@ -47,36 +47,6 @@ def pack_args(value):
         return []
     return [value]
 
-class Interruptor(BaseObject):
-    _Properties = {'enabled':dict(default=False), 
-                   'recursive':dict(default=False)}
-    def __init__(self, **kwargs):
-        super(Interruptor, self).__init__(**kwargs)
-        self.name = kwargs.get('name')  ## 'send' or 'receive'
-        self.node = kwargs.get('node')
-        if self.node.parent:
-            parent = self.node.parent.interruptors[self.name]
-            self.parent = parent
-            self.recursive = self.parent.recursive
-            self.parent.bind(recursive=self._on_parent_recursive_set, 
-                             enabled=self._on_parent_enabled_set)
-        else:
-            self.recursive = kwargs.get('recursive')
-            self.parent = None
-    def _on_parent_recursive_set(self, **kwargs):
-        value = kwargs.get('value')
-        self.recursive = value
-    def _on_parent_enabled_set(self, **kwargs):
-        value = kwargs.get('value')
-        if self.recursive:
-            self.enabled = value
-    def __enter__(self):
-        self.enabled = True
-        return self
-    def __exit__(self, *args):
-        self.enabled = False
-
-
 class OSCNode(BaseObject):
     _Properties = {'name':dict(default=''), 
                    'children':dict(type=dict), 
@@ -104,11 +74,12 @@ class OSCNode(BaseObject):
         else:
             self.get_client_cb = self.parent.get_client_cb
             self._oscMaster = self.parent._oscMaster
-        self.interruptors = {}
-        for key in ['send', 'receive']:
-            i = Interruptor(name=key, node=self)
-            i.bind(property_changed=self._on_interruptor_property_changed)
-            self.interruptors[key] = i
+            for key in ['send', 'receive']:
+                for attr in ['enabled', 'recursive']:
+                    propname = '_'.join([key, 'interrupt', attr])
+                    setattr(self, propname, getattr(self.parent, propname))
+            self.parent.bind(property_changed=self.on_parent_property_changed)
+            
     @property
     def oscMaster(self):
         return self._oscMaster
@@ -116,24 +87,23 @@ class OSCNode(BaseObject):
     def oscMaster(self, value):
         if value != self.oscMaster:
             self.get_root_node()._set_oscMaster(value)
-    @property
-    def send_interrupt(self):
-        return self.interruptors['send']
-    @property
-    def receive_interrupt(self):
-        return self.interruptors['receive']
+        
     @property
     def dispatch_thread(self):
         return self.get_root_node()._dispatch_thread
         
-    def _on_interruptor_property_changed(self, **kwargs):
+    def on_parent_property_changed(self, **kwargs):
         prop = kwargs.get('Property')
-        obj = kwargs.get('obj')
-        value = kwargs.get('value')
-        if prop.name not in ['recursive', 'enabled']:
+        if 'interrupt' not in prop.name:
             return
-        propname = '_'.join([obj.name, 'interrupt', prop.name])
-        setattr(self, propname, value)
+        value =  kwargs.get('value')
+        key, i, attr = prop.name.split('_')
+        if attr == 'recursive':
+            setattr(self, prop.name, value)
+        elif attr == 'enabled':
+            recursive = getattr(self, '_'.join([key, 'interrupt', 'recursive']))
+            if recursive:
+                setattr(self, prop.name, value)
         
     def _set_oscMaster(self, value):
         self._oscMaster = value
@@ -287,7 +257,7 @@ class OSCNode(BaseObject):
             
         
     def dispatch_message(self, **kwargs):
-        if self.receive_interrupt.enabled:
+        if self.receive_interrupt_enabled:
             return
         if not self.is_root_node:
             self.get_root_node().dispatch_message(**kwargs)
@@ -317,7 +287,7 @@ class OSCNode(BaseObject):
                 self.LOG.info('OSC msg not dispatched: ', msg.address, msg.get_arguments(), self.children.keys(), msg.client.name)
             
     def send_message(self, **kwargs):
-        if self.send_interrupt.enabled:
+        if self.send_interrupt_enabled:
             return
         if 'full_path' not in kwargs:
             address = kwargs.get('address')

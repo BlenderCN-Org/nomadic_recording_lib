@@ -77,8 +77,14 @@ class BaseClock(object):
         #self.callback_triggers[callback] = t.trigger
         t.start()
         
-    def del_callback(self, callback):
+    def del_callback(self, callback, blocking=False):
         self.callbacks_to_delete.add(callback)
+        if not blocking:
+            return
+        cbThread = self.callback_threads.get(callback)
+        if not cbThread:
+            return
+        cbThread._stopped.wait()
         
     def add_raw_tick_callback(self, cb):
         self.raw_tick_callbacks.add(cb)

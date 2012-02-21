@@ -169,6 +169,7 @@ class ArtnetManager(BaseIO.BaseIO):
         univ_obj = kwargs.get('univ_obj')
         blocking = kwargs.get('blocking', True)
         univ_obj.unbind(self)
+        univ_obj.unbind(self)
         key = (univ_obj.Artnet_Subnet, univ_obj.Artnet_Universe)
         for ukey, uval in self.Universes.iteritems():
             if uval.universe_obj == univ_obj:

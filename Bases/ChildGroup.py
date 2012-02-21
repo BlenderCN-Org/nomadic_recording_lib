@@ -19,29 +19,48 @@ try:
 except:
     import collections as UserDict
 from osc_base import OSCBaseObject
+import Serialization
 
 class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_class_name = 'ChildGroup'
+    _IsChildGroup_ = True
     _Properties = {'name':dict(type=str)}
+    _saved_attributes = ['name', 'ignore_index', '_IsChildGroup_']
+    _saved_child_objects = ['indexed_items']
     def __init__(self, **kwargs):
+        UserDict.UserDict.__init__(self)
+        self.indexed_items = {}
+        self.child_class = kwargs.get('child_class')
+        self.deserialize_callback = kwargs.get('deserialize_callback')
+        self.parent_obj = kwargs.get('parent_obj')
+        self.send_child_updates_to_osc = kwargs.get('send_child_updates_to_osc', False)
+        self.updating_child_from_osc = False
         name = kwargs.get('name')
         if name:
             kwargs.setdefault('osc_address', name)
         OSCBaseObject.__init__(self, **kwargs)
-        self.name = kwargs.get('name')
         self.register_signal('child_added', 'child_removed', 'child_index_changed', 'child_update')
-        self.child_class = kwargs.get('child_class')
-        self.ignore_index = kwargs.get('ignore_index', False)
-        
-        UserDict.UserDict.__init__(self)
-        self.indexed_items = {}
+        if 'deserialize' not in kwargs:
+            self.name = kwargs.get('name')
+            self.ignore_index = kwargs.get('ignore_index', False)
+        if self.send_child_updates_to_osc:
+            self.add_osc_handler(callbacks={'child-update':self._on_osc_child_update})
+        self.bind(child_update=self._ChildGroup_on_own_child_update)
         
     def add_child(self, cls=None, **kwargs):
         def do_add_child(child):
             self.update({child.id:child})
-            if not self.ignore_index:
+            if self.ignore_index:
+                osc_address = child.id
+            else:
+                osc_address = child.Index
                 self.indexed_items.update({child.Index:child})
                 child.bind(Index=self.on_child_Index_changed)
+            if False:#self.osc_enabled and isinstance(child, OSCBaseObject) and not child.osc_enabled:
+                osc_address = str(osc_address)
+                self.LOG.info('ChildGroup %s auto add osc_address %s' % (self.name, osc_address))
+                child.set_osc_address(osc_address)
+                child.init_osc_attrs()
             self.emit('child_added', ChildGroup=self, obj=child)
             self.emit('child_update', ChildGroup=self, mode='add', obj=child)
             return child
@@ -66,12 +85,21 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             c_kwargs.update({'osc_parent_node':self.osc_node})
         c_kwargs.update({'ChildGroup_parent':self})
         if not self.ignore_index:
-            index = kwargs.get('Index', self.find_max_index() + 1)
+            try:
+                index = kwargs.get('Index', self.find_max_index() + 1)
+            except:
+                print self.indexed_items
+                raise
             if not self.check_valid_index(index):
+                self.LOG.warning('ChildGroup %s invalid index: %s' % (self.name, index))
                 return
             c_kwargs['Index'] = index
         if cls is None:
             cls = self.child_class
+        if self.parent_obj is not None:
+            cls, c_kwargs = self.parent_obj.ChildGroup_prepare_child_instance(self, cls, **c_kwargs)
+        if cls is None:
+            return
         child = cls(**c_kwargs)
         return do_add_child(child)
         
@@ -123,3 +151,85 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         self.unbind(*args)
         for child in self.itervalues():
             child.unbind(*args)
+        
+    def _ChildGroup_on_own_child_update(self, **kwargs):
+        if not self.osc_enabled:
+            return
+        if self.updating_child_from_osc:
+            return
+        if not self.send_child_updates_to_osc:
+            return
+        mode = kwargs.get('mode')
+        child = kwargs.get('obj')
+        values = [mode, child.id, child.Index]
+        if mode == 'Index':
+            return
+        if mode == 'add':
+            values.append(child.to_json())
+        self.osc_node.send_message(address='child-update', value=values)
+        
+    def _on_osc_child_update(self, **kwargs):
+        self.updating_child_from_osc = True
+        values = kwargs.get('values')
+        mode = values[0]
+        key = values[1]
+        i = values[2]
+        if mode == 'add':
+            js = values[3]
+            d = self._get_saved_attr(saved_child_objects=[])
+            d['saved_children']['indexed_items'] = {i:Serialization.from_json(js)}
+            self._load_saved_attr(d)
+        elif mode == 'remove':
+            child = self.get(key)
+            if child is not None:
+                self.del_child(child)
+        self.updating_child_from_osc = False
+            
+    def _load_saved_attr(self, d, **kwargs):
+        if 'saved_class_name' not in d and not self.updating_child_from_osc:
+            newd = self._get_saved_attr()
+            items = {}
+            for key, val in d.iteritems():
+                if val['attrs']['Index'] is not None:
+                    i = int(val['attrs']['Index'])
+                else:
+                    if not len(items):
+                        i = self.find_max_index() + 1
+                    else:
+                        i = max(items.keys()) + 1
+                    val['attrs']['Index'] = i
+                items[i] = val
+            newd['saved_children'] = {'indexed_items':items}
+            d = newd
+        items = d['saved_children']['indexed_items']
+        for key in items.keys()[:]:
+            if type(key) != int:
+                item = items[key]
+                #print 'replacing str index: ', key, int(key), item, self
+                del items[key]
+                items[int(key)] = item
+        super(ChildGroup, self)._load_saved_attr(d, **kwargs)
+        
+    def _deserialize_child(self, d, **kwargs):
+        #print 'ChildGroup deserialize child: ', kwargs, d
+        if kwargs.get('saved_child_obj') != 'indexed_items':
+            return super(ChildGroup, self)._deserialize_child(d, **kwargs)
+        i = d['attrs']['Index']
+        key = kwargs.get('key')
+        if type(key) == str:
+            key = int(key)
+            kwargs['key'] = key
+            #print 'ChildGroup %s deserialize child, key is string: %s' % (key, kwargs)
+        if self.deserialize_callback is not None:
+            obj = self.deserialize_callback(d)
+            ckwargs = dict(existing_object=obj)
+            if True:#obj.Index is None:
+                ckwargs['Index'] = i
+            self.add_child(**ckwargs)
+        elif key is not None and key in self.indexed_items:
+            obj = self.indexed_items[key]
+            obj._load_saved_attr(d)
+        else:
+            obj = self.add_child(Index=i, deserialize=d)
+            #obj = super(ChildGroup, self)._deserialize_child(d, **kwargs)
+        return obj

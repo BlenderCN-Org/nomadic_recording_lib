@@ -87,6 +87,18 @@ class CommDispatcherBase(BaseIO.BaseIO):
                     c_kwargs['Index'] = index
                 dobj = self.IO_MODULE_UPDN_ORDER[key].add_child(**c_kwargs)
         return obj
+        
+    def remove_io_module(self, name):
+        obj = self.IO_MODULES.get(name)
+        if not obj:
+            return
+        if hasattr(obj, 'shutdown'):
+            obj.shutdown()
+        else:
+            obj.do_disconnect(blocking=True)
+        obj.unlink()
+        del self.IO_MODULES[name]
+        return obj
 
 class DummyIOObj(BaseObject):
     def __init__(self, **kwargs):

@@ -703,7 +703,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                     t = threading.Timer(10.0, self.on_master_takeover_timeout)
                     self.master_takeover_timer = t
                     t.start()
-        
+            #self.root_node.oscMaster = self.isMaster
         self.LOG.info('master = ', self.oscMaster)
         #self.root_node.oscMaster = self.isMaster
         #self.Manager.stop_clock_send_thread()
