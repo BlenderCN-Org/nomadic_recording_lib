@@ -8,6 +8,7 @@ import types
 from ui_modules import gtk, gobject, gdk, glib
 
 from Bases import BaseObject, BaseThread
+from Bases.Properties import PropertyConnector
 from ...bases import simple
 
 GTK_VERSION = BaseObject().GLOBAL_CONFIG['gtk_version']
@@ -213,13 +214,14 @@ class Color(simple.Color):
 class EntryBuffer(simple.EntryBuffer):
     pass
     
-class TextBuffer(BaseObject):
+class TextBuffer(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
         super(TextBuffer, self).__init__(**kwargs)
         self.register_signal('modified')
-        self.src_object = kwargs.get('src_object')
-        self.src_attr = kwargs.get('src_attr')
-        self.allow_obj_setattr = kwargs.get('allow_obj_setattr', False)
+        self.Property_text_set_by_program = False
+        #self.src_object = kwargs.get('src_object')
+        #self.src_attr = kwargs.get('src_attr')
+        #self.allow_obj_setattr = kwargs.get('allow_obj_setattr', False)
         self.id = kwargs.get('id')
         self.buffer = gtk.TextBuffer()
         self.buffer.connect('begin-user-action', self.on_begin_action)
@@ -228,8 +230,18 @@ class TextBuffer(BaseObject):
         if self.widget is not None:
             self.widget.set_buffer(self.buffer)
         
-        if self.src_object is not None and self.src_attr is not None:
-            self.update_text_from_object()
+        #if self.src_object is not None and self.src_attr is not None:
+        #    self.update_text_from_object()
+        self.Property = kwargs.get('Property')
+        
+    def attach_Property(self, prop):
+        super(TextBuffer, self).attach_Property(prop)
+        self.update_text_from_Property()
+        
+    def on_Property_value_changed(self, **kwargs):
+        if self.Property_text_set_by_program :
+            return
+        self.update_text_from_Property()
     
     def get_text(self):
         args = [self.buffer.get_start_iter(), self.buffer.get_end_iter()]
@@ -237,23 +249,43 @@ class TextBuffer(BaseObject):
         self._modified = False
         return self.buffer.get_text(*args)
     
-    def set_text(self, text):
+    @ThreadToGtk
+    def set_text(self, text, scroll=False):
         self.buffer.set_text(str(text))
         self._modified = False
+        if not scroll:
+            return
+        end = self.buffer.get_end_iter()
+        self.widget.scroll_to_iter(end, 0., False, 0, 0)
     
     @ThreadToGtk
-    def update_text_from_object(self, *args, **kwargs):
-        obj_text = getattr(self.src_object, self.src_attr)
-        if obj_text != self.get_text():
-            self.set_text(obj_text)
-            end = self.buffer.get_end_iter()
-            self.widget.scroll_to_iter(end, 0., False, 0, 0)
+    def update_text_from_Property(self, *args, **kwargs):
+        value = self.get_Property_value()
+        if isinstance(value, list):
+            value = '\n'.join([line for line in value])
+        elif isinstance(value, dict):
+            keys = sorted(value.keys())
+            value = '\n'.join([': '.join([str(key), value[key]]) for key in keys])
+        if value != self.get_text():
+            self.set_text(value, scroll=True)
     
-    def update_object_from_text(self, *args, **kwargs):
-        obj_text = getattr(self.src_object, self.src_attr)
-        bfr_text = self.get_text()
-        if bfr_text != obj_text:
-            setattr(self.src_object, self.src_attr, bfr_text)
+    def update_Property_from_text(self, *args, **kwargs):
+        self.Property_text_set_by_program = True
+        propval = self.get_Property_value()
+        bfr_val = self.get_text()
+        if isinstance(propval, list):
+            bfr_val = bfr_val.split('\n')
+        elif isinstance(propval, dict):
+            d = {}
+            for line in bfr_val.split('\n'):
+                key, val = line.split(': ')
+                if key.isdigit():
+                    key = int(key)
+                d[key] = val
+            bfr_val = d
+        if bfr_val != propval:
+            self.set_Property_value(bfr_val)
+        self.Property_text_set_by_program = False
         
     def on_begin_action(self, *args):
         #print 'action begin'
@@ -261,11 +293,7 @@ class TextBuffer(BaseObject):
     
     def on_end_action(self, *args):
         text = self.get_text()
-        #print 'action end'
-        #self._modified = True
-        if self.allow_obj_setattr:
-            #setattr(self.src_object, self.src_attr, text)
-            self.update_object_from_text()
+        self.update_Property_from_text()
         self.emit('modified', id=self.id, text=text)
         
 #    def update_name_from_buffer(self):

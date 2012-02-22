@@ -11,7 +11,7 @@ class Application(BaseObject):
         super(Application, self).__init__(**kwargs)
         self.register_signal('start', 'exit')
         self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
-        self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id'))
+        self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id', '.'.join([self.name, 'app'])))
         self.mainwindow_cls = kwargs.get('mainwindow_cls')
         self.mainwindow_kwargs = kwargs.get('mainwindow_kwargs', {})
         if self.GLOBAL_CONFIG['gtk_version'] >= 3:
