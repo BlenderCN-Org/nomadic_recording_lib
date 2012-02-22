@@ -108,6 +108,7 @@ class pypmMidiOut(MidiOut):
         if data[0] == 0xF0 and data[-1:][0] == 0xF7:
             sysex = data
         if sysex is not None:
+            print 'sending sysex: ', sysex
             self.device.WriteSysEx(timestamp, sysex)
         else:
             #print 'sending: data=%s, timestamp=%s' % (data, timestamp)
