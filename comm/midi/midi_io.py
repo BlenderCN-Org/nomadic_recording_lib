@@ -31,7 +31,7 @@ class MidiIO(BaseIO, Config):
         BaseIO.__init__(self, **kwargs)
         Config.__init__(self, **kwargs)
         self.comm = kwargs.get('comm')
-        self.register_signal('msg_received')
+        self.register_signal('msg_received', 'msg_sent')
         self.detected_inputs = ChildGroup(name='Inputs')
         self.detected_outputs = ChildGroup(name='Outputs')
         self.dev_info = {'in':self.detected_inputs, 
@@ -116,6 +116,8 @@ class MidiIO(BaseIO, Config):
             dev = self.devices[dtype].add_child(dev_info=self.dev_info[dtype][id], midi_io=self)
             if dtype == 'in':
                 dev.bind(msg_received=self.on_msg_received)
+            else:
+                dev.bind(msg_sent=self.on_msg_sent)
             #self.devices[dtype].update({id:dev})
             self.dev_info[dtype][id].active = True
             if self.connected:
@@ -171,6 +173,9 @@ class MidiIO(BaseIO, Config):
     def on_msg_received(self, **kwargs):
         self.emit('msg_received', **kwargs)
         
+    def on_msg_sent(self, **kwargs):
+        self.emit('msg_sent', **kwargs)
+        
 class DeviceInfo(BaseObject):
     _Properties = {'name':dict(type=str), 
                    'active':dict(default=False)}
@@ -197,6 +202,7 @@ class MidiOut(BaseObject):
     _Properties = {'state':dict(default=False)}
     def __init__(self, **kwargs):
         super(MidiOut, self).__init__(**kwargs)
+        self.register_signal('msg_sent')
         self.dev_info = kwargs.get('dev_info')
         self.midi_io = kwargs.get('midi_io')
         self._block_on_state_change = False

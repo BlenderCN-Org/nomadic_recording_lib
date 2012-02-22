@@ -113,7 +113,7 @@ class pypmMidiOut(MidiOut):
         else:
             #print 'sending: data=%s, timestamp=%s' % (data, timestamp)
             self.device.Write([[data, timestamp]])
-            
+        self.emit('msg_sent', data=data, timestamp=timestamp)
             
 class Listener(BaseThread):
     def __init__(self, **kwargs):
