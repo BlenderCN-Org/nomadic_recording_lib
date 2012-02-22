@@ -5,7 +5,7 @@ import gi
 from Bases.BaseObject import GLOBAL_CONFIG
 
 use_gi = False
-if GLOBAL_CONFIG['arg_parse_dict']['no_gi'] is False:
+if GLOBAL_CONFIG.get('arg_parse_dict', {}).get('no_gi', False) is False:
     if hasattr(gi, 'require_version'):
         try:
             gi.require_version('Gtk', '3.0')
