@@ -163,7 +163,7 @@ class MidiIO(BaseIO, Config):
     def _send(self, data, **kwargs):
         id = kwargs.get('id')
         if id is not None and id in self.devices['out']:
-            self.devices['out'][id].send(data)
+            self.devices['out'][id].send(data=data)
         else:
             for dev in self.devices['out'].itervalues():
                 dev.send(data=data)

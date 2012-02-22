@@ -105,9 +105,10 @@ class pypmMidiOut(MidiOut):
         sysex = kwargs.get('sysex')
         if not self.state:
             return
+        if data[0] == 0xF0 and data[-1:][0] == 0xF7:
+            sysex = data
         if sysex is not None:
-            #self.device.write_sys_ex(timestamp, sysex)
-            pass
+            self.device.WriteSysEx(timestamp, sysex)
         else:
             #print 'sending: data=%s, timestamp=%s' % (data, timestamp)
             self.device.Write([[data, timestamp]])
