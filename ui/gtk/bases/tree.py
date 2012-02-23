@@ -2,8 +2,13 @@ from ui_modules import gtk
 
 from Bases import BaseObject
 
+GLOBAL_CONFIG = BaseObject().GLOBAL_CONFIG
+def get_gui_thread():
+    return GLOBAL_CONFIG['GUIApplication'].ParentEmissionThread
+
 class TreeViewConnector(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(TreeViewConnector, self).__init__(**kwargs)
         self.register_signal('selection_changed', 'cell_edited')
         self.model = kwargs.get('model')
@@ -61,6 +66,7 @@ class GenericTreeStore(BaseObject):
                   'column_attr_map':column_attr_map}
     '''
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(GenericTreeStore, self).__init__(**kwargs)
         kwargs.setdefault('show_dicts', True)
         self.register_signal('selection_changed')
@@ -135,6 +141,7 @@ class GenericTreeStore(BaseObject):
 
 class TreeItemBase(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(TreeItemBase, self).__init__(**kwargs)
         self.register_signal('selection_changed')
         self.register_signal('child_added')

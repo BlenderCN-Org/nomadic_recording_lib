@@ -3,12 +3,13 @@ from ui_modules import gtk
 from Bases import BaseObject
 from Bases.Properties import PropertyConnector
 
-from gtksimple import ThreadToGtk, TreeModelSort, GTK_VERSION
+from gtksimple import ThreadToGtk, TreeModelSort, GTK_VERSION, get_gui_thread
 
 key_attrs = ['id', 'Index']#, 'name']
 
 class PropertyListModel(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(PropertyListModel, self).__init__(**kwargs)
         self.register_signal('new_cell', 'obj_added', 'obj_removed')
         self.child_group = kwargs.get('child_group')
@@ -205,6 +206,7 @@ class PropertyListModel(BaseObject):
         
 class PropertyListObj(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(PropertyListObj, self).__init__(**kwargs)
         self.parent = kwargs.get('parent')
         self.store = self.parent.store
@@ -237,6 +239,7 @@ class PropertyListObj(BaseObject):
             
 class PropertyListItem(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(PropertyListItem, self).__init__(**kwargs)
         self.parent = kwargs.get('parent')
         self.obj = self.parent.obj

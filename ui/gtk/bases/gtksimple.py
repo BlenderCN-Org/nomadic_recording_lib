@@ -8,10 +8,10 @@ import types
 from ui_modules import gtk, gobject, gdk, glib
 
 from Bases import BaseObject, BaseThread
-from Bases.Properties import PropertyConnector
 from ...bases import simple
 
-GTK_VERSION = BaseObject().GLOBAL_CONFIG['gtk_version']
+GLOBAL_CONFIG = BaseObject().GLOBAL_CONFIG
+GTK_VERSION = GLOBAL_CONFIG['gtk_version']
 
 def get_gtk2_enum(name):
     keys = [s for s in dir(gtk) if s[:len(name)+1] == name+'_']
@@ -20,6 +20,9 @@ def get_gtk3_enum(name):
     obj = getattr(gtk, name)
     keys = [s for s in dir(obj) if s.isupper()]
     return dict(zip(keys, [getattr(obj, key) for key in keys]))
+    
+def get_gui_thread():
+    return GLOBAL_CONFIG['GUIApplication'].ParentEmissionThread
 
 class GTask(BaseThread):
     _Events = {'work_done':{}}
@@ -92,6 +95,7 @@ class GCallbackInserter(BaseThread):
         super(GCallbackInserter, self).stop(**kwargs)
         if self.have_gtk_lock.isSet():
             self._release_gtk_lock()
+        self.have_gtk_lock.set()
             
     def old_run(self):
         self.running.set()
@@ -146,7 +150,7 @@ gCBThread = GCallbackInserter()
 gCBThread.start()
 
 def thread_to_gtk(cb, *args, **kwargs):
-    if threading.currentThread().name == 'MainThread':
+    if threading.currentThread().name in ['MainThread', 'GUIThread', gCBThread._thread_id]:
         cb(*args, **kwargs)
         return
     #print 'THREAD_TO_GTK: ', threading.currentThread().name, cb, args, kwargs
@@ -188,6 +192,7 @@ def gtk_to_thread(**kwargs):
     
 class Color(simple.Color):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._gtasks = collections.deque()
         super(Color, self).__init__(**kwargs)
     def blahon_widget_update(self, *args, **kwargs):
@@ -212,16 +217,18 @@ class Color(simple.Color):
         self._next_gtask()
 
 class EntryBuffer(simple.EntryBuffer):
-    pass
-    
-class TextBuffer(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
+        super(EntryBuffer, self).__init__(**kwargs)
+    
+class TextBuffer(BaseObject):
+    def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(TextBuffer, self).__init__(**kwargs)
         self.register_signal('modified')
-        self.Property_text_set_by_program = False
-        #self.src_object = kwargs.get('src_object')
-        #self.src_attr = kwargs.get('src_attr')
-        #self.allow_obj_setattr = kwargs.get('allow_obj_setattr', False)
+        self.src_object = kwargs.get('src_object')
+        self.src_attr = kwargs.get('src_attr')
+        self.allow_obj_setattr = kwargs.get('allow_obj_setattr', False)
         self.id = kwargs.get('id')
         self.buffer = gtk.TextBuffer()
         self.buffer.connect('begin-user-action', self.on_begin_action)
@@ -230,18 +237,8 @@ class TextBuffer(BaseObject, PropertyConnector):
         if self.widget is not None:
             self.widget.set_buffer(self.buffer)
         
-        #if self.src_object is not None and self.src_attr is not None:
-        #    self.update_text_from_object()
-        self.Property = kwargs.get('Property')
-        
-    def attach_Property(self, prop):
-        super(TextBuffer, self).attach_Property(prop)
-        self.update_text_from_Property()
-        
-    def on_Property_value_changed(self, **kwargs):
-        if self.Property_text_set_by_program :
-            return
-        self.update_text_from_Property()
+        if self.src_object is not None and self.src_attr is not None:
+            self.update_text_from_object()
     
     def get_text(self):
         args = [self.buffer.get_start_iter(), self.buffer.get_end_iter()]
@@ -249,43 +246,23 @@ class TextBuffer(BaseObject, PropertyConnector):
         self._modified = False
         return self.buffer.get_text(*args)
     
-    @ThreadToGtk
-    def set_text(self, text, scroll=False):
+    def set_text(self, text):
         self.buffer.set_text(str(text))
         self._modified = False
-        if not scroll:
-            return
-        end = self.buffer.get_end_iter()
-        self.widget.scroll_to_iter(end, 0., False, 0, 0)
     
     @ThreadToGtk
-    def update_text_from_Property(self, *args, **kwargs):
-        value = self.get_Property_value()
-        if isinstance(value, list):
-            value = '\n'.join([line for line in value])
-        elif isinstance(value, dict):
-            keys = sorted(value.keys())
-            value = '\n'.join([': '.join([str(key), value[key]]) for key in keys])
-        if value != self.get_text():
-            self.set_text(value, scroll=True)
+    def update_text_from_object(self, *args, **kwargs):
+        obj_text = getattr(self.src_object, self.src_attr)
+        if obj_text != self.get_text():
+            self.set_text(obj_text)
+            end = self.buffer.get_end_iter()
+            self.widget.scroll_to_iter(end, 0., False, 0, 0)
     
-    def update_Property_from_text(self, *args, **kwargs):
-        self.Property_text_set_by_program = True
-        propval = self.get_Property_value()
-        bfr_val = self.get_text()
-        if isinstance(propval, list):
-            bfr_val = bfr_val.split('\n')
-        elif isinstance(propval, dict):
-            d = {}
-            for line in bfr_val.split('\n'):
-                key, val = line.split(': ')
-                if key.isdigit():
-                    key = int(key)
-                d[key] = val
-            bfr_val = d
-        if bfr_val != propval:
-            self.set_Property_value(bfr_val)
-        self.Property_text_set_by_program = False
+    def update_object_from_text(self, *args, **kwargs):
+        obj_text = getattr(self.src_object, self.src_attr)
+        bfr_text = self.get_text()
+        if bfr_text != obj_text:
+            setattr(self.src_object, self.src_attr, bfr_text)
         
     def on_begin_action(self, *args):
         #print 'action begin'
@@ -293,7 +270,11 @@ class TextBuffer(BaseObject, PropertyConnector):
     
     def on_end_action(self, *args):
         text = self.get_text()
-        self.update_Property_from_text()
+        #print 'action end'
+        #self._modified = True
+        if self.allow_obj_setattr:
+            #setattr(self.src_object, self.src_attr, text)
+            self.update_object_from_text()
         self.emit('modified', id=self.id, text=text)
         
 #    def update_name_from_buffer(self):
@@ -306,10 +287,13 @@ class TextBuffer(BaseObject, PropertyConnector):
         
 
 class Spin(simple.Spin):
-    pass
+    def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
+        super(Spin, self).__init__(**kwargs)
 
 class Radio(simple.Radio):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._root_widget = None
         super(Radio, self).__init__(**kwargs)
     def build_widget(self, key):
@@ -326,9 +310,15 @@ class Radio(simple.Radio):
         self._root_widget = None
     
 class Toggle(simple.Toggle):
-    pass
+    def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
+        super(Toggle, self).__init__(**kwargs)
  
 class Fader(simple.Fader):
+    def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
+        super(Fader, self).__init__(**kwargs)
+        
     def setup_widgets(self, **kwargs):
         self.widget_signals = set()
         fader_types = {'VSlider':gtk.VScale, 'HSlider':gtk.HScale}
@@ -392,6 +382,10 @@ class Fader(simple.Fader):
         return self.value_fmt_string % {'value':value, 'symbol':self.value_symbol}
         
 class ScaledFader(simple.ScaledFader):
+    def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
+        super(ScaledFader, self).__init__(**kwargs)
+        
     def setup_widgets(self, **kwargs):
         fader_types = {'VSlider':gtk.VScale, 'HSlider':gtk.HScale}
         fader_type = kwargs.get('fader_type')
@@ -427,6 +421,7 @@ class ScaledFader(simple.ScaledFader):
 
 class Meter(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(Meter, self).__init__(**kwargs)
         
 

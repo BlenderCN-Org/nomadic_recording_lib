@@ -1,3 +1,4 @@
+import threading
 from bases.ui_modules import gtk, gio, gdk, glib
 
 from Bases import BaseObject, BaseThread
@@ -8,12 +9,17 @@ from .. import BaseUI
 
 class Application(BaseObject):
     def __init__(self, **kwargs):
+        #t = GUIThread()
+        #t.owner = self
+        #t.start()
+        t = None
+        kwargs['ParentEmissionThread'] = t
         super(Application, self).__init__(**kwargs)
         self.register_signal('start', 'exit')
         self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
-        self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id', '.'.join([self.name, 'app'])))
-        self.mainwindow_cls = kwargs.get('mainwindow_cls')
+        self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id'))
         self.mainwindow_kwargs = kwargs.get('mainwindow_kwargs', {})
+        self.GLOBAL_CONFIG['GUIApplication'] = self
         if self.GLOBAL_CONFIG['gtk_version'] >= 3:
             self.app_flags = gio.ApplicationFlags(0)
             self._application = gtk.Application.new(self.app_id, self.app_flags)
@@ -23,7 +29,7 @@ class Application(BaseObject):
     def run(self):
         mwkwargs = self.mainwindow_kwargs.copy()
         mwkwargs['Application'] = self
-        self.mainwindow = self.mainwindow_cls(**mwkwargs)
+        self.mainwindow = MainWindow(**mwkwargs)
         self.mainwindow.window.connect('destroy', self.on_mainwindow_destroy)
         self.emit('start')
         #self.GLoopThread = GUIThread()
@@ -33,30 +39,33 @@ class Application(BaseObject):
         gdk.threads_leave()
         
     def on_mainwindow_destroy(self, *args, **kwargs):
+        #self.ParentEmissionThread.stop(blocking=True)
         gtk.main_quit()
         #self.GLoopThread.stop(blocking=True)
         self.emit('exit')
         
+from bases import widgets, gtksimple
+
 class GUIThread(BaseThread):
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'GUIThread'
         super(GUIThread, self).__init__(**kwargs)
-    def _thread_loop_iteration(self):
-        if not self.running:
-            return
-        self.GLoop = glib.MainLoop()
-        self.GLoop.run()
+        self._threaded_call_ready.wait_timeout = None
+    def insert_threaded_call(self, call, *args, **kwargs):
+        if threading.currentThread().name in ['MainThread', self._thread_id, gtksimple.gCBThread._thread_id]:
+            call(*args, **kwargs)
+        else:
+            gtksimple.gCBThread.add_callback(call, *args, **kwargs)
     def stop(self, **kwargs):
-        self.GLoop.quit()
+        gtksimple.gCBThread.stop(**kwargs)
         super(GUIThread, self).stop(**kwargs)
         
-        
-from bases import widgets
 widget_classes = widgets.get_widget_classes()
 container_classes = widgets.get_container_classes()
 
 class BaseWindow(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = kwargs['Application'].ParentEmissionThread
         super(BaseWindow, self).__init__(**kwargs)
         self.window = gtk.Window()
         if hasattr(self, 'topwidget_name'):
@@ -182,3 +191,4 @@ class ControlContainer(BaseUI.ControlContainer):
             self.add_child(book)
 
 
+from mainwindow import MainWindow

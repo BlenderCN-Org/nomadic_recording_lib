@@ -3,12 +3,13 @@ from ui_modules import gtk
 from Bases import BaseObject
 from Bases.Properties import PropertyConnector
 
-from gtksimple import ThreadToGtk, TreeModelSort
+from gtksimple import ThreadToGtk, TreeModelSort, get_gui_thread
 
 
 class ListModel(BaseObject, PropertyConnector):
     _Properties = {'current_selection':dict(ignore_type=True, quiet=True)}
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(ListModel, self).__init__(**kwargs)
         self.register_signal('cell_toggled', 'cell_edited', 'selection_changed')
         self.list_types = kwargs.get('list_types', [str, str])

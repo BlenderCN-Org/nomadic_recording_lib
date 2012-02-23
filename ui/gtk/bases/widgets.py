@@ -10,7 +10,7 @@ import gtksimple
 
 get_gtk2_enum = gtksimple.get_gtk2_enum
 get_gtk3_enum = gtksimple.get_gtk3_enum
-
+get_gui_thread = gtksimple.get_gui_thread
 
 import tree
 import listmodel
@@ -318,6 +318,7 @@ class FileDialog(BaseObject):
                        'save':(btn_info['cancel'] + btn_info['save'])}
     filter_types = ['pattern', 'mime']
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(FileDialog, self).__init__(**kwargs)
         self.register_signal('response')
         self.mode = kwargs.get('mode')
@@ -383,6 +384,7 @@ else:
     
 class EntryDialog(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(EntryDialog, self).__init__(**kwargs)
         self.register_signal('response')
         self.title = kwargs.get('title')
@@ -697,6 +699,7 @@ class TreeList(listmodel.ListModelTree):
 class TreeView(BaseObject):
     _Properties = {'selected':dict(ignore_type=True)}
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(TreeView, self).__init__(**kwargs)
         self._model = None
         self.selection_set_by_property = False
@@ -838,6 +841,7 @@ class HSlider(Slider):
 class ProgressBar(BaseObject, PropertyConnector):
     _Properties = {'value':dict(default=0., min=0., max=1., quiet=True)}
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         super(ProgressBar, self).__init__(**kwargs)
         self.widget = gtk.ProgressBar()
         self.topwidget = self.widget
@@ -877,6 +881,7 @@ class VProgressBar(ProgressBar):
 
 class XYSlider(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._attribute = None
         super(XYSlider, self).__init__(**kwargs)
         self.value_obj = {}
@@ -926,6 +931,7 @@ class XYSlider(BaseObject, PropertyConnector):
 class ValueObject(BaseObject, PropertyConnector):
     _Properties = {'value':dict(ignore_type=True, ignore_range=True)}
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._update = False
         super(ValueObject, self).__init__(**kwargs)
         self.prop_key = kwargs.get('prop_key')
@@ -1007,6 +1013,7 @@ def XYWidget(**kwargs):
 class XYShuttle(BaseObject):
     pos_keys = ['x', 'y']
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._widget_pos = dict(zip([key for key in self.pos_keys], [50., 50.]))
         super(XYShuttle, self).__init__(**kwargs)
         self.MainController = kwargs.get('MainController')
@@ -1071,6 +1078,7 @@ class XYShuttle(BaseObject):
         
 class XYValueObject(BaseObject):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._value = None
         super(XYValueObject, self).__init__(**kwargs)
         self.id = id(self)
