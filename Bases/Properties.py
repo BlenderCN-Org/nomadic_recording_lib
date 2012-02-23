@@ -196,7 +196,7 @@ class ObjProperty(object):
                  'type', '_type', 'parent_obj', 'quiet', 'weakrefs', '__weakref__', 
                  'threaded', 'ignore_range', 'own_callbacks',  
                  'linked_properties', 'enable_emission', 'queue_emission', 
-                 'emission_event', 'emission_threads', 'emission_lock')
+                 'emission_event', 'emission_thread', 'emission_lock')
     def __init__(self, **kwargs):
         self.enable_emission = True
         self.queue_emission = False
@@ -213,7 +213,7 @@ class ObjProperty(object):
         self.quiet = kwargs.get('quiet')
         self.ignore_range = kwargs.get('ignore_range')
         self.entries = kwargs.get('entries')
-        self.threaded = kwargs.get('threaded')
+        #self.threaded = kwargs.get('threaded')
         self.own_callbacks = set()
         #self.callbacks = set()
         #self.weakrefs = MyWVDict(printstring='property weakref' + self.name)
@@ -221,8 +221,11 @@ class ObjProperty(object):
         self.linked_properties = set()
         self.emission_lock = threading.RLock()
         self.emission_event = threading.Event()
-        if self.threaded:
-            self.emission_threads = {}
+        #self.emission_thread = kwargs.get('emission_thread', getattr(self.parent_obj, 'ParentEmissionThread', None))
+        
+    @property
+    def emission_thread(self):
+        return getattr(self.parent_obj, 'ParentEmissionThread', None)
         
     def _get_range(self):
         return [self.min, self.max]
@@ -391,19 +394,23 @@ class ObjProperty(object):
             return
         value = getattr(self.parent_obj, self.name)
         cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
-        for cb in self.own_callbacks.copy():
-            cb(**cb_kwargs)
-        if self.threaded:
-            self.emission_event.set()
-            self.emission_event.clear()
+        t = self.emission_thread
+        if t is not None and t._thread_id != threading.currentThread().name:
+            print 'Property %s doing threaded emission to %s from %s' % (self.name, self.emission_thread._thread_id, threading.currentThread().name)
+            t.insert_threaded_call(self._do_emission, **cb_kwargs)
+            #self.emission_event.set()
+            #self.emission_event.clear()
         else:
-            for wrkey in self.weakrefs.keys()[:]:
-                f, objID = wrkey
-                f(self.weakrefs[wrkey], **cb_kwargs)
-            #for cb in self.callbacks.copy():
-            #    cb(**cb_kwargs)
-            if not self.quiet:
-                self.parent_obj.emit('property_changed', **cb_kwargs)
+            self._do_emission(**cb_kwargs)
+            
+    def _do_emission(self, **kwargs):
+        for cb in self.own_callbacks.copy():
+            cb(**kwargs)
+        for wrkey in self.weakrefs.keys()[:]:
+            f, objID = wrkey
+            f(self.weakrefs[wrkey], **kwargs)
+        if not self.quiet:
+            self.parent_obj.emit('property_changed', **kwargs)
         for prop, key in self.linked_properties:
             self.update_linked_property(prop, key)
             

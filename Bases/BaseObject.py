@@ -86,6 +86,17 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         
         
     def __init__(self, **kwargs):
+        build_thread = kwargs.get('BuildEmissionThread', getattr(self, 'BuildEmissionThread', False))
+        if build_thread:
+            if type(build_thread) == str:
+                bthread_id = build_thread
+            else:
+                bthread_id = self.__class__.__name__
+            t = BaseThread(thread_id=bthread_id)
+            t.owner = self
+            t.start()
+            kwargs['ParentEmissionThread'] = t
+        self.ParentEmissionThread = kwargs.get('ParentEmissionThread')
         self.Properties = {}
         self._Index_validate_default = True
         cls = self.__class__
@@ -260,6 +271,13 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             #prop.value = None
             prop.parent_obj = None
         self.collect_garbage()
+        
+    def stop_ParentEmissionThread(self):
+        t = self.ParentEmissionThread
+        if t is None:
+           return
+        t.stop(blocking=True)
+        self.ParentEmissionThread = None
             
     def _Index_validate(self, value):
         if not hasattr(self, 'ChildGroup_parent'):
@@ -275,6 +293,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         if getattr(self, 'osc_enabled', False):
             kwargs.setdefault('osc_parent_node', self.osc_node)
         kwargs.setdefault('parent_obj', self)
+        kwargs.setdefault('ParentEmissionThread', self.ParentEmissionThread)
         cg = ChildGroup(**kwargs)
         self.ChildGroups.update({cg.name:cg})
         setattr(self, cg.name, cg)

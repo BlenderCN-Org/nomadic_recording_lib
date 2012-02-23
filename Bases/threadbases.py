@@ -84,6 +84,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
                '_stopped':{}, 
                '_threaded_call_ready':dict(wait_timeout=.1)}
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = None
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
             self.LOG.warning('thread_id %s already exists' % (thread_id))

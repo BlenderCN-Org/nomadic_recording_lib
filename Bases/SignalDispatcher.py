@@ -41,19 +41,8 @@ class dispatcher(object):
             
     def register_signal(self, *args):
         for signal in args:
-            self._emitters.update({signal:SignalEmitter(name=signal)})
+            self._emitters.update({signal:SignalEmitter(name=signal, parent_obj=self)})
             
-#    def register_attr_watch(self, *args):
-#        for attr_name in args:
-#            if attr_name[0] == '_':
-#                key = attr_name[1:]
-#            else:
-#                key = attr_name
-#            signal_name = 'attr_watch_' + key
-#            self._attrs_watched.update({attr_name:signal_name})
-#            self._emitters.update({signal_name:SignalEmitter(name=signal_name)})
-#            #self._receivers.update({signal_name:{}})
-
     def unlink(self):
         for e in self._emitters.itervalues():
             for wrkey in e.weakrefs.keys()[:]:
@@ -69,9 +58,8 @@ class dispatcher(object):
         return results
         
     def emit(self, signal, **kwargs):
-        new_kwargs = {}
-        new_kwargs.update(kwargs)
-        new_kwargs.update({'signal_name':signal})
+        new_kwargs = kwargs.copy()
+        new_kwargs['signal_name'] = signal
         self._emitters[signal].emit(**new_kwargs)
         
     def connect(self, signal, callback):
@@ -85,55 +73,6 @@ class dispatcher(object):
             if r:
                 result = True
         return result
-        
-    def old_disconnect(self, **kwargs):
-        objID = kwargs.get('id')
-        cb = kwargs.get('callback')
-        obj = kwargs.get('obj')
-        result = False
-        if obj is not None:
-            keys = set()
-            #print self, ' attempting obj disconnect: ', obj
-            for e in self._emitters.itervalues():
-                for key in e.weakrefs:
-                    if e.weakrefs[key] == obj:
-                        keys.add(key[1])
-                #for rkey, r in e.receivers.iteritems():
-                #    if getattr(r, 'im_self', None) == obj:
-                #        keys.add(rkey)
-            #print 'found keys: ', keys
-            for key in keys:
-                r = self.disconnect(id=key)
-                if r:
-                    result = True
-            return result
-            
-        #print kwargs
-        #if objID is None:
-        #    objID = id(cb)
-        signals = set()
-        if objID is None:
-            d = self.find_signal_keys_from_callback(cb)
-            signals |= d['signals']
-            objID = d['objID']
-        else:
-            for key, val in self._emitters.iteritems():
-                for rkey in val.weakrefs:
-                    if objID in rkey:
-                        signals.add(key)
-                #if objID in val.receivers:
-                #    signals.add(key)
-        
-        if len(signals):
-            for key in signals:
-                r = self._emitters[key].del_receiver(objID)
-                if r:
-                    result = True
-            return result
-        
-            
-        #print 'could not disconnect: ', self, objID, cb
-        return False
         
     def find_signal_keys_from_callback(self, cb):
         signals = set()
@@ -170,11 +109,12 @@ class MyWVDict(weakref.WeakValueDictionary):
 class SignalEmitter(object):
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
-        #self.callbacks = set()
-        #self.receivers = {}#weakref.WeakValueDictionary()
-        #self.recv_threads = {}
-        #self.weakrefs = MyWVDict(name=self.name)
+        self.parent_obj = kwargs.get('parent_obj')
         self.weakrefs = weakref.WeakValueDictionary()
+        
+    @property
+    def emission_thread(self):
+        return getattr(self.parent_obj, 'ParentEmissionThread', None)
         
     def add_receiver(self, **kwargs):
         cb = kwargs.get('callback')
@@ -210,57 +150,16 @@ class SignalEmitter(object):
             del self.weakrefs[wrkey]
             return True
             
-#    def del_receiver(self, objID):
-#        found = None
-#        for key in self.weakrefs:
-#            if objID in key:
-#                found = key
-#                break
-#        if found:
-#            del self.weakrefs[found]
-#            return True
-#        return False
-            
     def emit(self, *args, **kwargs):
+        t = self.emission_thread
+        if t is not None and t._thread_id != threading.currentThread().name:
+            print 'Signal %s doing threaded emission to %s from %s' % (self.name, t._thread_id, threading.currentThread().name)
+            t.insert_threaded_call(self._do_emit, *args, **kwargs)
+        else:
+            self._do_emit(*args, **kwargs)
+            
+    def _do_emit(self, *args, **kwargs):
         for key in self.weakrefs.keys()[:]:
             f, objID = key
             f(self.weakrefs[key], *args, **kwargs)
             
-    def old_emit(self, *args, **kwargs):
-        callbacks = set(self.callbacks)
-        for cb in callbacks:
-            cb(*args, **kwargs)
-            
-#        for key in self.receivers.keys():
-#            t = ReceiverThread(target=self.receivers[key], id=key, exit_cb=self.on_thread_exit, args=args, kwargs=kwargs)
-#            self.recv_threads[key].append(t)
-#            if len(self.recv_threads[key]) == 1:
-#                self.recv_threads[key].popleft().start()
-                
-            #cb = val()
-            #print val
-            #if cb is not None:
-            #    cb(*args, **kwargs)
-            #else:
-            #    dead_ids.append(key)
-        #for key in dead_ids:
-        #    print 'removing ref: ', key
-        #    del self.receivers[key]
-        #    #recv.on_emission(*args, **kwargs)
-#    def on_thread_exit(self, **kwargs):
-#        key = kwargs.get('id')
-#        if len(self.recv_threads[key]):
-#            self.recv_threads[key].popleft().start()
-            
-#class ReceiverThread(threading.Thread):
-#    def __init__(self, **kwargs):
-#        threading.Thread.__init__(self)
-#        self.target = kwargs.get('target')
-#        self.id = kwargs.get('id')
-#        self.exit_cb = kwargs.get('exit_cb')
-#        self.args = kwargs.get('args', [])
-#        self.kwargs = kwargs.get('kwargs', {})
-#    def run(self):
-#        self.target(*self.args, **self.kwargs)
-#        self.exit_cb(id=self.id)
-    

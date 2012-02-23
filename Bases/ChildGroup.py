@@ -82,8 +82,9 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             
         c_kwargs = kwargs.copy()
         if self.osc_enabled:
-            c_kwargs.update({'osc_parent_node':self.osc_node})
-        c_kwargs.update({'ChildGroup_parent':self})
+            c_kwargs.setdefault('osc_parent_node', self.osc_node)
+        c_kwargs.update(dict(ChildGroup_parent=self, 
+                             ParentEmissionThread=self.ParentEmissionThread))
         if not self.ignore_index:
             try:
                 index = kwargs.get('Index', self.find_max_index() + 1)
