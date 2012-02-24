@@ -15,6 +15,7 @@
 # Copyright (c) 2011 Matthew Reid
 
 import threading
+import traceback
 import collections
 import weakref
 
@@ -165,8 +166,11 @@ class BaseThread(OSCBaseObject, threading.Thread):
             self._threaded_call_ready.clear()
             return
         call, args, kwargs = queue.popleft()
-        result = call(*args, **kwargs)
-        return (result, call, args, kwargs)
+        try:
+            result = call(*args, **kwargs)
+            return (result, call, args, kwargs)
+        except:
+            self.LOG.warning(traceback.format_exc())
         
 if __name__ == '__main__':
     class TestThread(BaseThread):
