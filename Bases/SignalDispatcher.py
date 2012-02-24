@@ -159,7 +159,14 @@ class SignalEmitter(object):
             self._do_emit(*args, **kwargs)
             
     def _do_emit(self, *args, **kwargs):
-        for key in self.weakrefs.keys()[:]:
+        wrefs = self.weakrefs
+        emission_thread = self.emission_thread
+        for key in wrefs.keys()[:]:
             f, objID = key
-            f(self.weakrefs[key], *args, **kwargs)
+            obj = wrefs[key]
+            objthread = getattr(obj, 'ParentEmissionThread', None)
+            if objthread is None or objthread == emission_thread:
+                f(obj, **kwargs)
+            else:
+                objthread.insert_threaded_call(f, obj, **kwargs)
             

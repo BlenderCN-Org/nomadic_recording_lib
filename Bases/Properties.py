@@ -406,9 +406,16 @@ class ObjProperty(object):
     def _do_emission(self, **kwargs):
         for cb in self.own_callbacks.copy():
             cb(**kwargs)
-        for wrkey in self.weakrefs.keys()[:]:
+        emission_thread = self.emission_thread
+        wrefs = self.weakrefs
+        for wrkey in wrefs.keys()[:]:
             f, objID = wrkey
-            f(self.weakrefs[wrkey], **kwargs)
+            obj = wrefs[wrkey]
+            objthread = getattr(obj, 'ParentEmissionThread', None)
+            if objthread is None or objthread == emission_thread:
+                f(obj, **kwargs)
+            else:
+                objthread.insert_threaded_call(f, obj, **kwargs)
         if not self.quiet:
             self.parent_obj.emit('property_changed', **kwargs)
         for prop, key in self.linked_properties:
