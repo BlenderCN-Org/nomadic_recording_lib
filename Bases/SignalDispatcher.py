@@ -153,7 +153,7 @@ class SignalEmitter(object):
     def emit(self, *args, **kwargs):
         t = self.emission_thread
         if t is not None and t._thread_id != threading.currentThread().name:
-            print 'Signal %s doing threaded emission to %s from %s' % (self.name, t._thread_id, threading.currentThread().name)
+            #print 'Signal %s doing threaded emission to %s from %s' % (self.name, t._thread_id, threading.currentThread().name)
             t.insert_threaded_call(self._do_emit, *args, **kwargs)
         else:
             self._do_emit(*args, **kwargs)

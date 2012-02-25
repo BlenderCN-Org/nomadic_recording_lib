@@ -91,7 +91,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             if type(build_thread) == str:
                 bthread_id = build_thread
             else:
-                bthread_id = self.__class__.__name__
+                bthread_id = '_'.join([self.__class__.__name__, 'ParentEmissionThread'])
             t = BaseThread(thread_id=bthread_id)
             t.owner = self
             t.start()

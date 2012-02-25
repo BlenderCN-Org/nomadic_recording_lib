@@ -396,7 +396,7 @@ class ObjProperty(object):
         cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
         t = self.emission_thread
         if t is not None and t._thread_id != threading.currentThread().name:
-            print 'Property %s doing threaded emission to %s from %s' % (self.name, self.emission_thread._thread_id, threading.currentThread().name)
+            #print 'Property %s doing threaded emission to %s from %s' % (self.name, self.emission_thread._thread_id, threading.currentThread().name)
             t.insert_threaded_call(self._do_emission, **cb_kwargs)
             #self.emission_event.set()
             #self.emission_event.clear()

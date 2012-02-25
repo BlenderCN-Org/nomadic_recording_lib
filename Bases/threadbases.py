@@ -135,11 +135,13 @@ class BaseThread(OSCBaseObject, threading.Thread):
         loop_iteration = self._thread_loop_iteration
         running.set()
         while running.is_set():
-            loop_iteration()
-            if not disable_call_waits:
-                call_ready.wait()
-            do_calls()
+            if running.isSet():
+                loop_iteration()
+                if not disable_call_waits:
+                    call_ready.wait()
+                do_calls()
         self._stopped.set()
+        
     def stop(self, **kwargs):
         blocking = kwargs.get('blocking', False)
         wait_for_queues = kwargs.get('wait_for_queues', True)
@@ -155,15 +157,21 @@ class BaseThread(OSCBaseObject, threading.Thread):
             self._threaded_call_ready.set()
         if not self.isAlive():
             self._stopped.set()
-        if blocking:
-            self._stopped.wait()
+        if blocking and threading.currentThread() != self:
+            if type(blocking) in [float, int]:
+                timeout = float(blocking)
+            else:
+                timeout = None
+            self._stopped.wait(timeout)
         
     def _thread_loop_iteration(self):
         pass
+        
     def _do_threaded_calls(self):
         queue = self._threaded_calls_queue
         if not len(queue):
-            self._threaded_call_ready.clear()
+            if self.running:
+                self._threaded_call_ready.clear()
             return
         call, args, kwargs = queue.popleft()
         try:
