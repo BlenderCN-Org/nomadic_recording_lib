@@ -168,5 +168,6 @@ class SignalEmitter(object):
             if objthread is None or objthread == emission_thread:
                 f(obj, **kwargs)
             else:
-                objthread.insert_threaded_call(f, obj, **kwargs)
+                m = getattr(obj, f.__name__)
+                objthread.insert_threaded_call(m, **kwargs)
             

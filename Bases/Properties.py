@@ -415,7 +415,8 @@ class ObjProperty(object):
             if objthread is None or objthread == emission_thread:
                 f(obj, **kwargs)
             else:
-                objthread.insert_threaded_call(f, obj, **kwargs)
+                m = getattr(obj, f.__name__)
+                objthread.insert_threaded_call(m, **kwargs)
         if not self.quiet:
             self.parent_obj.emit('property_changed', **kwargs)
         for prop, key in self.linked_properties:
