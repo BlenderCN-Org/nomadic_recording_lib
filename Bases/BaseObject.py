@@ -87,7 +87,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         
     def __init__(self, **kwargs):
         build_thread = kwargs.get('BuildEmissionThread', getattr(self, 'BuildEmissionThread', False))
-        if build_thread:
+        if False:#build_thread:
             if type(build_thread) == str:
                 bthread_id = build_thread
             else:
@@ -96,6 +96,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
             t.owner = self
             t.start()
             kwargs['ParentEmissionThread'] = t
+        kwargs['ParentEmissionThread'] = None
         self.ParentEmissionThread = kwargs.get('ParentEmissionThread')
         self.Properties = {}
         self._Index_validate_default = True
