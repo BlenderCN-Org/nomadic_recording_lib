@@ -69,7 +69,8 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                         property = Properties.ClsProperty(**p_kwargs)
                         setattr(cls, property.name, property)
                 cls = cls.__bases__[0]
-        return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
+        #return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
+        return object.__new__(*args, **kwargs)
         
     @staticmethod
     def collect_garbage(timeout=True):
@@ -86,17 +87,28 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         
         
     def __init__(self, **kwargs):
-        build_thread = kwargs.get('BuildEmissionThread', getattr(self, 'BuildEmissionThread', False))
-        if False:#build_thread:
-            if type(build_thread) == str:
-                bthread_id = build_thread
-            else:
-                bthread_id = '_'.join([self.__class__.__name__, 'ParentEmissionThread'])
-            t = BaseThread(thread_id=bthread_id)
-            t.owner = self
-            t.start()
-            kwargs['ParentEmissionThread'] = t
-        kwargs['ParentEmissionThread'] = None
+        if globals().get('GLOBAL_CONFIG', {}).get('EnableEmissionThreads'):
+            build_thread = kwargs.get('BuildEmissionThread', getattr(self, 'BuildEmissionThread', False))
+            t = kwargs.get('ParentEmissionThread')
+            if type(t) == type and issubclass(t, BaseThread):
+                ptkwargs = kwargs.get('ParentEmissionThread_kwargs', {})
+                ptkwargs.setdefault('thread_id', '_'.join([t.__name__, 'ParentEmissionThread']))
+                t = t(**ptkwargs)
+                t.owner = self
+                t.start()
+                build_thread = False
+                kwargs['ParentEmissionThread'] = t
+            if build_thread:
+                if type(build_thread) == str:
+                    bthread_id = build_thread
+                else:
+                    bthread_id = '_'.join([self.__class__.__name__, 'ParentEmissionThread'])
+                t = BaseThread(thread_id=bthread_id)
+                t.owner = self
+                t.start()
+                kwargs['ParentEmissionThread'] = t
+        else:
+            kwargs['ParentEmissionThread'] = None
         self.ParentEmissionThread = kwargs.get('ParentEmissionThread')
         self.Properties = {}
         self._Index_validate_default = True
@@ -412,6 +424,7 @@ class GCCollectThread(BaseThread):
                'collecting':{}, 
                'wait_for_collection':dict(wait_timeout=1.)}
     def __init__(self, **kwargs):
+        kwargs.setdefault('thread_id', 'GARBAGE_COLLECTOR')
         super(GCCollectThread, self).__init__(**kwargs)
         #self.running = threading.Event()
         #self.stopped = threading.Event()

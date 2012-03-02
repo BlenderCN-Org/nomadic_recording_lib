@@ -23,6 +23,63 @@ from BaseObject import BaseObject
 from osc_base import OSCBaseObject
 from misc import setID, iterbases
 
+class EventDescriptor(object):
+    _obj_property_attrs = ['name', 'wait_timeout']
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')
+        self.wait_timeout = kwargs.get('wait_timeout')
+    def init_instance(self, obj):
+        ekwargs = dict(zip(self._obj_property_attrs, [getattr(self, attr) for attr in self._obj_property_attrs]))
+        ekwargs['parent_obj'] = obj
+        e = Event(**ekwargs)
+        obj.Events[e.name] = e
+        return e
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        e = obj.Events.get(self.name)
+        if e is None:
+            return
+        return e._value
+    def __set__(self, obj, value):
+        e = obj.Events.get(self.name)
+        if e is None:
+            return
+        e.state = value
+
+class EventValue(int):
+    @property
+    def value(self):
+        return self.event.state
+    @value.setter
+    def value(self, value):
+        self.event.state = value
+    @property
+    def wait_timeout(self):
+        return self.event.wait_timeout
+    @wait_timeout.setter
+    def wait_timeout(self, value):
+        self.event.wait_timeout = value
+    @property
+    def state(self):
+        return self.value
+    @state.setter
+    def state(self, value):
+        self.value = value
+    def isSet(self):
+        return self.value
+    def is_set(self):
+        return self.value
+    def set(self):
+        self.event.set()
+    def clear(self):
+        self.event.clear()
+    def wait(self, timeout=None):
+        self.event.wait(timeout)
+    def __nonzero__(self):
+        return self.value
+    
+
 class Event(BaseObject, threading._Event):
     _Properties = {'state':dict(default=False), 
                    'wait_timeout':dict(type=float)}
@@ -30,9 +87,24 @@ class Event(BaseObject, threading._Event):
         threading._Event.__init__(self)
         BaseObject.__init__(self, **kwargs)
         self.name = kwargs.get('name')
+        self.parent_obj = kwargs.get('parent_obj')
+        self.type = bool
+        self._value = EventValue(False)
+        self._value.event = self
         self.wait_timeout = kwargs.get('wait_timeout')
         self._state_set_local = False
         self.bind(state=self._on_state_set)
+    @property
+    def value(self):
+        return self.state
+    @value.setter
+    def value(self, value):
+        self.state = value
+    def bind(self, *args, **kwargs):
+        if len(args) == 1:
+            self.bind(state=args[0])
+            return
+        super(Event, self).bind(*args, **kwargs)
     def set(self):
         threading._Event.set(self)
         self._state_set_local = True
@@ -55,7 +127,9 @@ class Event(BaseObject, threading._Event):
             self.set()
         else:
             self.clear()
-        
+    def __nonzero__(self):
+        return self.state
+
 class ChannelEvent(BaseObject):
     _Properties = {'state':dict(default=False)}
     def __init__(self, **kwargs):
@@ -84,36 +158,74 @@ class BaseThread(OSCBaseObject, threading.Thread):
     _Events = {'_running':{}, 
                '_stopped':{}, 
                '_threaded_call_ready':dict(wait_timeout=.1)}
+    _Properties = {'_thread_id':dict(default=''), 
+                   'running':dict(default=False)}
+    #               'running':dict(fset='_running_setter', fget='_running_setter'), 
+    #               'stopped':dict(fset='_stopped_getter', fget='_stopped_setter')}
+    def __new__(*args, **kwargs):
+        cls = args[0]
+        if cls != BaseThread:
+            while issubclass(cls, BaseThread):
+                events = getattr(cls, '_Events', {})
+                for key, val in events.iteritems():
+                    e_kwargs = val.copy()
+                    e_kwargs.setdefault('name', key)
+                    e = EventDescriptor(**e_kwargs)
+                    setattr(cls, e.name, e)
+                cls = cls.__bases__[0]
+        return OSCBaseObject.__new__(*args, **kwargs)
     def __init__(self, **kwargs):
         kwargs['ParentEmissionThread'] = None
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
             self.LOG.warning('thread_id %s already exists' % (thread_id))
             thread_id = setID(None)
-        self._thread_id = thread_id
+        
         _THREADS[thread_id] = self
         threading.Thread.__init__(self, name=thread_id)
         OSCBaseObject.__init__(self, **kwargs)
+        self._thread_id = thread_id
         self.Events = {}
         timed_events = []
+        
         for cls in iterbases(self, 'OSCBaseObject'):
             if not hasattr(cls, '_Events'):
                 continue
-            for key, val in cls._Events.iteritems():
-                ekwargs = val.copy()
-                ekwargs.setdefault('name', key)
-                e = Event(**ekwargs)
-                self.Events[e.name] = e
+            for key in cls._Events.iterkeys():
+                edesc = getattr(cls, key)
+                if not isinstance(edesc, EventDescriptor):
+                    continue
+                e = edesc.init_instance(self)
                 if e.wait_timeout is not None:
                     timed_events.append(e.name)
-                setattr(self, e.name, e)
+                self.Properties[e.name] = e
+#            for key, val in cls._Events.iteritems():
+#                ekwargs = val.copy()
+#                ekwargs.setdefault('name', key)
+#                ekwargs['parent_obj'] = self
+#                e = Event(**ekwargs)
+#                self.Events[e.name] = e
+#                if e.wait_timeout is not None:
+#                    timed_events.append(e.name)
+#                setattr(self, e.name, e)
+#                propname = e.name
+#                if propname[0] == '_':
+#                    propname = propname[1:]
+#                if propname not in self.Properties:
+#                    self.Properties[propname] = e
+#                if not hasattr(self, propname):
+#                    setattr(self, propname, e)
+#                print self, e.name, propname
         timed_events.reverse()
         self.timed_events = timed_events
         self._threaded_calls_queue = collections.deque()
         self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
-    @property
-    def running(self):
-        return self._running.isSet()
+        self.bind(running=self._on_running_set, 
+                  _running=self._on__running_set)
+    def _on_running_set(self, **kwargs):
+        self._running = kwargs.get('value')
+    def _on__running_set(self, **kwargs):
+        self.running = kwargs.get('value')
     def insert_threaded_call(self, call, *args, **kwargs):
         args = tuple(args)
         kwargs = kwargs.copy()
@@ -128,8 +240,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 continue
             e.set()        
     def run(self):
-        running = self._running
-        call_ready = self._threaded_call_ready
+        running = self.Events['_running']
+        call_ready = self.Events['_threaded_call_ready']
         disable_call_waits = self.disable_threaded_call_waits
         do_calls = self._do_threaded_calls
         loop_iteration = self._thread_loop_iteration
