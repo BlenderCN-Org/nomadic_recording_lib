@@ -109,6 +109,12 @@ class ArtBaseMsg(object):
         l, fmt = self.get_data()
         return struct.pack(fmt, *l)
         
+    def copy(self):
+        msg = self.__class__()
+        for i, field in self.Fields.indexed_items.iteritems():
+            msg.Fields.indexed_items[i].value = field.value
+        return msg
+        
     def __str__(self):
         keys = sorted(self.Fields.indexed_items.keys())
         fields = ', '.join([str(self.Fields.indexed_items[key]) for key in keys])

@@ -161,7 +161,9 @@ class Field(BaseObject):
             value.extend([self.type(0)] * (self.length - len(value)))
         s = '=%s' % (self.type.struct_fmt * self.length)
         return struct.pack(s, *value)
-    
+    def copy(self):
+        kwargs = dict(id=self.id, value=self.value)
+        return self.__class__(**kwargs)
     def __str__(self):
         return ': '.join([self.id, str(self.value)])
     

@@ -29,6 +29,7 @@ from communication import ArtnetIO
 #UDP_PORT = 1936
 #PRIMARY_ADDR = '255.255.255.255'
 #PRIMARY_ADDR = '192.168.1.255'
+#PRIMARY_ADDR = '.'.join(BaseIO.detect_usable_address().split('.')[:2] + ['255', '255'])
 PRIMARY_ADDR = '.'.join(BaseIO.detect_usable_address().split('.')[:3] + ['255'])
 UDP_PORT = 6454
 
@@ -159,11 +160,13 @@ class ArtnetManager(BaseIO.BaseIO):
         kwargs.setdefault('manager', self)
         univ = UniverseThread(**kwargs)
         self.Universes[(univ.subnet, univ.universe_index)] = univ
-        keys = ['subnet', 'universe_index', '_thread_id']
-        d = dict(zip(keys, [getattr(univ, key) for key in keys]))
-        self.LOG.info('Artnet attached universe: ', d)
         if self.connected:
             univ.start()
+        keys = ['subnet', 'universe_index', '_thread_id']
+        d = dict(zip(keys, [getattr(univ, key) for key in keys]))
+        nodes = self.NodePortInfo['OutputPorts'].get((univ.subnet, univ.universe_index), [])
+        d['nodes'] = [str(n) for n in nodes]
+        self.LOG.info('Artnet attached universe: ', d)
             
     def detach_universe(self, **kwargs):
         univ_obj = kwargs.get('univ_obj')
@@ -191,7 +194,8 @@ class ArtnetManager(BaseIO.BaseIO):
             self.Nodes[style][nid] = node
             #print 'new node: id=%s, style=%s, data=%s' % (node.id, node.style, node.data)
             #keys = node.Properties.keys()
-            #print 'new node: ', dict(zip(keys, [getattr(node, key) for key in keys]))
+            #self.LOG.info('Artnet new node: ', dict(zip(keys, [getattr(node, key) for key in keys])))
+            self.LOG.info('Artnet new node: ', str(node))
             self.update_node_port_info(node=node)
             node.bind(**dict(zip(['InputPorts', 'OutputPorts'], [self.on_node_io_port_update]*2)))
             self.emit('new_node', style=style, id=nid, node=node)
@@ -500,6 +504,7 @@ class Node(BaseObject):
         super(Node, self).__init__(**kwargs)
         self.manager = kwargs.get('manager')
         self.data = {}
+        self.fields = {}
         artpoll_reply = kwargs.get('artpoll_reply')
         self.set_data(artpoll_reply)
         self.id = artpoll_reply.Fields['MAC'].value
@@ -527,6 +532,7 @@ class Node(BaseObject):
         for key, val in msg.Fields.iteritems():
             if 'Dummy' not in key:
                 self.data[key] = val.value
+                self.fields[key] = val.copy()
                 if key in self.Properties:
                     setattr(self, key, val.value)
         self.update_port_info()
@@ -547,4 +553,5 @@ class Node(BaseObject):
                 univ = self.data[keys[1]][i] % 0x10
                 if current_info[keys[0]][i] != (sub, univ):
                     current_info[keys[0]][i] = (sub, univ)
-        
+    def __str__(self):
+        return ', '.join([str(f) for f in self.fields.values()])
