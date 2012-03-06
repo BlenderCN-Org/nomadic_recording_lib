@@ -108,7 +108,7 @@ class ServeThread(BaseThread):
         super(ServeThread, self).__init__(**kwargs)
         self.server = server
     def _thread_loop_iteration(self):
-        if not self.running:
+        if not self._running:
             return
         self.server.serve_forever()
     def stop(self, **kwargs):

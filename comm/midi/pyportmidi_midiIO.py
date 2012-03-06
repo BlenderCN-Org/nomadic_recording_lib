@@ -137,7 +137,7 @@ class Listener(BaseThread):
                     self.process_message(data)
                     
     def _thread_loop_iteration(self):
-        if not self.running:
+        if not self._running:
             return
         while self.device.can_read:
             buffer = self.device.get_data()

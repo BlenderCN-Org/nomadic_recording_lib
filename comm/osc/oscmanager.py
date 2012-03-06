@@ -913,7 +913,7 @@ class ClockSender(BaseThread):
     def timestamp(self):
         return DoubleFloatArgument(time.time())
     def _thread_loop_iteration(self):
-        if not self.running:
+        if not self._running:
             return
         clients = [c for c in self.clients.values() if c.sendAllUpdates and c.accepts_timetags]# and c.isSameSession]
         #now = datetime.datetime.now()

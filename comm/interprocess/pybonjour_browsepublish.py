@@ -74,7 +74,7 @@ class Publisher(BaseObject):
         if self.register_sdRef:
             self.register_sdRef.close()
             self.register_sdRef = None
-        if self.register_thread.running:
+        if self.register_thread._running:
             self.register_thread.stop(blocking=blocking)
         self.published = False
         
@@ -222,7 +222,7 @@ class Service(BaseObject):
         self.resolve_thread = ProcessThread(sdRef=self.resolve_sdRef, close_when_finished=True, _name='resolve_%s' % (self.name))
         self.resolve_thread.start()
     def stop(self, blocking=False):
-        if self.resolve_thread.running:
+        if self.resolve_thread._running:
             self.resolve_thread.stop(blocking=blocking)
     def on_resolve(self, sdRef, flags, interfaceIndex, 
                    errorCode, fullname, hosttarget, port, txtRecord):
