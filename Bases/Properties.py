@@ -95,6 +95,7 @@ class ClsProperty(object):
         self.symbol = kwargs.get('symbol', '')
         self.type = kwargs.get('type', type(self.default_value))
         self.quiet = kwargs.get('quiet', False)
+        self.ObjPropertyClass = kwargs.get('ObjPropertyClass', ObjProperty)
         
         ## TODO: threading disabled for now. messes with gtk stuff (as i imagined)
         #self.threaded = kwargs.get('threaded', False)
@@ -117,7 +118,7 @@ class ClsProperty(object):
     def init_instance(self, obj):
         pkwargs = dict(zip(self._obj_property_attrs, [getattr(self, attr) for attr in self._obj_property_attrs]))
         pkwargs.update({'obj':obj, 'value':self.default_value})
-        obj.Properties[self.name] = ObjProperty(**pkwargs)
+        obj.Properties[self.name] = self.ObjPropertyClass(**pkwargs)
         
     def _fget(self, obj):
         prop = obj.Properties.get(self.name)

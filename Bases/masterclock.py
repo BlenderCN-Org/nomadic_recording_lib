@@ -221,7 +221,7 @@ class Ticker(BaseThread):
         #self._threaded_call_ready.wait_timeout = None
         
     def _thread_loop_iteration(self):
-        if not self.running:
+        if not self._running:
             return
         time.sleep(self.interval)
         self.ticking.set()

@@ -22,20 +22,20 @@ class Scheduler(BaseThread):
         self.waiting.set()
         
     def run(self):
-        running = self._running
-        waiting = self.waiting
+        #running = self._running
+        #waiting = self.waiting
         next_timeout = None
         queue = self.queue
         time_to_next_item = self.time_to_next_item
         process_next_item = self.process_next_item
         get_now = self.now
-        running.set()
-        while running.isSet():
-            waiting.wait(next_timeout)
-            if not running.isSet():
+        self._running = True
+        while self._running:
+            self.waiting.wait(next_timeout)
+            if not self._running:
                 break
             if not len(queue.times):
-                waiting.clear()
+                self.waiting = False
                 next_timeout = None
             else:
                 if next_timeout is not None:
@@ -46,16 +46,16 @@ class Scheduler(BaseThread):
                     if timeout <= 0:
                         #self.process_item(t)
                         process_next_item()
-                        waiting.set()
+                        self.waiting = True
                     else:
-                        waiting.clear()
+                        self.waiting = False
                         next_timeout = timeout
                         #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
-        self._stopped.set()
+        self._stopped = True
         
     def stop(self, **kwargs):
-        self._running.clear()
-        self.waiting.set()
+        self._running = False
+        self.waiting = True
         super(Scheduler, self).stop(**kwargs)
         
     def process_item(self, time):
