@@ -74,6 +74,10 @@ class Event(ObjProperty):
         if not isinstance(value, EventValue):
             value = EventValue(value)
             value.event = self
+        old = self.value
+        if bool(old) == bool(value):
+            return
+        self.value = value
         self._event_set_local = True
         if value:
             self.set()
@@ -81,7 +85,8 @@ class Event(ObjProperty):
             self.clear()
         self._event_set_local = False
         #print 'Event %s set_value: %s, current: %s' % (self.name, value, self.value)
-        super(Event, self).set_value(value)
+        self.enable_emission = True
+        self.emit(old)
     def isSet(self):
         return bool(self.value)
     def is_set(self):
