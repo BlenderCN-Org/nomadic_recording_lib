@@ -228,21 +228,29 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         search for and unbind any callbacks that belong to that object.
         '''
         results = []
+        unlinked = False
         for arg in args:
             result = False
             for prop in self.Properties.itervalues():
+                if prop.parent_obj is None:
+                    unlinked = True
+                    break
                 r = prop.unbind(arg)
                 if r:
                     result = True
-            if not hasattr(arg, 'im_self'):
-                r = SignalDispatcher.dispatcher.disconnect(self, obj=arg)
-                if r:
-                    result = True
-            #elif len(self.find_signal_keys_from_callback(arg)['signals']):
-            else:
-                r = SignalDispatcher.dispatcher.disconnect(self, callback=arg)
-                if r:
-                    result = True
+            if unlinked:
+                results = [True]*len(args)
+                break
+            if not result:
+                if not hasattr(arg, 'im_self'):
+                    r = SignalDispatcher.dispatcher.disconnect(self, obj=arg)
+                    if r:
+                        result = True
+                #elif len(self.find_signal_keys_from_callback(arg)['signals']):
+                else:
+                    r = SignalDispatcher.dispatcher.disconnect(self, callback=arg)
+                    if r:
+                        result = True
             results.append(result)
         if False in results:
             self.LOG.debug('could not unbind', self, zip(args, results))

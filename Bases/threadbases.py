@@ -208,7 +208,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 loop_iteration()
                 if not disable_call_waits:
                     self._threaded_call_ready.wait()
-                do_calls()
+                    do_calls()
         self._stopped = True
         
     def stop(self, **kwargs):
