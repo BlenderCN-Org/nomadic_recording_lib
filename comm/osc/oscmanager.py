@@ -64,6 +64,8 @@ class OSCManager(BaseIO.BaseIO, Config):
         self.master_priority = int(self.get_conf('master_priority', 10))
         self.GLOBAL_CONFIG['master_priority'] = self.master_priority
         s = self.GLOBAL_CONFIG.get('session_name')
+        if s == 'None':
+            s = None
         if s is not None:
             self.session_name = s
         else:
