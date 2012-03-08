@@ -239,6 +239,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 if r:
                     result = True
             if unlinked:
+                self.LOG.debug('unbinding, but %s is already unlinked: %s' % (self, args))
                 results = [True]*len(args)
                 break
             if not result:
