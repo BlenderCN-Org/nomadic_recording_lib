@@ -18,6 +18,7 @@ import threading
 import traceback
 import collections
 import weakref
+import functools
 
 from BaseObject import BaseObject
 from osc_base import OSCBaseObject
@@ -122,6 +123,29 @@ class ChannelEvent(BaseObject):
     def _off_event_state_set(self, **kwargs):
         pass
 
+class Partial(object):
+    def __init__(self, cb, *args, **kwargs):
+        obj = cb.im_self
+        self.id = id(obj)
+        self.obj_name = obj.__class__.__name__
+        self.func_name = cb.im_func.func_name
+        self._partial = functools.partial(cb, *args, **kwargs)
+    @property
+    def cb(self):
+        return self._partial.func
+    @property
+    def args(self):
+        return self._partial.args
+    @property
+    def kwargs(self):
+        return self._partial.keywords
+    def __call__(self):
+        self._partial()
+    def __str__(self):
+        return '%s(%s), %s' % (self.obj_name, self.id, self.func_name)
+    def __repr__(self):
+        return 'ThreadBasePartial object %s: %s' % (id(self), str(self))
+
 _THREADS = weakref.WeakValueDictionary()
 
 def add_call_to_thread(call, *args, **kwargs):
@@ -186,10 +210,10 @@ class BaseThread(OSCBaseObject, threading.Thread):
         self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
         
     def insert_threaded_call(self, call, *args, **kwargs):
-        args = tuple(args)
-        kwargs = kwargs.copy()
-        self._threaded_calls_queue.append((call, args, kwargs))
+        p = Partial(call, *args, **kwargs)
+        self._threaded_calls_queue.append(p)
         self._cancel_event_timeouts()
+        
     def _cancel_event_timeouts(self, events=None):
         if events is None:
             events = self.timed_events
@@ -197,7 +221,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
             e = self.Events.get(key)
             if not e:
                 continue
-            e.set()        
+            e.set()
+            
     def run(self):
         disable_call_waits = self.disable_threaded_call_waits
         do_calls = self._do_threaded_calls
@@ -242,10 +267,10 @@ class BaseThread(OSCBaseObject, threading.Thread):
             if self._running:
                 self._threaded_call_ready = False
             return
-        call, args, kwargs = queue.popleft()
+        p = queue.popleft()
         try:
-            result = call(*args, **kwargs)
-            return (result, call, args, kwargs)
+            result = p()
+            return (result, p.cb, p.args, p.kwargs)
         except:
             self.LOG.warning(traceback.format_exc())
         
