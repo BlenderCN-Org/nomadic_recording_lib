@@ -88,7 +88,9 @@ class Client(OSCBaseObject):
         self.GLOBAL_CONFIG.unbind(self)
         super(Client, self).unlink()
         
-    
+    @property
+    def id(self):
+        return self.name
     @property
     def osc_name(self):
         if ' ' in self.name:
