@@ -21,6 +21,7 @@ from Bases import OSCBaseObject
 class Client(OSCBaseObject):
     _Properties = {'name':dict(type=str), 
                    'address':dict(type=str), 
+                   'port':dict(type=int), 
                    'hostname':dict(type=str), 
                    'session_name':dict(type=str), 
                    'isMaster':dict(default=False), 
@@ -162,3 +163,10 @@ class Client(OSCBaseObject):
         else:
             self.isSameSession = self.session_name == self.GLOBAL_CONFIG.get('session_name')
         
+    def __str__(self):
+        return '<OSCClient %s: isMaster=%s>' % (self.name, self.isMaster)
+    def __repr__(self):
+        s = super(Client, self).__repr__()
+        s = s[:-1]
+        s += ' (%s)>' % (self.name)
+        return s

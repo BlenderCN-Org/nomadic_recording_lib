@@ -298,7 +298,12 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.master_takeover_timer = None
         self.check_master_attempts = None
         self.local_client = None
-        self.init_clients()
+        self.clients = ChildGroup(name='clients', 
+                                  osc_address='CLIENTS', 
+                                  osc_parent_node=self.root_node, 
+                                  child_class=Client, 
+                                  ignore_index=True)
+        self.clients_by_address = {}
         #self.root_node.addCallback('/getMaster', self.on_master_requested_by_osc)
         #self.root_node.addCallback('/setMaster', self.on_master_set_by_osc)
         #self.getMasterNode = self.root_node.add_child(name='getMaster')
@@ -369,21 +374,6 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.set_master(False)
         self.connected = False
         
-    def init_clients(self):
-        self.client_osc_node = self.root_node.add_child(name='CLIENTS')
-        names = self.get_conf('client_names', ['null'])
-        if type(names) == str:
-            names = [names]
-        self.clients = {}
-        self.clients_by_address = {}
-        #self.client_names = set(names)
-        #self.add_client_name(None, update_conf=False)
-        #addresses = self.get_conf('client_addresses', [])
-        #if type(addresses) == str:
-        #    addresses = [addresses]
-        #self.client_addresses = set(addresses)
-        #self.add_client_address(None, update_conf=False)
-        
     def add_to_session(self, **kwargs):
         ''' Adds a Client obj to a Session object which will handle
         master determination, etc.  If the Session does not exist,
@@ -425,13 +415,12 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
     def add_client(self, **kwargs):
         kwargs.setdefault('port', self.ioManager.hostdata['sendport'])
         kwargs.setdefault('app_address', self.Manager.app_address)
-        kwargs['osc_parent_node'] = self.client_osc_node
+        #kwargs['osc_parent_node'] = self.client_osc_node
         if socket.gethostname() in kwargs.get('name', ''):
             kwargs['isLocalhost'] = True
             #kwargs['master_priority'] = self.master_priority
-        client = Client(**kwargs)
-        self.clients.update({client.name:client})
-        self.clients_by_address.update({client.address:client})
+        client = self.clients.add_child(**kwargs)
+        self.clients_by_address[client.address] = client
         if client.isLocalhost:
             self.local_client = client
             #client.master_priority = self.master_priority
@@ -458,9 +447,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         #self.remove_client_name(name, update_conf=False)
         #self.remove_client_address(addr, update_conf=False)
         client.unbind(self)
-        client.unlink()
-        
-        del self.clients[name]
+        self.clients.del_child(client)
         self.Manager.update_wildcards()
         self.LOG.info('remove_client:', name)
         self.emit('client_removed', name=name, client=client)
@@ -661,7 +648,7 @@ class Session(BaseObject):
     signals_to_register = ['members_update']
     def __init__(self, **kwargs):
         super(Session, self).__init__(**kwargs)
-        self.members.bind(update=self._on_members_update)
+        self.members.bind(child_update=self._on_members_update)
         self.name = kwargs.get('name')
         self.id = self.name
         self.master = kwargs.get('master')
@@ -690,17 +677,16 @@ class Session(BaseObject):
         member.unbind(self)
         if member.session_name == self.name:
             member.session_name = None
-        #del self.members[member.name]
-        self.members.del_child(member)
-        if self.master and self.master.name not in self.members:
+        self.members.del_child(member, unlink=False)
+        if self.master is not None and self.master.name not in self.members:
             self.master = None
     def on_member_session_name_set(self, **kwargs):
         old = kwargs.get('old')
         value = kwargs.get('value')
         member = kwargs.get('obj')
-        if member.session_name != self.name:
+        if old == self.name and value != self.name:
             self.del_member(member)
-        if self.master and self.master.name not in self.members:
+        if self.master is not None and self.master.name not in self.members:
             self.master = None
     def on_member_isMaster_set(self, **kwargs):
         value = kwargs.get('value')
