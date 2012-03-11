@@ -405,9 +405,19 @@ class ObjProperty(object):
             self._do_emission(**cb_kwargs)
             
     def _do_emission(self, **kwargs):
+        elock = self.emission_lock
+        emission_thread = self.emission_thread
+        if emission_thread is not None:
+            if threading.currentThread() != emission_thread:
+                print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
+            if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
+                owner = threading._active[elock._RLock__owner]
+                current = threading.currentThread()
+                print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
+            elock.acquire()
         for cb in self.own_callbacks.copy():
             cb(**kwargs)
-        emission_thread = self.emission_thread
+        
         wrefs = self.weakrefs
         for wrkey in wrefs.keys()[:]:
             f, objID = wrkey
@@ -422,6 +432,8 @@ class ObjProperty(object):
             self.parent_obj.emit('property_changed', **kwargs)
         for prop, key in self.linked_properties:
             self.update_linked_property(prop, key)
+        if emission_thread is not None:
+            elock.release()
             
 class ThreadedEmitter(threading.Thread):
     def __init__(self, **kwargs):

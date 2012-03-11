@@ -192,6 +192,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         threading.Thread.__init__(self, name=thread_id)
         OSCBaseObject.__init__(self, **kwargs)
         self._thread_id = thread_id
+        self._insertion_lock = threading.Lock()
         self.Events = {}
         timed_events = []
         
@@ -210,9 +211,10 @@ class BaseThread(OSCBaseObject, threading.Thread):
         self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
         
     def insert_threaded_call(self, call, *args, **kwargs):
-        p = Partial(call, *args, **kwargs)
-        self._threaded_calls_queue.append(p)
-        self._cancel_event_timeouts()
+        with self._insertion_lock:
+            p = Partial(call, *args, **kwargs)
+            self._threaded_calls_queue.append(p)
+            self._cancel_event_timeouts()
         
     def _cancel_event_timeouts(self, events=None):
         if events is None:
