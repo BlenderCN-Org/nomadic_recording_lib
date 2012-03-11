@@ -94,18 +94,17 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 ptkwargs = kwargs.get('ParentEmissionThread_kwargs', {})
                 ptkwargs.setdefault('thread_id', '_'.join([t.__name__, 'ParentEmissionThread']))
                 t = t(**ptkwargs)
-                t.owner = self
-                t.start()
                 build_thread = False
-                kwargs['ParentEmissionThread'] = t
             if build_thread:
                 if type(build_thread) == str:
                     bthread_id = build_thread
                 else:
                     bthread_id = '_'.join([self.__class__.__name__, 'ParentEmissionThread'])
                 t = BaseThread(thread_id=bthread_id)
+            if isinstance(t, BaseThread):
                 t.owner = self
-                t.start()
+                if not t.isAlive():
+                    t.start()
                 kwargs['ParentEmissionThread'] = t
         else:
             kwargs['ParentEmissionThread'] = None
