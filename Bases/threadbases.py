@@ -63,7 +63,7 @@ class Event(ObjProperty):
     __slots__ = ['wait_timeout', '_event', '_event_set_local']
     def __init__(self, **kwargs):
         self._event = threading.Event()
-        self.wait_timeout = kwargs.get('wait_timeout', kwargs.get('max'))
+        self.wait_timeout = kwargs.get('wait_timeout')
         self._event_set_local = False
         value = kwargs.get('value', False)
         if not isinstance(value, EventValue):
@@ -162,23 +162,27 @@ class BaseThread(OSCBaseObject, threading.Thread):
                '_threaded_call_ready':dict(wait_timeout=.1)}
     _Properties = {'_thread_id':dict(default='')}
     def __new__(*args, **kwargs):
+        events_by_cls = {}
+        props_by_cls = {}
         cls = args[0]
         if cls != BaseThread:
             while issubclass(cls, BaseThread):
-                events = getattr(cls, '_Events', None)
+                d = {}
+                p = {}
+                events = cls.__dict__.get('_Events')
                 if events is None:
+                    cls = cls.__bases__[0]
                     continue
-                props = getattr(cls, '_Properties', None)
-                if props is None:
-                    props = {}
-                    setattr(cls, '_Properties', props)
+                props = cls.__dict__.get('_Properties', {})
                 for key, val in events.iteritems():
                     e_kwargs = val.copy()
                     e_kwargs.setdefault('default', False)
-                    if 'wait_timeout' in e_kwargs:
-                        e_kwargs['max'] = e_kwargs['wait_timeout']
+                    additional_kwargs = e_kwargs.get('additional_property_kwargs', {})
+                    additional_kwargs['wait_timeout'] = e_kwargs.get('wait_timeout')
+                    e_kwargs['additional_property_kwargs'] = additional_kwargs
                     e_kwargs['ObjPropertyClass'] = Event
                     props[key] = e_kwargs
+                setattr(cls, '_Properties', props)
                 cls = cls.__bases__[0]
         return OSCBaseObject.__new__(*args, **kwargs)
     def __init__(self, **kwargs):
@@ -281,6 +285,7 @@ if __name__ == '__main__':
     def events_to_str(t):
         return ', '.join([str(e) for e in t.Events.values()])
     class TestThread(BaseThread):
+        _Events = {'testevent':{}}
         def __init__(self, **kwargs):
             self.last = time.time()
             super(TestThread, self).__init__(**kwargs)

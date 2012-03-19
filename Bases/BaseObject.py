@@ -60,7 +60,8 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         cls = args[0]
         if cls != BaseObject:
             while issubclass(cls, BaseObject):
-                props = getattr(cls, '_Properties', {})
+                #props = getattr(cls, '_Properties', {})
+                props = cls.__dict__.get('_Properties', {})
                 for key, val in props.iteritems():
                     if not hasattr(cls, key):
                         p_kwargs = val.copy()
@@ -74,15 +75,15 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         
     @staticmethod
     def collect_garbage(timeout=True):
-        garbage_collector.queue_collection.set()
+        garbage_collector.queue_collection = True
         if not timeout:
-            garbage_collector.wait_for_collection.set()
+            garbage_collector.wait_for_collection = True
     @staticmethod
     def pause_garbage_collection():
-        garbage_collector.enable_collection.clear()
+        garbage_collector.enable_collection = False
     @staticmethod
     def resume_garbage_collection():
-        garbage_collector.enable_collection.set()
+        garbage_collector.enable_collection = True
         
         
         
@@ -425,64 +426,6 @@ GLOBAL_CONFIG['ROOT_CATEGORY'] = ROOT_CATEGORY
 
 from threadbases import BaseThread
 
-class GCCollectThread(BaseThread):
-    GLOBAL_CONFIG_KEY = 'USE_BASEOBJECT_GARBAGE_COLLECTOR'
-    _Events = {'queue_collection':{}, 
-               'enable_collection':{}, 
-               'collecting':{}, 
-               'wait_for_collection':dict(wait_timeout=1.)}
-    def __init__(self, **kwargs):
-        kwargs.setdefault('thread_id', 'GARBAGE_COLLECTOR')
-        super(GCCollectThread, self).__init__(**kwargs)
-        #self.running = threading.Event()
-        #self.stopped = threading.Event()
-        #self.wait_time = kwargs.get('wait_time', 1.)
-        #self.wait_for_collection = threading.Event()
-        #self.queue_collection = threading.Event()
-        #self.enable_collection = threading.Event()
-        #self.collecting = threading.Event()
-        GLOBAL_CONFIG.bind(update=self.on_global_config_update)
-    def on_global_config_update(self, **kwargs):
-        old = kwargs.get('old')
-        gc_enable = GLOBAL_CONFIG.get(self.GLOBAL_CONFIG_KEY)
-        if gc_enable and not self._running.isSet() and not self._stopped.isSet() and not self.is_alive():
-            self.enable_collection.set()
-            self.start()
-        if not gc_enable and self._running.isSet():
-            self.stop()
-    def _thread_loop_iteration(self):
-        if not(self.enable_collection.isSet()):
-            return
-        self.wait_for_collection.wait()
-        if self.queue_collection.isSet():
-            self.do_collect()
-            self.queue_collection.clear()
-        self.wait_for_collection.clear()
-    def old_run(self):
-        #atexit.register(self.stop)
-        self.running.set()
-        self.enable_collection.set()
-        while self.running.isSet():
-            self.queue_collection.wait()
-            if self.running.isSet():
-                #self.queue_collection.clear()
-                self.wait_for_collection.wait(self.wait_time)
-                self.enable_collection.wait()
-                if self.queue_collection.isSet():
-                    self.do_collect()
-                    self.queue_collection.clear()
-                self.wait_for_collection.clear()
-        self.stopped.set()
-    def old_stop(self):
-        self.running.clear()
-        self.enable_collection.set()
-        self.wait_for_collection.set()
-        self.queue_collection.set()
-    def do_collect(self):
-        self.collecting.set()
-        r = gc.collect()
-        #print 'gc result: ',  r
-        self.collecting.clear()
-        
-garbage_collector = GCCollectThread()
-#garbage_collector.start()
+from garbage_collection import GarbageCollector
+
+garbage_collector = GarbageCollector(GLOBAL_CONFIG=GLOBAL_CONFIG)
