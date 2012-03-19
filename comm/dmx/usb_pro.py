@@ -46,6 +46,7 @@ def find_messages(data):
     return (messages, leftover)
 
 def send_to_widget(device, data):
+    return
     msg = ''.join([chr(item) for item in data])
     msg = msg.join(MSG_DELIMITERS)
     device.write(msg)
@@ -119,8 +120,7 @@ class USBProIO(BaseIO, Config):
         if self.universe_obj is not None:
             self.universe_obj.unbind(self)
         if self.universe_thread is not None:
-            self.universe_thread.stop()
-            self.universe_thread.join()
+            self.universe_thread.stop(blocking=True)
             self.universe_thread = None
         self.LOG.info('usbpro attach_universe: old=%s, new=%s' % (self.universe_obj, univ))
         self.universe_obj = univ
@@ -197,21 +197,15 @@ class USBProIO(BaseIO, Config):
         
 class UniverseRefresher(BaseThread):
     _Events = {'refresh_wait':dict(wait_timeout=10.), 
-               'update_wait':dict(wait_timeout=.01), 
                'sending':{}}
     def __init__(self, **kwargs):
         self.usbproio = kwargs.get('usbproio')
         self.universe = kwargs.get('universe')
         kwargs['thread_id'] = 'USBProUniverseRefresher_%s' % (self.universe.Index)
-        kwargs['disable_threaded_call_waits'] = True
         super(UniverseRefresher, self).__init__(**kwargs)
-        #self.refresh_interval = kwargs.get('refresh_interval', 10.)
-        #self.update_interval = kwargs.get('update_interval', .01)
-        #self.running = threading.Event()
-        #self.refresh_wait = threading.Event()
-        #self.update_wait = threading.Event()
-        #self.sending = threading.Event()
-        self.updates_to_send = set()  
+        self.update_wait = self.Events['_threaded_call_ready']
+        self.update_wait.wait_timeout = .01
+        self.updates_to_send = set()
         
     def send_dmx(self):
         self.updates_to_send.clear()
@@ -221,13 +215,11 @@ class UniverseRefresher(BaseThread):
         self.usbproio.send_message(message)
         
     def _thread_loop_iteration(self):
-        self.update_wait.wait()
-        if not self._running.isSet():
+        if not self._running:
             return
         self.send_dmx()
         if not len(self.updates_to_send):
-            self.update_wait.clear()
-        self.refresh_wait.wait()
+            self.refresh_wait.wait()
         
     def run(self):
         if self.universe.saved_class_name == 'Universe':
@@ -235,7 +227,10 @@ class UniverseRefresher(BaseThread):
         super(UniverseRefresher, self).run()
         
     def stop(self, **kwargs):
-        self.universe.unbind(self)
+        if self.universe.saved_class_name == 'Universe':
+            self.universe.unbind(self)
+        self.updates_to_send.clear()
+        self.refresh_wait.set()
         super(UniverseRefresher, self).stop(**kwargs)
         
     def old_run(self):
@@ -263,7 +258,7 @@ class UniverseRefresher(BaseThread):
         
     def on_universe_update(self, **kwargs):
         self.updates_to_send.add(kwargs.get('channel'))
-        self.update_wait.set()
+        #self.update_wait.set()
 
 class ReceiveThread(BaseThread):
     def __init__(self, **kwargs):
@@ -278,7 +273,7 @@ class ReceiveThread(BaseThread):
         #self.buffer = []
         self.buffer = ''
     def _thread_loop_iteration(self):
-        if not self._running.isSet():
+        if not self._running:
             return
         device = self.usbproio.device
         if device is None:
@@ -315,7 +310,7 @@ class ReceiveThread(BaseThread):
         buffer = self.buffer
         buffer += data
         messages, leftover = find_messages(buffer)
-        #print 'usbpro process: messages=%s, leftover=%s, buffer=%s' % (messages, leftover, buffer)
+        print 'usbpro process: messages=%s, leftover=%s, buffer=%s' % (messages, leftover, buffer)
         self.buffer = leftover
         for msg in messages:
             message = parse_message(msg)
