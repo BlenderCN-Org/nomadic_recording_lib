@@ -46,7 +46,6 @@ def find_messages(data):
     return (messages, leftover)
 
 def send_to_widget(device, data):
-    return
     msg = ''.join([chr(item) for item in data])
     msg = msg.join(MSG_DELIMITERS)
     device.write(msg)
@@ -217,6 +216,7 @@ class UniverseRefresher(BaseThread):
     def _thread_loop_iteration(self):
         if not self._running:
             return
+        self.refresh_wait.clear()
         self.send_dmx()
         if not len(self.updates_to_send):
             self.refresh_wait.wait()
@@ -259,6 +259,7 @@ class UniverseRefresher(BaseThread):
     def on_universe_update(self, **kwargs):
         self.updates_to_send.add(kwargs.get('channel'))
         #self.update_wait.set()
+        self.refresh_wait.set()
 
 class ReceiveThread(BaseThread):
     def __init__(self, **kwargs):
@@ -310,7 +311,6 @@ class ReceiveThread(BaseThread):
         buffer = self.buffer
         buffer += data
         messages, leftover = find_messages(buffer)
-        print 'usbpro process: messages=%s, leftover=%s, buffer=%s' % (messages, leftover, buffer)
         self.buffer = leftover
         for msg in messages:
             message = parse_message(msg)
