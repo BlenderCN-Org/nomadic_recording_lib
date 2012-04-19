@@ -1,6 +1,7 @@
 import multiprocessing
 import multiprocessing.managers
     
+from BaseObject import BaseObject
 from osc_base import OSCBaseObject
 import Properties
     
@@ -64,7 +65,32 @@ class SubProcess(multiprocessing.Process):
 class QueueTerminator(object):
     pass
     
+MANAGERS = {}
+
 class Manager(multiprocessing.managers.SyncManager):
+    def __init__(self, **kwargs):
+        super(Manager, self).__init__()
+        self.id = kwargs.get('id', id(self))
+        MANAGERS[self.id] = self
+        self.set_root_obj(**kwargs)
+    def start(self):
+        super(Manager, self).start()
+        self.root_namespace = self.BaseObjNamespace()
+        #self.root_namespace._set_obj(self.root_obj)
+        _set_obj_namespace(self, self.root_obj, self.root_namespace)
+    #def on_process_init(*args):
+    #    self.root_namespace = self.BaseObjNamespace()
+    def set_root_obj(self, **kwargs):
+        self.root_obj = kwargs.get('root_obj')
+        if self.root_obj is None:
+            rocls = kwargs.get('root_obj_class')
+            rokwargs = kwargs.get('root_obj_kwargs', {})
+            self.root_obj = rocls(**rokwargs)
+        self.root_obj.SubProcessManager = self
+        #self.root_namespace._set_obj(self.root_obj)
+
+
+class oldManager(multiprocessing.managers.SyncManager):
     def __init__(self, **kwargs):
         self.SubProcessParent = kwargs.get('SubProcessParent')
         self.SubProcessName = kwargs.get('SubProcessName')
@@ -107,3 +133,125 @@ class PropertyConnectorProxy(multiprocessing.managers.BaseProxy, Properties.Prop
         super(PropertyProxy, self).__init__(*args)
         self.Property = kwargs.get('Property')
         
+def _set_obj_namespace(manager, obj, namespace):
+    attrdict = get_exposed_attributes(obj)
+    for attr in attrdict['ExposedAttributes']:
+        setattr(namespace, attr, getattr(obj, attr))
+    for key, child in iter_children(obj):
+        if isinstance(child, dict):
+            cdict = {}
+            setattr(namespace, key, cdict)
+            for ckey, cval in child.iteritems():
+                childNS = manager.BaseObjNamespace()
+                cdict[ckey] = childNS
+                _set_obj_namespace(manager, cval, childNS)
+        else:
+            childNS = manager.BaseObjNamespace()
+            _set_obj_namespace(manager, child, childNS)
+            setattr(namespace, key, childNS)
+            
+class BaseObjNamespace(multiprocessing.managers.Namespace):
+    def _add_nested_child(self, child, manager=None):
+        pass
+        #_set_obj_namespace(manager, child, self)
+    
+#    def __init__(self, obj=None):
+#        if obj is not None:
+#            self._set_obj(obj)
+#    
+#    def __repr__(self):
+#        s = super(BaseObjNamespace, self).__repr__()
+#        s = ' '.join([repr(multiprocessing.current_process()), s])
+#        return s
+            
+class BaseObjNamespaceProxy(multiprocessing.managers.NamespaceProxy):
+    def _add_nested_child(self, child, manager=None):
+        pass
+    #def __getattr__(self, key):
+    #    print self, ' getattr: ', multiprocessing.current_process()
+    #    return super(BaseObjNamespaceProxy, self).__getattr__(key)
+    
+Manager.register('BaseObjNamespace', BaseObjNamespace, BaseObjNamespaceProxy)
+
+
+def iter_children(root_obj, path=None):
+    #if path is None:
+    #    path = []
+    keys = set(getattr(root_obj, 'saved_child_objects', []))
+    keys |= set(getattr(root_obj, 'ChildGroups', {}).keys())
+    for key in keys:
+        child = getattr(root_obj, key, None)
+        if child is None:
+            continue
+        #path.append(key)
+        yield key, child
+        #for next_path, next_child in iter_children(child, path):
+        #    yield next_path, next_child
+        
+def get_exposed_attributes(obj):
+    attrs = ['Properties', '_emitters']
+    d = {}
+    d['ExposedAttributes'] = set()
+    for attr in attrs:
+        d[attr] = {}
+        attrval = getattr(obj, attr, None)
+        if attrval is None:
+            continue
+        for key, val in attrval.iteritems():
+            d[attr][key] = val
+            if attr != '_emitters':
+                d['ExposedAttributes'].add(key)
+    d['ExposedAttributes'] |= set(getattr(obj, 'ExposedAttributes', []))
+    return d
+    
+def test():
+    class TestObj(BaseObject):
+        _Properties = {'name':dict(default=''), 'value':dict(default=0)}
+        _saved_child_objects = ['test_children']
+        ExposedAttributes = ['other_testobj']
+        def __init__(self, **kwargs):
+            super(TestObj, self).__init__(**kwargs)
+            self.name = kwargs.get('name')
+            self.value = kwargs.get('value')
+            self.test_children = {}
+            if 'root' in self.name:
+                for i, key in enumerate(kwargs.get('childkeys')):
+                    obj = TestObj(name=key, value=i)
+                    self.test_children[key] = obj
+        @property
+        def other_testobj(self):
+            if 'root' not in self.name:
+                return ''
+            if '1' in self.name:
+                m_id = 'm2'
+            else:
+                m_id = 'm1'
+            m = MANAGERS.get(m_id)
+            if not m:
+                return 'none'
+            return '%r\n%r\n' % (multiprocessing.current_process(), m.root_namespace)
+            
+    #testobj1 = TestObj(name='root1', childkeys='abcdefg')
+    #testobj2 = TestObj(name='root2', childkeys='hijklmn')
+    m1 = Manager(id='m1', root_obj_class=TestObj, root_obj_kwargs=dict(name='root1', childkeys='abcdefg'))
+    m1.start()
+    #m1.set_root_obj(root_obj=testobj1)
+    #print m1.root_namespace
+    
+    m2 = Manager(id='m2', root_obj_class=TestObj, root_obj_kwargs=dict(name='root2', childkeys='hijklmn'))
+    m2.start()
+    #m2.set_root_obj(root_obj=testobj2)
+    #print m2.root_namespace
+    
+    print m1.root_namespace.other_testobj
+    print m2.root_namespace.other_testobj
+    print type(m2.root_namespace)
+    
+    
+    
+    #ns = BaseObjNamespace(testobj)
+    #print ns
+    #print ns.test_children
+    
+if __name__ == '__main__':
+    test()
