@@ -139,7 +139,7 @@ def _set_obj_namespace(manager, obj, namespace):
         setattr(namespace, attr, getattr(obj, attr))
     for key, child in iter_children(obj):
         if isinstance(child, dict):
-            cdict = {}
+            cdict = manager.dict()
             setattr(namespace, key, cdict)
             for ckey, cval in child.iteritems():
                 childNS = manager.BaseObjNamespace()
@@ -167,11 +167,28 @@ class BaseObjNamespace(multiprocessing.managers.Namespace):
 class BaseObjNamespaceProxy(multiprocessing.managers.NamespaceProxy):
     def _add_nested_child(self, child, manager=None):
         pass
+    
     #def __getattr__(self, key):
     #    print self, ' getattr: ', multiprocessing.current_process()
     #    return super(BaseObjNamespaceProxy, self).__getattr__(key)
+    def __repr__(self):
+        items = self.__dict__.items()
+        temp = []
+        for name, value in items:
+            if not name.startswith('_'):
+                temp.append('%s=%r' % (name, value))
+        temp.sort()
+        return 'Namespace(%s)' % str.join(', ', temp)
     
+class DictProxy(multiprocessing.managers.DictProxy):
+    def __setitem__(self, key, value):
+        if type(value) == dict:
+            print 'making dictproxy: ', key, value
+            value = manager.dict(value)
+        super(DictProxy, self).__setitem__(key, value)
+        
 Manager.register('BaseObjNamespace', BaseObjNamespace, BaseObjNamespaceProxy)
+Manager.register('dict', dict, DictProxy)
 
 
 def iter_children(root_obj, path=None):
@@ -247,7 +264,8 @@ def test():
     print m2.root_namespace.other_testobj
     print type(m2.root_namespace)
     
-    
+    print m1.root_namespace
+    print m2.root_namespace
     
     #ns = BaseObjNamespace(testobj)
     #print ns
