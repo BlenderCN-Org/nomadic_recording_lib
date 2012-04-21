@@ -171,3 +171,7 @@ class SignalEmitter(object):
                 m = getattr(obj, f.__name__)
                 objthread.insert_threaded_call(m, **kwargs)
             
+    def __repr__(self):
+        return '<SignalEmitter %s of object %r>' % (self.name, self.parent_obj)
+    def __str__(self):
+        return repr(self)

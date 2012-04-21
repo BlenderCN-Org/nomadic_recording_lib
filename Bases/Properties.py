@@ -437,6 +437,12 @@ class ObjProperty(object):
         if emission_thread is not None:
             elock.release()
             
+    def __repr__(self):
+        return '<Property %s of object %r>' % (self.name, self.parent_obj)
+    def __str__(self):
+        return repr(self)
+
+
 class ThreadedEmitter(threading.Thread):
     def __init__(self, **kwargs):
         threading.Thread.__init__(self)

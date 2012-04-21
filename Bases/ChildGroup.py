@@ -235,3 +235,9 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             obj = self.add_child(Index=i, deserialize=d)
             #obj = super(ChildGroup, self)._deserialize_child(d, **kwargs)
         return obj
+        
+    def __repr__(self):
+        return '<ChildGroup %s of object %r>' % (self.name, self.parent_obj)
+        
+    def __str__(self):
+        return 'ChildGroup %s: %s' % (self.name, self.data)
