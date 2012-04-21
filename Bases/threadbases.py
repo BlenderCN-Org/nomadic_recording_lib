@@ -14,6 +14,8 @@
 # threadbases.py
 # Copyright (c) 2011 Matthew Reid
 
+import os, os.path
+import time
 import threading
 import traceback
 import collections
@@ -22,6 +24,7 @@ import functools
 
 from BaseObject import BaseObject
 from osc_base import OSCBaseObject
+from logger import Logger
 from Properties import ObjProperty
 from misc import setID, iterbases
 
@@ -187,6 +190,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         return OSCBaseObject.__new__(*args, **kwargs)
     def __init__(self, **kwargs):
         kwargs['ParentEmissionThread'] = None
+        self.IsParentEmissionThread = kwargs.get('IsParentEmissionThread', False)
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
             self.LOG.warning('thread_id %s already exists' % (thread_id))
@@ -214,8 +218,14 @@ class BaseThread(OSCBaseObject, threading.Thread):
         self._threaded_calls_queue = collections.deque()
         self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
         
+    @property
+    def pethread_log(self):
+        return pethread_logger
+        
     def insert_threaded_call(self, call, *args, **kwargs):
         with self._insertion_lock:
+            if self.IsParentEmissionThread:
+                self.pethread_log('insert call', call, ' to PEThread %s' % (self.name))
             p = Partial(call, *args, **kwargs)
             self._threaded_calls_queue.append(p)
             self._cancel_event_timeouts()
@@ -274,12 +284,54 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 self._threaded_call_ready = False
             return
         p = queue.popleft()
+        if self.IsParentEmissionThread:
+            self.pethread_log('do_call: ', p)
         try:
             result = p()
             return (result, p.cb, p.args, p.kwargs)
         except:
             self.LOG.warning(traceback.format_exc())
         
+class PEThreadLogger(BaseObject):
+    def __init__(self, **kwargs):
+        super(PEThreadLogger, self).__init__(**kwargs)
+        self._logger = None
+        r = self.get_logging_opts()
+        if not r:
+            self.GLOBAL_CONFIG.bind(update=self.on_global_config_update)
+    @property
+    def enabled(self):
+        return self._logger is not None
+    def __call__(self, *args, **kwargs):
+        if not self.enabled:
+            return
+        now = '%18.6f' % (time.time())
+        tname = threading.currentThread().name
+        self._logger.info(now, tname, *args, **kwargs)
+    def get_logging_opts(self):
+        o = self.GLOBAL_CONFIG.get('arg_parse_dict')
+        if not o:
+            return False
+        enabled = o.get('pethreads')
+        if not enabled:
+            return True
+        filename = o.get('pethread_logfile')
+        if not filename:
+            return True
+        if filename.lower() == 'true':
+            filename = os.path.join(os.getcwd(), 'pethreads.log')
+        self.LOG.info('pethread_filename: ', filename)
+        self._logger = Logger(log_mode='basicConfig', log_filename=filename, use_conf=False, 
+                              log_level='info', log_format='%(message)s', logger_kwargs={'filemode':'w'})
+        return True
+    def on_global_config_update(self, **kwargs):
+        r = self.get_logging_opts()
+        if r:
+            self.GLOBAL_CONFIG.unbind(self)
+        
+pethread_logger = PEThreadLogger()
+
+
 if __name__ == '__main__':
     import sys, time
     def events_to_str(t):

@@ -107,6 +107,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                 if not t.isAlive():
                     t.start()
                 kwargs['ParentEmissionThread'] = t
+                t.IsParentEmissionThread = True
         else:
             kwargs['ParentEmissionThread'] = None
         self.ParentEmissionThread = kwargs.get('ParentEmissionThread')

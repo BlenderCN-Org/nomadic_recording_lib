@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os, os.path
 import logging
 
 from BaseObject import BaseObject
@@ -20,7 +21,11 @@ class Logger(BaseObject, Config):
         if appname is not None:
             kwargs.setdefault('log_filename', os.path.expanduser('~/%s.log' % (appname)))
         self._logger = None
-        d = self.get_conf()
+        use_conf = kwargs.get('use_conf', True)
+        if use_conf:
+            d = self.get_conf()
+        else:
+            d = {}
         for key in self._confkeys:
             val = d.get(key)
             if val is None:
@@ -28,6 +33,7 @@ class Logger(BaseObject, Config):
             if val is None:
                 continue
             setattr(self, key, val)
+        self.logger_kwargs = kwargs.get('logger_kwargs', {})
         self.set_logger()
         self.bind(property_changed=self._on_own_property_changed)
     def _format_log_level(self, value):
@@ -42,6 +48,9 @@ class Logger(BaseObject, Config):
         cls = LOGGERS[name]
         keys = ['filename', 'level', 'format']
         lkwargs = dict(zip(keys, [getattr(self, '_'.join(['log', key])) for key in keys]))
+        if type(lkwargs['level']) == str:
+            lkwargs['level'] = lkwargs['level'].upper()
+        lkwargs.update(self.logger_kwargs)
         self._logger = cls(**lkwargs)
         for key in ['log', 'debug', 'info', 'warning', 'error', 'critical', 'exception']:
             m = getattr(self._logger, key)
