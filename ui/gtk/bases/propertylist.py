@@ -1,3 +1,5 @@
+import traceback
+
 from ui_modules import gtk
 
 from Bases import BaseObject
@@ -14,6 +16,7 @@ class PropertyListModel(BaseObject):
         self.register_signal('new_cell', 'obj_added', 'obj_removed')
         self.child_group = kwargs.get('child_group')
         self.used_classes = kwargs.get('used_classes')
+        model_obj = None
         if self.child_group is not None:
             if len(self.child_group):
                 if self.used_classes is not None:
@@ -27,6 +30,8 @@ class PropertyListModel(BaseObject):
                 try:
                     model_obj = self.child_group.child_class()
                 except:
+                    s = traceback.format_exc()
+                    self.LOG.warning(s + '\nPropertyListModel could not build model_obj:\n')
                     model_obj = None
         if not model_obj:
             model_obj = kwargs.get('model_obj')
@@ -37,6 +42,7 @@ class PropertyListModel(BaseObject):
         self.column_types = kwargs.get('column_types')
         self.columns_editable = kwargs.get('columns_editable')
         self.default_sort_prop = kwargs.get('default_sort_prop')
+        self.key_attr = kwargs.get('key_attr')
         for i, prop in enumerate(self.prop_names):
             name = self.column_names[i]
             if prop == name:
@@ -48,7 +54,7 @@ class PropertyListModel(BaseObject):
             props = [model_obj.Properties[key] for key in self.prop_names]
             self.column_types = [prop.type for prop in props]
         #print 'propnames: ', self.prop_names
-        if self.prop_names[0] not in key_attrs:
+        if self.key_attr is None and self.prop_names[0] not in key_attrs:
             for attr in key_attrs:
                 if model_obj and hasattr(model_obj, attr):
                     self.prop_names.insert(0, attr)
@@ -59,9 +65,10 @@ class PropertyListModel(BaseObject):
                     else:
                         col_type = type(getattr(model_obj, attr))
                     self.column_types.insert(0, col_type)
+                    self.key_attr = attr
                     #print 'break?'
                     break
-        #print 'propnames: ', self.prop_names
+        #print 'propnames=%s, types=%s' % (self.prop_names, self.column_types)
         self.store = gtk.ListStore(*self.column_types)
         self.sorted_store = TreeModelSort(model=self.store)
         self.child_obj = {}
@@ -79,13 +86,17 @@ class PropertyListModel(BaseObject):
             self.child_group.bind(child_update=self.on_child_group_update)
         
     def unlink(self):
-        super(PropertyListModel, self).unlink()
         if self.child_group:
             self.child_group.unbind(self)
         for view_id in self.views.keys()[:]:
             self.unlink_view(view_id=view_id)
         for key in self.child_obj.keys()[:]:
-            self.del_obj(id=key)
+            #self.del_obj(id=key)
+            obj = self.child_obj[key]
+            del self.child_iters[obj.iter]
+            obj.unlink()
+            del self.child_obj[key]
+        super(PropertyListModel, self).unlink()
         
     @ThreadToGtk
     def add_obj(self, *args):
@@ -94,6 +105,8 @@ class PropertyListModel(BaseObject):
             if objid is None:
                 continue
             if self.used_classes is not None and arg.__class__ not in self.used_classes:
+                continue
+            if objid in self.child_obj:
                 continue
             pl_obj = PropertyListObj(parent=self, obj=arg)
             self.child_obj[objid] = pl_obj
@@ -178,6 +191,7 @@ class PropertyListModel(BaseObject):
         for child in self.child_obj.itervalues():
             child.unlink_view(view_id=view_id, widget=widget)
         del self.views[view_id]
+        del self.cells[view_id]
             
     def set_sort_prop(self, prop_name, order=True):
         if prop_name not in self.prop_names:
@@ -224,10 +238,11 @@ class PropertyListObj(BaseObject):
                 self._on_new_cell(**cell)
                 
     def unlink(self):
-        super(PropertyListObj, self).unlink()
         for item in self.items.itervalues():
             item.unlink()
         self.store.remove(self.iter)
+        self.iter = None
+        super(PropertyListObj, self).unlink()
     def unlink_view(self, **kwargs):
         for item in self.items.itervalues():
             item.unlink_view(**kwargs)
@@ -255,10 +270,10 @@ class PropertyListItem(BaseObject, PropertyConnector):
             self.src_attr = self.prop_name
         
     def unlink(self):
-        super(PropertyListItem, self).unlink()
         self.Property = None
         for view_id in self.widget_signals.keys()[:]:
             self.unlink_view(view_id=view_id)
+        super(PropertyListItem, self).unlink()
         
     def unlink_view(self, **kwargs):
         view_id = kwargs.get('view_id')
@@ -268,6 +283,8 @@ class PropertyListItem(BaseObject, PropertyConnector):
         for s_id, cell in signals:
             if cell.handler_is_connected(s_id):
                 cell.disconnect(s_id)
+            else:
+                print 'could not remove cell handler: ', self, s_id, cell
         del self.widget_signals[view_id]
         
     @property
@@ -294,8 +311,15 @@ class PropertyListItem(BaseObject, PropertyConnector):
     def unlink_Property(self, prop):
         super(PropertyListItem, self).unlink_Property(prop)
         
-    @ThreadToGtk
     def on_Property_value_changed(self, **kwargs):
+        self.update_from_property()
+        
+    @ThreadToGtk
+    def update_from_property(self):
+        iter = self.parent.iter
+        if iter is None:
+            self.LOG.warning('ALREADY UNLINKED: ', str(self, self.parent, self.obj, self.Property))
+            return
         self.store.set_value(self.parent.iter, self.column, self.value)
         
     def on_cell_edited(self, cell, pathstr, text, col_index):

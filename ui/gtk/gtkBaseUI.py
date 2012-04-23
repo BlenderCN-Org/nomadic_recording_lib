@@ -9,11 +9,7 @@ from .. import BaseUI
 
 class Application(BaseObject):
     def __init__(self, **kwargs):
-        #t = GUIThread()
-        #t.owner = self
-        #t.start()
-        t = None
-        kwargs['ParentEmissionThread'] = t
+        kwargs['ParentEmissionThread'] = gtksimple.gCBThread
         super(Application, self).__init__(**kwargs)
         self.register_signal('start', 'exit')
         self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
@@ -39,7 +35,7 @@ class Application(BaseObject):
         gdk.threads_leave()
         
     def on_mainwindow_destroy(self, *args, **kwargs):
-        #self.ParentEmissionThread.stop(blocking=True)
+        self.stop_ParentEmissionThread()
         gtk.main_quit()
         #self.GLoopThread.stop(blocking=True)
         self.emit('exit')

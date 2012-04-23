@@ -92,6 +92,10 @@ class Table(gtk.Table, basewidgets.Table):
                 self.set_property(prop, loc[x])
         self.attach(widget, loc[1], loc[1]+1, loc[0], loc[0]+1, **kwargs)
         widget.show()
+        
+    def remove(self, widget):
+        gtk.Table.remove(self, widget)
+        basewidgets.Table.remove(self, widget)
     
     def do_child_loc_update(self, widget, loc):
         args = [loc[1], loc[1]+1, loc[0], loc[0]+1]
@@ -111,7 +115,7 @@ if GTK_VERSION < 3:
 else:
     JustifyOptions = get_gtk3_enum('Justification')
     
-class Label(gtk.Label):
+class Label(gtk.Label, gtksimple.LabelMixIn):
     def __init__(self, label=None, **kwargs):
         gtk.Label.__init__(self, label)
         justify = kwargs.get('justification', 'center')
@@ -120,6 +124,10 @@ class Label(gtk.Label):
         if fscale:
             self.set_font_scale(fscale)
         self._use_thread_control = kwargs.get('threaded', True)
+        self.Property = kwargs.get('Property')
+    @gtksimple.ThreadToGtk
+    def update_text_from_Property(self, text):
+        self._unthreaded_set_text(text)
     def set_text(self, text):
         if self._use_thread_control:
             self._threaded_set_text(text)
@@ -131,9 +139,10 @@ class Label(gtk.Label):
     def _unthreaded_set_text(self, text):
         gtk.Label.set_text(self, text)
     def set_font_scale(self, scale):
+        return
         _set_font_scale(self, scale)
     def unlink(self):
-        pass
+        self.Property = None
     def set_justify(self, justify):
         if type(justify) == str:
             justify = JustifyOptions.get(justify.upper())
@@ -141,7 +150,7 @@ class Label(gtk.Label):
             self.set_alignment(0., .5)
         super(Label, self).set_justify(justify)
     
-class Frame(gtk.Frame):
+class Frame(gtk.Frame, gtksimple.LabelMixIn):
     def __init__(self, **kwargs):
         wid_kwargs = {'label':kwargs.get('label', '')}
         super(Frame, self).__init__(**wid_kwargs)
@@ -151,7 +160,14 @@ class Frame(gtk.Frame):
         if not hasattr(self, 'topwidget'):
             self.topwidget = kwargs.get('topwidget', VBox)()
             self.add(self.topwidget)
+        self.Property = kwargs.get('Property')
+    def unlink(self):
+        self.Property = None
+    @gtksimple.ThreadToGtk
+    def update_text_from_Property(self, text):
+        self.set_label(text)        
     def set_font_scale(self, scale):
+        return
         _set_font_scale(self.get_label_widget(), scale)
     def add(self, *args, **kwargs):
         if args[0] != self.topwidget:

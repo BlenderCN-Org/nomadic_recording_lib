@@ -66,6 +66,40 @@ class Color(BaseObject, PropertyConnector):
             return
         self.set_Property_value(self.color.hsv)
     
+class LabelMixIn(PropertyConnector):
+    def attach_Property(self, prop):
+        maxint = 6
+        decplaces = 3
+        if prop.max is not None:
+            max = prop.max
+            maxint = len(str(int(max)))
+        if prop.type == float:
+            fmtstr = str(maxint+decplaces+1)
+            fmtstr += '.%df' % (decplaces)
+        elif prop.type == int:
+            fmtstr = str(maxint) + 'd'
+        else:
+            fmtstr = 's'
+        fmtstr = '%(value)' + fmtstr
+        fmtstr += prop.symbol
+        self.value_fmt_str = fmtstr
+        super(LabelMixIn, self).attach_Property(prop)
+        self._update_text_from_Property()
+    def detach_Property(self, prop):
+        self.value_fmt_str = '%(value)s'
+        super(LabelMixIn, self).detach_Property(prop)
+        self._update_text_from_Property()
+    def on_Property_value_changed(self, **kwargs):
+        self._update_text_from_Property()
+    def get_Property_text(self):
+        value = self.get_Property_value()
+        if value is None:
+            return 'None'
+        return self.value_fmt_str % {'value':value}
+    def _update_text_from_Property(self):
+        s = self.get_Property_text()
+        self.update_text_from_Property(s)
+        
 class EntryBuffer(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
         super(EntryBuffer, self).__init__(**kwargs)

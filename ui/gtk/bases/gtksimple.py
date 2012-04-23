@@ -1,3 +1,4 @@
+import time
 import threading
 import traceback
 import collections
@@ -47,9 +48,59 @@ class GTask(BaseThread):
     def _done_callback(self, *args):
         pass
     
+
+class Partial(object):
+    __slots__ = ('obj_id', 'obj_name', 'func_name', 'id', '_partial', 'return_callback', 'lock')
+    def __init__(self, cb, *args, **kwargs):
+        obj = cb.im_self
+        self.obj_id = id(obj)
+        self.obj_name = obj.__class__.__name__
+        self.func_name = cb.im_func.func_name
+        self.id = '-'.join([self.obj_name, str(self.obj_id), self.func_name])
+        self.return_callback = kwargs.get('return_callback')
+        if self.return_callback is not None:
+            del kwargs['return_callback']
+        self._partial = functools.partial(cb, *args, **kwargs)
+        self.lock = threading.Lock()
+    @property
+    def cb(self):
+        return self._partial.func
+    @property
+    def args(self):
+        return self._partial.args
+    @property
+    def kwargs(self):
+        return self._partial.keywords
+    def update(self, other):
+        self._partial = other._partial
+        self.return_callback = other.return_callback
+    def __call__(self):
+        with self.lock:
+            result = self._partial()
+            cb = self.return_callback
+            if cb is not None:
+                cb(result)
+        return result
+    def __str__(self):
+        return 'GtkCallbackPartial for %s, *%s, *%s' % (self.cb, self.args, self.kwargs)
+    def __repr__(self):
+        return 'GtkCallbackPartial object %s: %s' % (id(self), str(self))
+
+class deque(collections.deque):
+    def index(self, value):
+        if value not in self:
+            return False
+        for i, item in enumerate(self):
+            if item == value:
+                return i
+        return False
+        
 class GCallbackInserter(BaseThread):
     _Events = {'active':{}, 
-               'have_gtk_lock':{}}
+               'have_gtk_lock':{}, 
+               'waiting_for_lock':{}, 
+               'lock_released':{}}
+    _cb_per_mainloop_iteration = 4
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'GtkCallbackInserter'
         kwargs['disable_threaded_call_waits'] = True
@@ -58,44 +109,90 @@ class GCallbackInserter(BaseThread):
         #self.active = threading.Event()
         #self.have_gtk_lock = threading.Event()
         self.queue = collections.deque()
+        self.partial_queue = deque()
+        self.queue_ids = deque()
         self.cb_data = {}
         
+    def insert_threaded_call(self, cb, *args, **kwargs):
+        return self.add_callback(cb, *args, **kwargs)
+        
     def add_callback(self, cb, *args, **kwargs):
-        #cbid = id(cb)
-        obj = cb.im_self
-        key = (id(obj), cb.im_func.func_name)
-        #if obj and obj.__class__.__name__ == 'ColorBtn':
-        #    prop = cb.im_self.Property
-        #    if prop and prop.parent_obj.parent.Index == 2:
-        #        print 'addcb: ', cbid, cbid in self.queue
-        if key in self.queue and self.queue[0] != key:
-            self.queue.remove(key)
-            #print 'removed existing cb: ', key
-        self.queue.append(key)
-        self.cb_data[key] = (cb, args, kwargs)
-        self.active.set()
+        #obj = cb.im_self
+        #key = (id(obj), cb.im_func.func_name)
+        #if key in self.queue and self.queue[0] != key:
+        #    self.queue.remove(key)
+        #    #print 'removed existing cb: ', key
+        #self.queue.append(key)
+        #self.cb_data[key] = (cb, args, kwargs)
+        queue_ids = self.queue_ids
+        queue = self.partial_queue
+        def add_to_queue(_p):
+            queue.append(_p)
+            queue_ids.append(_p.id)
+        with self._insertion_lock:
+            p = Partial(cb, *args, **kwargs)
+            if p.id in queue_ids:
+                i = queue_ids.index(p.id)
+                existingP = queue[i]
+                if not existingP.lock.locked():
+                    existingP.update(p)
+                    p = existingP
+                else:
+                    add_to_queue(p)
+            else:
+                add_to_queue(p)
+#        pid = p.id
+#        i = 0
+#        queue_ids = self.queue_ids
+#        newpid = pid
+#        while newpid in queue_ids:
+#            newpid = '__'.join([pid, str(i)])
+#            i += 1
+#        p.id = newpid
+#        queue_ids.add(p.id)
+            self.active = True
+        return p
         
     def _thread_loop_iteration(self):
+        def should_do_mainloop_iter():
+            i = len(self.partial_queue)
+            step = self._cb_per_mainloop_iteration
+            return i % step == 0
         self.active.wait()
-        if not self._running.isSet():
+        if not self._running:
+            #if self.have_gtk_lock:
+            #    self._release_gtk_lock()
             return
-        if self.have_gtk_lock.isSet():
+        if not len(self.partial_queue):
+            if self.have_gtk_lock:
+                self._release_gtk_lock()
+            self.active = False
+            return
+        if self.have_gtk_lock:
             r = self._next_callback()
+            self.build_testtimer()
             if r is False:
                 self._release_gtk_lock()
-                self.active.clear()
+                self.active = False
                 #print 'queue=%s, cbdata=%s' % (self.queue, self.cb_data)
+            elif False:#should_do_mainloop_iter():
+                #print 'doing gtk main iteration: queue_len=%s' % (len(self.partial_queue))
+                gtk.main_iteration_do(False)
+                #print 'did gtk main iteration: queue_len=%s' % (len(self.partial_queue))
         else:
+            self.waiting_for_lock = True
             gobject.idle_add(self._on_gtk_idle)
             self.have_gtk_lock.wait()
+            self.waiting_for_lock = False
             #print 'lock acquired, len: ', len(self.queue)
     def stop(self, **kwargs):
-        self._running.clear()
-        self.active.set()
-        super(GCallbackInserter, self).stop(**kwargs)
-        if self.have_gtk_lock.isSet():
+        self._running = False
+        self.active = True
+        if self.waiting_for_lock:
+            self.have_gtk_lock.wait()
             self._release_gtk_lock()
-        self.have_gtk_lock.set()
+        #self.have_gtk_lock = True
+        super(GCallbackInserter, self).stop(**kwargs)
             
     def old_run(self):
         self.running.set()
@@ -122,16 +219,57 @@ class GCallbackInserter(BaseThread):
             self._release_gtk_lock()
                 
     def _on_gtk_idle(self, *args):
+        if not self._running:
+            return False
+        if not len(self.partial_queue):
+            return False
         gdk.threads_enter()
+        self.lock_released.clear()
+        now = time.time()
+        self.gtk_lock_start = now
+        #print 'gtk idle start: ', self.partial_queue
+        self.build_testtimer()
         self.have_gtk_lock.set()
         return False
         
+    def build_testtimer(self):
+        self.kill_testtimer()
+        self.testtimer = threading.Timer(3., self.on_testtimer_done)
+        self.testtimer.start()
+        
+    def kill_testtimer(self):
+        if getattr(self, 'testtimer', None) is not None:
+            if self.testtimer.isAlive():
+                self.testtimer.cancel()
+        self.testtimer = None
+        
+    def on_testtimer_done(self):
+        print 'GCallBack inserter locked gtk too long: ', self.partial_queue, '\nEvents: ', ', '.join([str(e) for e in self.Events.values()])
+        self._release_gtk_lock()
+        
     def _release_gtk_lock(self):
+        now = time.time()
+        #print 'release gtk lock: ', now - self.gtk_lock_start, self.partial_queue
+        self.kill_testtimer()
         gdk.threads_leave()
         self.have_gtk_lock.clear()
+        self.lock_released.set()
         #print 'lock released, len: ', len(self.queue)
             
     def _next_callback(self):
+        queue = self.partial_queue
+        if not len(queue):
+            return False
+        p = queue.popleft()
+        pid = self.queue_ids.popleft()
+        try:
+            result = p()
+        except:
+            self.LOG.warning('GTK thread insertion error: \n' + traceback.format_exc())
+        
+        return len(queue) > 0
+        
+    def old_next_callback(self):
         if not len(self.queue):
             #self.active.clear()
             return False
@@ -150,11 +288,26 @@ gCBThread = GCallbackInserter()
 gCBThread.start()
 
 def thread_to_gtk(cb, *args, **kwargs):
+#    WAIT_FOR_COMPLETION = kwargs.get('WAIT_FOR_COMPLETION', False)
+#    if 'WAIT_FOR_COMPLETION' in kwargs:
+#        del kwargs['WAIT_FOR_COMPLETION']
     if threading.currentThread().name in ['MainThread', 'GUIThread', gCBThread._thread_id]:
-        cb(*args, **kwargs)
-        return
+        return_callback = kwargs.get('return_callback')
+        if 'return_callback' in kwargs:
+            del kwargs['return_callback']
+        result = cb(*args, **kwargs)
+        if return_callback:
+            return_callback(result)
+        return result
     #print 'THREAD_TO_GTK: ', threading.currentThread().name, cb, args, kwargs
-    gCBThread.add_callback(cb, *args, **kwargs)
+    p = gCBThread.add_callback(cb, *args, **kwargs)
+#    if not WAIT_FOR_COMPLETION:
+#        return
+#    print 'thread_to_gtk wait for completion: ', str(p)
+#    while p in gCBThread.partial_queue:
+#        print gCBThread.partial_queue
+#        gCBThread.lock_released.wait()
+#    print 'thread_to_gtk call complete: ', str(p)
     
 class ThreadToGtk(object):
     def __init__(self, f):
@@ -171,7 +324,19 @@ class ThreadToGtk(object):
             thread_to_gtk(wrapper.callback, *args, **kwargs)
         def called(*args, **kwargs):
             #print 'called: ', args, kwargs
-            self.f(*args, **kwargs)
+            try:
+                self.f(*args, **kwargs)
+            except:
+                s = traceback.format_exc()
+                s += 'instance=%s, cls=%s, args=%s, kwargs=%s, pethread=%s' % (instance, cls, args, kwargs, getattr(instance, 'ParentEmissionThread', None))
+                BaseObject().LOG.warning(s)
+                raise
+#        pethread = getattr(instance, 'ParentEmissionThread', None)
+#        if pethread is not None:
+#            if pethread._thread_id in ['MainThread', 'GUIThread', gCBThread._thread_id]:
+#                m = types.MethodType(self.f, instance, cls)
+#                print 'not wrapping method: ', m
+#                return m
         called.__name__ = self.f.__name__ + '_ThreadToGtk_callback'
         cb_method = types.MethodType(called, instance, cls)
         wrapper.callback = cb_method
@@ -216,6 +381,9 @@ class Color(simple.Color):
         #print task, 'done, len = ', len(self._gtasks)
         self._next_gtask()
 
+class LabelMixIn(simple.LabelMixIn):
+    pass
+    
 class EntryBuffer(simple.EntryBuffer):
     def __init__(self, **kwargs):
         kwargs['ParentEmissionThread'] = get_gui_thread()
@@ -305,7 +473,9 @@ class Radio(simple.Radio):
         return w
     def remove_widgets(self):
         for key, w in self.widgets.iteritems():
-            w.disconnect(self.widget_signals[key])
+            h_id = self.widget_signals[key]
+            if w.handler_is_connected(h_id):
+                w.disconnect(h_id)
             w.get_parent().remove(w)
         self._root_widget = None
     
@@ -347,6 +517,8 @@ class Fader(simple.Fader):
     
     def unlink(self):
         for id in self.widget_signals:
+            if not self.widget.handler_is_connected(id):
+                continue
             self.widget.disconnect(id)
         self.widget_signals.clear()
         super(Fader, self).unlink()

@@ -9,6 +9,17 @@ class Table(object):
         self._child_locations = {}
         self._child_kwargs = {}
         
+    def update_object_key(self, obj, oldkey):
+        d = self._child_objects.get(oldkey)
+        if d is None:
+            return
+        new_kwargs = {}
+        kwargmap = {'widget_attr':'attr', 'pack_kwargs':'kwargs'}
+        for k, v in kwargmap.iteritems():
+            new_kwargs[k] = d[v]
+        self.remove_child_object(oldkey)
+        self.add_object(obj, **new_kwargs)
+        
     def add_object(self, obj, **kwargs):
         attr = kwargs.get('widget_attr', 'topwidget')
         pack_kwargs = kwargs.get('pack_kwargs', {})
@@ -33,8 +44,7 @@ class Table(object):
             
     def remove_child_object(self, key):
         obj = self._child_objects.get(key)
-        if obj:
-            #print 'removing:', obj
+        if obj is not None:
             self.remove(getattr(obj['obj'], obj['attr']))
             del self._child_objects[key]
             self.update_child_objects()
@@ -84,10 +94,9 @@ class Table(object):
             del self._child_kwargs[w_id]
         else:
             self.LOG.warning('table base: could not remove %s. id=%s' % (widget, w_id))
-        super(Table, self).remove(widget)
         
     def clear(self):
-        for w in self._child_widgets.copy().values():
+        for w in self._child_widgets.values()[:]:
             self.remove(w)
         self._child_widgets.clear()
         self._child_locations.clear()
