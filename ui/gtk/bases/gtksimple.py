@@ -9,7 +9,7 @@ import types
 from ui_modules import gtk, gobject, gdk, glib
 
 from Bases import BaseObject, BaseThread
-from ...bases import simple
+from ui_base.bases import simple
 
 GLOBAL_CONFIG = BaseObject().GLOBAL_CONFIG
 GTK_VERSION = GLOBAL_CONFIG['gtk_version']
@@ -284,6 +284,7 @@ class GCallbackInserter(BaseThread):
                 self.LOG.warning('GTK thread insertion error: \n' + traceback.format_exc())
         return True
 
+print 'gtksimple load: ', __name__,  __file__
 gCBThread = GCallbackInserter()
 gCBThread.start()
 

@@ -14,6 +14,7 @@ class Application(BaseObject):
         self.register_signal('start', 'exit')
         self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
         self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id'))
+        self.mainwindow_cls = kwargs.get('mainwindow_cls')
         self.mainwindow_kwargs = kwargs.get('mainwindow_kwargs', {})
         self.GLOBAL_CONFIG['GUIApplication'] = self
         if self.GLOBAL_CONFIG['gtk_version'] >= 3:
@@ -25,7 +26,7 @@ class Application(BaseObject):
     def run(self):
         mwkwargs = self.mainwindow_kwargs.copy()
         mwkwargs['Application'] = self
-        self.mainwindow = MainWindow(**mwkwargs)
+        self.mainwindow = self.mainwindow_cls(**mwkwargs)
         self.mainwindow.window.connect('destroy', self.on_mainwindow_destroy)
         self.emit('start')
         #self.GLoopThread = GUIThread()
@@ -186,5 +187,3 @@ class ControlContainer(BaseUI.ControlContainer):
                 self.children[key].update({cKey:child})
             self.add_child(book)
 
-
-from mainwindow import MainWindow
