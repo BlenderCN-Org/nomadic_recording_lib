@@ -1,8 +1,39 @@
-#import pygtk
-#import gtk
-
-
 from Bases import BaseObject
+
+class Application(BaseObject):
+    def __init__(self, **kwargs):
+        kwargs.setdefault('BuildEmissionThread', True)
+        super(Application, self).__init__(**kwargs)
+        self.register_signal('start', 'exit')
+        self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
+        self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id'))
+        self.mainwindow_cls = kwargs.get('mainwindow_cls')
+        self.mainwindow_kwargs = kwargs.get('mainwindow_kwargs', {})
+        self.GLOBAL_CONFIG['GUIApplication'] = self
+        if not hasattr(self, '_application'):
+            self._application = None
+    
+    def _build_mainwindow(self, **kwargs):
+        kwargs.setdefault('Application', self)
+        mw = self.mainwindow_cls(**kwargs)
+        return mw
+        
+    def start_GUI_loop(self):
+        pass
+        
+    def stop_GUI_loop(self):
+        pass
+        
+    def run(self):
+        mwkwargs = self.mainwindow_kwargs.copy()
+        self.mainwindow = self._build_mainwindow(**mwkwargs)
+        self.emit('start')
+        self.start_GUI_loop()
+        
+    def on_mainwindow_close(self, *args, **kwargs):
+        self.stop_ParentEmissionThread()
+        self.stop_GUI_loop()
+        self.emit('exit')
 
 from bases.widgets import get_widget_classes, get_container_classes
 

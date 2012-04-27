@@ -4,42 +4,29 @@ from bases.ui_modules import gtk, gio, gdk, glib
 from Bases import BaseObject, BaseThread
 from .. import BaseUI
 
-#from bases.widgets import get_widget_classes, get_container_classes
 
-
-class Application(BaseObject):
+class Application(BaseUI.Application):
     def __init__(self, **kwargs):
         kwargs['ParentEmissionThread'] = gtksimple.gCBThread
         super(Application, self).__init__(**kwargs)
-        self.register_signal('start', 'exit')
-        self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
-        self.app_id = kwargs.get('app_id', self.GLOBAL_CONFIG.get('app_id'))
-        self.mainwindow_cls = kwargs.get('mainwindow_cls')
-        self.mainwindow_kwargs = kwargs.get('mainwindow_kwargs', {})
-        self.GLOBAL_CONFIG['GUIApplication'] = self
         if self.GLOBAL_CONFIG['gtk_version'] >= 3:
             self.app_flags = gio.ApplicationFlags(0)
             self._application = gtk.Application.new(self.app_id, self.app_flags)
         else:
             self._application = None
     
-    def run(self):
-        mwkwargs = self.mainwindow_kwargs.copy()
-        mwkwargs['Application'] = self
-        self.mainwindow = self.mainwindow_cls(**mwkwargs)
-        self.mainwindow.window.connect('destroy', self.on_mainwindow_destroy)
-        self.emit('start')
-        #self.GLoopThread = GUIThread()
-        #self.GLoopThread.start()
+    def _build_mainwindow(self, **kwargs):
+        mw = super(Application, self)._build_mainwindow(**kwargs)
+        mw.window.connect('destroy', self.on_mainwindow_close)
+        return mw
+        
+    def start_GUI_loop(self):
         gdk.threads_enter()
         gtk.main()
         gdk.threads_leave()
         
-    def on_mainwindow_destroy(self, *args, **kwargs):
-        self.stop_ParentEmissionThread()
+    def stop_GUI_loop(self):
         gtk.main_quit()
-        #self.GLoopThread.stop(blocking=True)
-        self.emit('exit')
         
 from bases import widgets, gtksimple
 

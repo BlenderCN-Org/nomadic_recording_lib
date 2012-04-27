@@ -284,7 +284,6 @@ class GCallbackInserter(BaseThread):
                 self.LOG.warning('GTK thread insertion error: \n' + traceback.format_exc())
         return True
 
-print 'gtksimple load: ', __name__,  __file__
 gCBThread = GCallbackInserter()
 gCBThread.start()
 
