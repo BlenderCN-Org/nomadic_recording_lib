@@ -109,8 +109,10 @@ class Event(ObjProperty):
         if timeout is None:
             timeout = self.wait_timeout
         self._event.wait(timeout)
-    def __str__(self):
+    def __repr__(self):
         return '<EventProperty %s of %s: value=%s, wait_timeout=%s>' % (self.name, self.parent_obj, self.isSet(), self.wait_timeout)
+    def __str__(self):
+        return repr(self)
     
 class ChannelEvent(BaseObject):
     _Properties = {'state':dict(default=False)}
