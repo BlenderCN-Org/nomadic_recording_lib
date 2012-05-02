@@ -2,7 +2,6 @@ from Bases import BaseObject
 
 class Application(BaseObject):
     def __init__(self, **kwargs):
-        kwargs.setdefault('BuildEmissionThread', True)
         super(Application, self).__init__(**kwargs)
         self.register_signal('start', 'exit')
         self.name = kwargs.get('name', self.GLOBAL_CONFIG.get('app_name'))
