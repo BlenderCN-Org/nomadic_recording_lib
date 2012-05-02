@@ -39,6 +39,43 @@ from bases.widgets import get_widget_classes, get_container_classes
 widget_classes = get_widget_classes()
 container_classes = get_container_classes()
 
+class BaseWindow(BaseObject):
+    _Properties = {'title':dict(default=''), 
+                   'size':dict(default=[1150, 800]), 
+                   'fullscreen':dict(default=False)}
+    def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = kwargs['Application'].ParentEmissionThread
+        super(BaseWindow, self).__init__(**kwargs)
+        self.window = self._build_window(**kwargs)
+        self.bind(property_changed=self._on_own_property_changed)
+        self._Application = None
+        self.Application = kwargs.get('Application')
+        #for key in ['size', 'window_size']:
+        #    if hasattr(self, key):
+        #        kwargs.setdefault('size', getattr(self, key))
+        size = kwargs.get('size')
+        if type(size) in [list, tuple]:
+            self.size = list(kwargs.get('size'))
+        self.title = kwargs.get('title')
+        
+    @property
+    def Application(self):
+        return self._Application
+    @Application.setter
+    def Application(self, value):
+        old = self.Application
+        self._Application = value
+        self._Application_set(old, value)
+        self.title = self.Application.name
+        
+    def _Application_set(self, old, new):
+        pass
+        
+    def _build_window(self, **kwargs):
+        pass
+        
+    def _on_own_property_changed(self, **kwargs):
+        pass
 
 class BaseContainer(BaseObject):
     def __init__(self, **kwargs):

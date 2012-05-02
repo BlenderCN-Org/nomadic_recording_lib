@@ -47,37 +47,32 @@ class GUIThread(BaseThread):
 widget_classes = widgets.get_widget_classes()
 container_classes = widgets.get_container_classes()
 
-class BaseWindow(BaseObject):
+class BaseWindow(BaseUI.BaseWindow):
     def __init__(self, **kwargs):
-        kwargs['ParentEmissionThread'] = kwargs['Application'].ParentEmissionThread
         super(BaseWindow, self).__init__(**kwargs)
-        self.window = gtk.Window()
-        if hasattr(self, 'topwidget_name'):
-            kwargs.setdefault('topwidget_name', self.topwidget_name)
-        title = kwargs.get('topwidget_name', '')
-        self.window.set_title(title)
-        self._Application = None
-        self.Application = kwargs.get('Application')
-        if hasattr(self, 'window_size'):
-            kwargs.setdefault('window_size', self.window_size)
-        size = kwargs.get('window_size', (300, 300))
-        self.window.set_property('default_width', size[0])
-        self.window.set_property('default_height', size[1])
+        #if hasattr(self, 'topwidget_name'):
+        #    kwargs.setdefault('topwidget_name', self.topwidget_name)
+        #title = kwargs.get('topwidget_name', '')
+        self.set_window_size(self.size)
+        if self.title is not None:
+            self.window.set_title(self.title)
+        
         self.child_windows = {}
         self.widgets = {}
+            
+    def _Application_set(self, old, new):
+        if old is not None:
+            old._application.remove_window(self.window)
+        if new is not None:
+            if new._application is not None:
+                new._application.add_window(self.window)
+            
+    def _build_window(self, **kwargs):
+        return gtk.Window()
         
-    @property
-    def Application(self):
-        return self._Application
-    @Application.setter
-    def Application(self, value):
-        if self.Application is not None:
-            self.Application._application.remove_window(self.window)
-        self._Application = value
-        if self.Application is not None:
-            if self.Application._application is not None:
-                self.Application._application.add_window(self.window)
-            self.window.set_title(self.Application.name)
+    def set_window_size(self, size):
+        self.window.set_property('default_width', size[0])
+        self.window.set_property('default_height', size[1])
         
     def make_child_window(self, cls, name, **kwargs):
         w = cls(**kwargs)
@@ -102,6 +97,21 @@ class BaseWindow(BaseObject):
             del self.widgets[widget_name]
             return True
         return False
+        
+    def _on_own_property_changed(self, **kwargs):
+        prop = kwargs.get('Property')
+        value = kwargs.get('value')
+        if prop.name == 'size':
+            if value is not None:
+                self.set_window_size(value)
+        elif prop.name == 'title':
+            if value is not None:
+                self.window.set_title(value)
+        elif prop.name == 'fullscreen':
+            if value:
+                self.window.fullscreen()
+            else:
+                self.window.unfullscreen()
 
 class BaseContainer(BaseUI.BaseContainer):
     container_classes = widgets.get_container_classes()
