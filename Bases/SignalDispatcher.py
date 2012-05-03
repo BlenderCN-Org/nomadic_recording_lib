@@ -32,18 +32,25 @@ def setID(id):
 class dispatcher(object):
     def __init__(self, *args, **kwargs):
         self.__dict__.update({'_attrs_watched':{}})
-        self._emitters = {}
-        self._signal_references = weakref.WeakValueDictionary()
+        self.__check_init()
         signals = list(kwargs.get('signals_to_register', []))
         self.register_signal(*signals)
         for key, val in kwargs.get('signals_to_connect', {}).iteritems():
             self.connect(key, val)
             
+    def __check_init(self):
+        if hasattr(self, '_emitters') and hasattr(self, '_signal_references'):
+            return
+        self._emitters = {}
+        self._signal_references = weakref.WeakValueDictionary()
+        
     def register_signal(self, *args):
+        self.__check_init()
         for signal in args:
             self._emitters.update({signal:SignalEmitter(name=signal, parent_obj=self)})
             
     def unlink(self):
+        self.__check_init()
         for e in self._emitters.itervalues():
             for wrkey in e.weakrefs.keys()[:]:
                 e.del_receiver(wrkey=wrkey)
