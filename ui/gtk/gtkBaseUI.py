@@ -20,7 +20,7 @@ class Application(BaseUI.Application):
         mw.window.connect('destroy', self.on_mainwindow_close)
         return mw
         
-    def start_GUI_loop(self):
+    def start_GUI_loop(self, join=False):
         gdk.threads_enter()
         gtk.main()
         gdk.threads_leave()

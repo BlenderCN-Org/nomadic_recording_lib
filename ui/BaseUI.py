@@ -17,17 +17,17 @@ class Application(BaseObject):
         mw = self.mainwindow_cls(**kwargs)
         return mw
         
-    def start_GUI_loop(self):
+    def start_GUI_loop(self, join=False):
         pass
         
     def stop_GUI_loop(self):
         pass
         
-    def run(self):
+    def run(self, join=False):
         mwkwargs = self.mainwindow_kwargs.copy()
         self.mainwindow = self._build_mainwindow(**mwkwargs)
         self.emit('start')
-        self.start_GUI_loop()
+        self.start_GUI_loop(join)
         
     def on_mainwindow_close(self, *args, **kwargs):
         self.stop_ParentEmissionThread()
@@ -42,6 +42,7 @@ container_classes = get_container_classes()
 class BaseWindow(BaseObject):
     _Properties = {'title':dict(default=''), 
                    'size':dict(default=[1150, 800]), 
+                   'position':dict(default=[40, 40]), 
                    'fullscreen':dict(default=False)}
     def __init__(self, **kwargs):
         kwargs['ParentEmissionThread'] = kwargs['Application'].ParentEmissionThread
