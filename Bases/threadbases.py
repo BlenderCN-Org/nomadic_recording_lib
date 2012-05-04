@@ -225,6 +225,9 @@ class BaseThread(OSCBaseObject, threading.Thread):
         return pethread_logger
         
     def insert_threaded_call(self, call, *args, **kwargs):
+        if threading.currentThread().name == self.name:
+            call(*args, **kwargs)
+            return
         with self._insertion_lock:
             if self.IsParentEmissionThread:
                 self.pethread_log('insert call', call, ' to PEThread %s' % (self.name))
@@ -247,7 +250,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         loop_iteration = self._thread_loop_iteration
         self._running = True
         while self._running:
-            if self._running:
+            if True:#self._running:
                 loop_iteration()
                 if not disable_call_waits:
                     self._threaded_call_ready.wait()
