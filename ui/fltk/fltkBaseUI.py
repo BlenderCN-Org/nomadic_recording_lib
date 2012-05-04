@@ -2,12 +2,10 @@ from Bases import BaseObject, BaseThread
 from .. import BaseUI
 
 from bases.ui_modules import fltk
-from bases import widgets
 
 class Application(BaseUI.Application):
     def __init__(self, **kwargs):
-        self.GUIThread = GUIThread()
-        self.GUIThread.start()
+        self.GUIThread = get_gui_thread()
         kwargs['ParentEmissionThread'] = self.GUIThread
         super(Application, self).__init__(**kwargs)
         self.GUIThread.bind(_stopped=self.on_GUIThread_stopped)
@@ -17,9 +15,10 @@ class Application(BaseUI.Application):
             return
         self.GUIThread.join()
     def stop_GUI_loop(self):
-        self.GUIThread.gui_running = False
+        #self.GUIThread.gui_running = False
+        self.GUIThread.stop()
     def on_GUIThread_stopped(self, **kwargs):
-        if kwargs.get('value') is True:
+        if self.GUIThread._stopped:
             self.emit('exit')
         
         
@@ -28,15 +27,29 @@ class GUIThread(BaseThread):
         kwargs['thread_id'] = 'GUIThread'
         self.gui_running = False
         super(GUIThread, self).__init__(**kwargs)
+        self.register_signal('no_windows')
     def _thread_loop_iteration(self):
         if not self.gui_running:
             return
         r = fltk.Fl_check()
         if r == 0:
-            self._running = False
+            if not self._running:
+                return
+            self.emit('no_windows')
+            self.stop(blocking=False)
         
+_gui_thread = GUIThread()
+_gui_thread.start()
+BaseObject().GLOBAL_CONFIG['GUIThread'] = _gui_thread
+
+def get_gui_thread():
+    return _gui_thread
+        
+from bases import widgets
+
 class BaseWindow(BaseUI.BaseWindow):
     def __init__(self, **kwargs):
+        kwargs['ParentEmissionThread'] = get_gui_thread()
         self._updating_dimensions = False
         super(BaseWindow, self).__init__(**kwargs)
     def _build_window(self, **kwargs):
