@@ -1,4 +1,6 @@
-from Bases import BaseObject, BaseThread
+import collections
+
+from Bases import BaseObject, BaseThread, Partial
 from .. import BaseUI
 
 from bases.ui_modules import fltk
@@ -8,35 +10,66 @@ class Application(BaseUI.Application):
         self.GUIThread = get_gui_thread()
         kwargs['ParentEmissionThread'] = self.GUIThread
         super(Application, self).__init__(**kwargs)
-        self.GUIThread.bind(_stopped=self.on_GUIThread_stopped)
+        self.MainLoop = MainLoop(Application=self)
+        self.GUIThread.MainLoop = self.MainLoop
+        #self.GUIThread.bind(_stopped=self.on_GUIThread_stopped)
+        self.MainLoop.bind(stopped=self.on_MainLoop_stopped)
     def start_GUI_loop(self, join=False):
-        self.GUIThread.gui_running = True
-        if not join:
-            return
-        self.GUIThread.join()
+        self.MainLoop.run()
+#        self.GUIThread.gui_running = True
+#        if not join:
+#            return
+#        self.GUIThread.join()
     def stop_GUI_loop(self):
         #self.GUIThread.gui_running = False
-        self.GUIThread.stop()
-    def on_GUIThread_stopped(self, **kwargs):
-        if self.GUIThread._stopped:
-            self.emit('exit')
+        self.GUIThread.stop(blocking=True)
+        self.MainLoop.stop()
+    def on_MainLoop_stopped(self, **kwargs):
+        self.emit('exit')
         
-        
+class MainLoop(BaseObject):
+    _Properties = {'running':dict(default=False), 
+                   'stopped':dict(default=False)}
+    def __init__(self, **kwargs):
+        super(MainLoop, self).__init__(**kwargs)
+        self.Application = kwargs.get('Application')
+        self.awake_partials = collections.deque()
+    def run(self):
+        self.running = True
+        while self.running:
+            fltk.Fl_wait()
+            if self.running and len(self.awake_partials):
+                p = self.awake_partials.popleft()
+                p()
+        self.stopped = True
+    def stop(self):
+        self.running = False
+    def inject_call(self, call, *args, **kwargs):
+        p = Partial(call, *args, **kwargs)
+        self.awake_partials.append(p)
+        if self.running:
+            fltk.Fl_awake()
+
 class GUIThread(BaseThread):
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'GUIThread'
+        self.MainLoop = None
         self.gui_running = False
         super(GUIThread, self).__init__(**kwargs)
         self.register_signal('no_windows')
-    def _thread_loop_iteration(self):
-        if not self.gui_running:
+    def insert_threaded_call(self, call, *args, **kwargs):
+        if not self.MainLoop:
             return
-        r = fltk.Fl_check()
-        if r == 0:
-            if not self._running:
-                return
-            self.emit('no_windows')
-            self.stop(blocking=False)
+        self.MainLoop.inject_call(call, *args, **kwargs)
+#    def _thread_loop_iteration(self):
+#        if not self.gui_running:
+#            return
+#        r = fltk.Fl_check()
+#        if r == 0:
+#            if not self._running:
+#                return
+#            self.emit('no_windows')
+#            self.stop(blocking=False)
         
 _gui_thread = GUIThread()
 _gui_thread.start()
