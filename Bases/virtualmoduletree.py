@@ -12,8 +12,9 @@ system_prefixes = site.PREFIXES[:] + [site.USER_SITE]
 
 def add_linked_package(vpath, pkg, submodule_names=None):
     pkgpath = pkg.__path__
-    vpath.append(pkgpath[0])
-    pkgpath.append(vpath[0])
+    #vpath.append(pkgpath[0])
+    #pkgpath.append(vpath[0])
+    #LINKED_MODULES['.'.join(vpath[0].split('/'))] = pkg
     if submodule_names is None:
         submodule_names = dir(pkg)
     for key in submodule_names:
@@ -31,14 +32,15 @@ def add_linked_package(vpath, pkg, submodule_names=None):
             add_linked_package(subpkgpath, val)
             #sys.modules[subpkgpath[0]] = val
             #print 'added subpkg: subpkgpath=%s, pkg=%s' % (subpkgpath, val)
-            continue
+            #continue
         add_linked_module('.'.join(vpath[0].split('/')), val)
     
 def add_linked_module(vpath, mod):
-    fullname = '.'.join([vpath, mod.__name__])
+    modname = mod.__name__.rsplit('.', 1)[1]
+    fullname = '.'.join([vpath, modname])
     LINKED_MODULES[fullname] = mod
     #sys.modules[fullname] = mod
-    #print 'linked module: vpath=%s, fullname=%s mod=%s, __pkg__=%s' % (vpath, fullname, mod, mod.__package__)
+    #print 'linked module: vpath=%s, fullname=%s modname=%s, __name__=%s' % (vpath, fullname, modname, mod.__name__)
 
 
 class LinkedModuleFinder(object):
@@ -50,11 +52,15 @@ class LinkedModuleFinder(object):
             name = '.'.join([path, name])
         if name in LINKED_MODULES:
             return self
+        #if 'ui.gtk' in name:
+        #    print 'could not find_module: ', fullname, name, path
         return None
     def load_module(self, fullname):
         try:
+            #print 'load_module: ', fullname
             return LINKED_MODULES[fullname]
         except:
+            #print 'could not load module: ', fullname
             raise ImportError('LinkedModule could not load %s' % (fullname))
 
 class VirtualModuleLoader(object):
