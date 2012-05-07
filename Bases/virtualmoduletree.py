@@ -5,6 +5,7 @@ import types
 import imp
 
 LINKED_PATHS = {}
+LINKED_MODULES = {}
 LOADERS = {}
 
 system_prefixes = site.PREFIXES[:] + [site.USER_SITE]
@@ -35,8 +36,26 @@ def add_linked_package(vpath, pkg, submodule_names=None):
     
 def add_linked_module(vpath, mod):
     fullname = '.'.join([vpath, mod.__name__])
+    LINKED_MODULES[fullname] = mod
     #sys.modules[fullname] = mod
     #print 'linked module: vpath=%s, fullname=%s mod=%s, __pkg__=%s' % (vpath, fullname, mod, mod.__package__)
+
+
+class LinkedModuleFinder(object):
+    def find_module(self, fullname, path=None):
+        name = fullname
+        if False:#path is not None:
+            print path, name
+            path = '.'.join(path[0].split('/'))
+            name = '.'.join([path, name])
+        if name in LINKED_MODULES:
+            return self
+        return None
+    def load_module(self, fullname):
+        try:
+            return LINKED_MODULES[fullname]
+        except:
+            raise ImportError('LinkedModule could not load %s' % (fullname))
 
 class VirtualModuleLoader(object):
     def __init__(self, name, file, pathname, desc, scope, vpath):
@@ -140,4 +159,4 @@ class VirtualModuleFinder(object):
         except ImportError:
             return None
         
-#sys.meta_path.append(VirtualModuleFinder())
+sys.meta_path.append(LinkedModuleFinder())
