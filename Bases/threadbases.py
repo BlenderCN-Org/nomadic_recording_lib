@@ -195,8 +195,9 @@ class BaseThread(OSCBaseObject, threading.Thread):
         self.IsParentEmissionThread = kwargs.get('IsParentEmissionThread', False)
         thread_id = setID(kwargs.get('thread_id'))
         if thread_id in _THREADS:
-            self.LOG.warning('thread_id %s already exists' % (thread_id))
-            thread_id = setID(None)
+            newid = '__'.join([thread_id, setID(None)])
+            self.LOG.warning('thread_id %s already exists using %s' % (thread_id, newid))
+            thread_id = newid
         
         _THREADS[thread_id] = self
         threading.Thread.__init__(self, name=thread_id)

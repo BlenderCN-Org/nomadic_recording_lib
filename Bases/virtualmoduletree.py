@@ -1,4 +1,5 @@
 import sys
+import site
 import os.path
 import types
 import imp
@@ -6,14 +7,36 @@ import imp
 LINKED_PATHS = {}
 LOADERS = {}
 
-def add_link(vpath, rpath):
-    '''adds virtual module paths via keyword arguments.
-    form is virtual_path=real_module_path
-    '''
-    LINKED_PATHS[vpath] = rpath
-    l = LOADERS.get(rpath)
-    if l is not None:
-        'adding link, found loader. vpath=%s, rpath=%s, loader=%r' % (vpath, rpath, l)
+system_prefixes = site.PREFIXES[:] + [site.USER_SITE]
+
+def add_linked_package(vpath, pkg, submodule_names=None):
+    pkgpath = pkg.__path__
+    vpath.append(pkgpath[0])
+    pkgpath.append(vpath[0])
+    if submodule_names is None:
+        submodule_names = dir(pkg)
+    for key in submodule_names:
+        val = getattr(pkg, key)
+        if key.startswith('_'):
+            continue
+        if type(val) != types.ModuleType:
+            continue
+        for pfx in system_prefixes:
+            if pfx in val.__file__:
+                continue
+        if '__init__.py' in os.path.basename(val.__file__):
+            #print '__package__', val.__package__
+            subpkgpath = ['/'.join([vpath[0], key])]
+            add_linked_package(subpkgpath, val)
+            #sys.modules[subpkgpath[0]] = val
+            #print 'added subpkg: subpkgpath=%s, pkg=%s' % (subpkgpath, val)
+            continue
+        add_linked_module('.'.join(vpath[0].split('/')), val)
+    
+def add_linked_module(vpath, mod):
+    fullname = '.'.join([vpath, mod.__name__])
+    #sys.modules[fullname] = mod
+    #print 'linked module: vpath=%s, fullname=%s mod=%s, __pkg__=%s' % (vpath, fullname, mod, mod.__package__)
 
 class VirtualModuleLoader(object):
     def __init__(self, name, file, pathname, desc, scope, vpath):
@@ -117,4 +140,4 @@ class VirtualModuleFinder(object):
         except ImportError:
             return None
         
-sys.meta_path.append(VirtualModuleFinder())
+#sys.meta_path.append(VirtualModuleFinder())
