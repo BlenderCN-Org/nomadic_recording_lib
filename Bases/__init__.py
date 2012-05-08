@@ -1,5 +1,6 @@
 from .BaseObject import BaseObject as _BaseObject
 from osc_base import OSCBaseObject as _OSCBaseObject
+from partial import Partial as _Partial
 from threadbases import BaseThread as _BaseThread
 from ChildGroup import ChildGroup as _ChildGroup
 from category import Category as _Category
@@ -14,6 +15,7 @@ from misc import *
 
 BaseObject = _BaseObject
 OSCBaseObject = _OSCBaseObject
+Partial = _Partial
 BaseThread = _BaseThread
 ChildGroup = _ChildGroup
 Category = _Category
