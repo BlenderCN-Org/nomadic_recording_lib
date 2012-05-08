@@ -1,3 +1,4 @@
+import time
 import collections
 
 from Bases import BaseObject, BaseThread, Partial
@@ -20,6 +21,8 @@ class Application(BaseUI.Application):
 #        if not join:
 #            return
 #        self.GUIThread.join()
+        self.stop_GUI_loop()
+        self.on_MainLoop_stopped()
     def stop_GUI_loop(self):
         #self.GUIThread.gui_running = False
         self.GUIThread.stop(blocking=True)
@@ -36,19 +39,24 @@ class MainLoop(BaseObject):
         self.awake_partials = collections.deque()
     def run(self):
         self.running = True
-        while self.running:
-            fltk.Fl_wait()
-            if self.running and len(self.awake_partials):
-                p = self.awake_partials.popleft()
-                p()
+        try:
+            while self.running:
+                fltk.Fl_check()
+                if self.running and len(self.awake_partials):
+                    p = self.awake_partials.popleft()
+                    p()
+                else:
+                    time.sleep(.1)
+        except KeyboardInterrupt:
+            self._running = False
         self.stopped = True
     def stop(self):
         self.running = False
     def inject_call(self, call, *args, **kwargs):
         p = Partial(call, *args, **kwargs)
         self.awake_partials.append(p)
-        if self.running:
-            fltk.Fl_awake()
+        #if self.running:
+        #    fltk.Fl_awake()
 
 class GUIThread(BaseThread):
     def __init__(self, **kwargs):
