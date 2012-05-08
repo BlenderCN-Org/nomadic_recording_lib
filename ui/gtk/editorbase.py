@@ -30,6 +30,14 @@ class EditorBase(BaseObject):
     def unlink(self):
         for child in self.child_editors.itervalues():
             child.unlink()
+    def __repr__(self):
+        s = '<Editor Object'
+        twname = getattr(self, 'topwidget_label', None)
+        if type(twname) == str:
+            s = ' '.join([s, twname])
+        else:
+            s = ' '.join([s,  self.__class__.__name__])
+        return '%s at (%s)>' % (s, id(self))
         
 EDITORS = {}
 

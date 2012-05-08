@@ -1,7 +1,7 @@
 from . import bases
-from . import childgroup_list, gtkBaseUI, osc_tree
+from . import editorbase, childgroup_list, gtkBaseUI, osc_tree
 
-__all__ = ['bases', 'childgroup_list', 'gtkBaseUI', 'osc_tree']
+__all__ = ['bases', 'editorbase', 'childgroup_list', 'gtkBaseUI', 'osc_tree']
 
 
 

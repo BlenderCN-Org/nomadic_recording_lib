@@ -1,7 +1,7 @@
 from bases import widgets
-import editors
+import editorbase
 
-class ChildGroupList(editors.EditorBase):
+class ChildGroupList(editorbase.EditorBase):
     topwidget_label = ''
     _Properties = {'current_child':dict(ignore_type=True)}
     def init_editor(self, **kwargs):
