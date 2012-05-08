@@ -1,4 +1,5 @@
 import time
+import threading
 import collections
 
 from Bases import BaseObject, BaseThread, Partial
@@ -40,6 +41,7 @@ class MainLoop(BaseObject):
     def run(self):
         self.running = True
         try:
+            self.Application.mainwindow.window.show()
             while self.running:
                 fltk.Fl_check()
                 if self.running and len(self.awake_partials):
@@ -68,7 +70,10 @@ class GUIThread(BaseThread):
     def insert_threaded_call(self, call, *args, **kwargs):
         if not self.MainLoop:
             return
-        self.MainLoop.inject_call(call, *args, **kwargs)
+        if threading.currentThread().name == 'MainThread':
+            call(*args, **kwargs)
+        else:
+            self.MainLoop.inject_call(call, *args, **kwargs)
 #    def _thread_loop_iteration(self):
 #        if not self.gui_running:
 #            return
