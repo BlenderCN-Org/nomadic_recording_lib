@@ -49,35 +49,58 @@ class DimensionMixin(object):
             w = self.widget
         return w
     
-class Window(fltk.Fl_Window, dispatcher):
+class Window(fltk.Fl_Window):#, dispatcher):
     def __init__(self, *args):
         self.ParentEmissionThread = gui_thread
-        self.register_signal('resize')
+        #self.register_signal('resize')
         super(Window, self).__init__(*args)
+        self.end()
         
-    def resize(self, *args):
-        print 'window resize: ', args
-        super(Window, self).resize(*args)
-        self.emit('resize', position=args[:2], size=args[2:])
+#    def resize(self, *args):
+#        print 'window resize: ', args
+#        super(Window, self).resize(*args)
+#        self.emit('resize', position=args[:2], size=args[2:])
     
 class Box(fltk.Fl_Pack, DimensionMixin):
     def __init__(self, *args, **kwargs):
         check_init_size(*args, **kwargs)
         wargs = format_size_args(**kwargs)
         super(Box, self).__init__(*wargs)
-        self.type = getattr(self.__class__, self._orientation.upper())
-        print 'box init: ', [self.x(), self.y()], [self.w(), self.h()], self.type
         self.end()
+        self.type(getattr(self.__class__, self._orientation.upper()))
+        #print 'box init: ', [self.x(), self.y()], [self.w(), self.h()], self.type()
     def pack_start(self, widget, **kwargs):
-        self.add(widget)
+        self.insert(widget, self.children() + 1)
+        p = self.parent()
+        if p is not None:
+            p.redraw()
+        #widget.show()
+        self.redraw()
+        widget.redraw()
+    
     
 class VBox(Box):
     _orientation = 'vertical'
+#    def add(self, widget, **kwargs):
+#        size = widget.widget_size
+#        position = [0, 0]
+#        count = self.children()
+#        size[0] = self.widget_size[0]
+#        if count == 0:
+#            size[1] = self.widget_size[1]
+#        else:
+#            last_child = self.child(count-1)
+#            position[1] = last_child.y() + last_child.h()
+#            size[1] = self.widget_size[1] - position[1]
+#        widget.position(*position)
+#        widget.size(*size)
+#        return super(VBox, self).add(widget)
 class HBox(Box):
     _orientation = 'horizontal'
     
 class Button(fltk.Fl_Button, dispatcher, DimensionMixin):
     def __init__(self, *args, **kwargs):
+        print 'button init start: ', args, kwargs
         check_init_size(*args, **kwargs)
         wargs = format_size_args(**kwargs)
         label = None
@@ -86,7 +109,9 @@ class Button(fltk.Fl_Button, dispatcher, DimensionMixin):
         if type(label) != str:
             label = kwargs.get('label', '')
         wargs.append(label)
+        print 'button about to init superclass: ', wargs
         super(Button, self).__init__(*wargs)
+        print 'button superclass init: ', wargs
         self.register_signal('clicked')
         self.callback(self._on_callback)
     def _on_callback(self, *args):

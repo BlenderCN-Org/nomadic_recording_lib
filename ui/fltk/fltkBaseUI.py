@@ -1,6 +1,7 @@
 import time
 import threading
 import collections
+import traceback
 
 from Bases import BaseObject, BaseThread, Partial
 from .. import BaseUI
@@ -39,18 +40,24 @@ class MainLoop(BaseObject):
         self.Application = kwargs.get('Application')
         self.awake_partials = collections.deque()
     def run(self):
+        print 'mainloop starting'
         self.running = True
+        #fltk.Fl_run()
+        #counter = 0
         try:
-            self.Application.mainwindow.window.show()
             while self.running:
                 fltk.Fl_check()
-                if self.running and len(self.awake_partials):
+                #print 'Fl_check count: ', counter
+                #counter += 1
+                if False:#self.running and len(self.awake_partials):
                     p = self.awake_partials.popleft()
                     p()
                 else:
                     time.sleep(.1)
         except KeyboardInterrupt:
-            self._running = False
+            self.running = False
+        except:
+            traceback.print_exc()
         self.stopped = True
     def stop(self):
         self.running = False
@@ -103,8 +110,8 @@ class BaseWindow(BaseUI.BaseWindow):
         args.extend(self.size[:])
         args.append(self.title)
         w = widgets.Window(*args)
-        w.end()
-        w.connect('resize', self._on_window_resize)
+        #w.end()
+        #w.connect('resize', self._on_window_resize)
         return w
         
     def _update_window_dimensions(self):
@@ -118,8 +125,10 @@ class BaseWindow(BaseUI.BaseWindow):
         self._updating_dimensions = False
         
     def _on_own_property_changed(self, **kwargs):
+        return
         prop = kwargs.get('Property')
         value = kwargs.get('value')
+        print 'Basewindow propchange: ', kwargs
         if value is None:
             return
         if prop.name == 'size':
