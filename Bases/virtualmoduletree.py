@@ -4,6 +4,7 @@ import os.path
 import types
 import imp
 
+
 LINKED_PATHS = {}
 LINKED_MODULES = {}
 LOADERS = {}
@@ -11,13 +12,37 @@ LOADERS = {}
 system_prefixes = site.PREFIXES[:] + [site.USER_SITE]
 
 def add_linked_package(vpath, pkg, submodule_names=None):
+    def load_module(name, path):
+        fullname = '.'.join([path, name])
+        f = None
+        try:
+            f, p, d = imp.find_module(name, [path])
+            mod = imp.load_module(fullname, f, p, d)
+            return mod
+        except ImportError:
+            return None
+        finally:
+            if f is not None:
+                f.close()
     pkgpath = pkg.__path__
+    #print 'linking pkg vpath=%s, pkgpath=%s' % (vpath, pkgpath)
     if submodule_names is None:
         submodule_names = dir(pkg)
+        attempt_load = False
+    else:
+        attempt_load = True
     for key in submodule_names:
-        val = getattr(pkg, key)
         if key.startswith('_'):
             continue
+        try:
+            val = getattr(pkg, key)
+        except AttributeError:
+            if not attempt_load:
+                continue
+            val = load_module(key, pkgpath[0])
+            #print 'attempted to load module %s in path %s. mod=%s' % (key, pkgpath, val)
+            if val is not None:
+                setattr(pkg, key, val)
         if type(val) != types.ModuleType:
             continue
         for pfx in system_prefixes:
