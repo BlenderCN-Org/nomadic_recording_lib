@@ -670,6 +670,9 @@ class ColorPicker(simple.Color):
     def setup_widgets(self, **kwargs):
         pass
         
+    def unlink(self):
+        self.picker.unlink()
+        super(ColorPicker, self).unlink()
     def on_picker_hsv_changed(self, **kwargs):
         value = kwargs.get('value')
         for key, val in value.iteritems():
@@ -718,6 +721,10 @@ class ColorXY(XYPad):
         self.widget.bind(pos=self._on_widget_pos_set, size=self._on_widget_size_set)
         #self.bind(pos=self._on_pos_set)
         self.bind(hsv=self._on_hsv_set)
+        
+    def unlink(self):
+        super(ColorXY, self).unlink()
+        self.texture_obj.unlink()
         
     def prepare_remove(self):
         self.texture_obj.unlink()
@@ -800,6 +807,10 @@ class HueSlider(VSlider):
         texture_obj.blit_texture()
         self.texture_obj = texture_obj
                 
+    def unlink(self):
+        super(HueSlider, self).unlink()
+        self.texture_obj.unlink()
+        
     def prepare_remove(self):
         self.texture_obj.unlink()
         
@@ -851,7 +862,6 @@ class TextureObj(object):
         
     def unlink(self):
         self.threaded_updater.stop(blocking=True)
-        super(TextureObj, self).unlink()
         
     def add_update_job(self, cb, **kwargs):
         self.threaded_updater.add_job(cb, **kwargs)
