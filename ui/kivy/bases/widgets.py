@@ -942,6 +942,13 @@ class ThreadedUpdater(BaseThread):
         self.queue.append((cb, kwargs))
         self.updating.set()
         
+    def run(self):
+        print self._thread_id, ' run'
+        super(ThreadedUpdater, self).run()
+    def stop(self, **kwargs):
+        print self._thread_id, 'stopping'
+        super(ThreadedUpdater, self).stop(**kwargs)
+        print self._thread_id, 'stopped'
     def old_run(self):
         self.running.set()
         while self.running.isSet():
