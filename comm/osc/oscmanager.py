@@ -41,7 +41,9 @@ def issequence(obj):
             return True
     return False
     
-
+def ip_to_int(ipstr):
+    return int(''.join([s.rjust(3, '0') for s in ipstr.split('.')]))
+    
 class OSCManager(BaseIO.BaseIO, Config):
     _confsection = 'OSC'
     _Properties = {'app_address':dict(type=str), 
@@ -316,7 +318,6 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         
         self.Manager.bind(master_priority=self._on_master_priority_set, 
                           session_name=self._on_session_name_set, 
-                          #discovered_sessions=self._on_discovered_sessions_set, 
                           ring_master=self._on_ring_master_set)
     
     @property
@@ -355,7 +356,8 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             m = session.master
             if m is None:
                 continue
-            key = int(''.join([s.rjust(3, '0') for s in m.address.split('.')]))
+            #key = int(''.join([s.rjust(3, '0') for s in m.address.split('.')]))
+            key = ip_to_int(m.address)
             masters[key] = m
         if not len(masters):
             return False
@@ -513,7 +515,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         #if self.local_client is not None:
         #    self.local_client.session_name = value
         #    self.local_client.isMaster = False
-        self.GLOBAL_CONFIG['session_name'] = value
+        
         #data = self.build_zeroconf_data()
         #self.comm.ServiceConnector.update_service(**data)
         #self.select_new_master()
@@ -524,6 +526,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             if master is not None:
                 master = master.name
             self.set_master(master)
+        self.GLOBAL_CONFIG['session_name'] = value
         
     def on_GLOBAL_CONFIG_update(self, **kwargs):
         keys = kwargs.get('keys')
@@ -595,6 +598,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
                 self.local_client.isMaster = False
                 m = self.determine_next_master()
                 if m and m.isLocalhost and name is not False:
+                    self.LOG.info('master takeover in 10 seconds...')
                     t = threading.Timer(10.0, self.on_master_takeover_timeout)
                     self.master_takeover_timer = t
                     t.start()
@@ -603,6 +607,7 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.emit('new_master', master=self.oscMaster, master_is_local=self.isMaster)
         
     def on_master_takeover_timeout(self):
+        self.LOG.info('master takeover timer complete')
         self.master_takeover_timer = None
         m = self.determine_next_master()
         if not m:
@@ -616,6 +621,23 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             self.set_master_timeout = None
             
     def determine_next_master(self):
+        session = self.discovered_sessions[self.session_name]
+        d = {}
+        for c in session.members.itervalues():
+            key = c.master_priority
+            if key is None:
+                continue
+            if not (c.isSlave or c.isMaster or c.isLocalhost):
+                continue
+            if key in d and ip_to_int(c.address) > ip_to_int(d[key].address):
+                continue
+            d[key] = c
+        self.LOG.info('clients by priority: ', d)
+        if not len(d):
+            return None
+        return d[min(d)]
+        
+    def old_determine_next_master(self):
         d = {}
         for client in self.clients.itervalues():
             if not client.isSameSession:
@@ -656,17 +678,19 @@ class Session(BaseObject):
         for m in members:
             self.add_member(m)
     def add_member(self, member):
+        #self.LOG.info('SESSION %s adding member %s' % (self.name, member))
         if member.session_name != self.name:
             member.session_name = self.name
-        member.bind(session_name=self.on_member_session_name_set, 
-                    isMaster=self.on_member_isMaster_set)
-        #self.members[member.name] = member
-        self.members.add_child(existing_obj=member)
         if member.isMaster:
             if self.master is None:
                 self.master = member
             else:
                 member.isMaster = False
+        member.bind(session_name=self.on_member_session_name_set, 
+                    isMaster=self.on_member_isMaster_set)
+        self.members.add_child(existing_object=member)
+        #self.LOG.info('SESSION %s members: %s' % (self.name, [str(m) for m in self.members.values()]))
+        
     def del_member(self, member):
         if type(member) == str:
             member = self.members.get(member)
@@ -674,6 +698,7 @@ class Session(BaseObject):
             return
         if member.name not in self.members:
             return
+        #self.LOG.info('SESSION %s deleting member %s' % (self.name, member))
         member.unbind(self)
         if member.session_name == self.name:
             member.session_name = None
@@ -681,6 +706,7 @@ class Session(BaseObject):
         if self.master is not None and self.master.name not in self.members:
             self.master = None
     def on_member_session_name_set(self, **kwargs):
+        #self.LOG.info('%s member session_name set: %s' % (self.name, kwargs))
         old = kwargs.get('old')
         value = kwargs.get('value')
         member = kwargs.get('obj')
@@ -689,6 +715,7 @@ class Session(BaseObject):
         if self.master is not None and self.master.name not in self.members:
             self.master = None
     def on_member_isMaster_set(self, **kwargs):
+        #self.LOG.info('%s member isMaster set: %s' % (self.name, kwargs))
         value = kwargs.get('value')
         member = kwargs.get('obj')
         if member.session_name == self.name and value:

@@ -407,16 +407,16 @@ class OSCDispatchThread(Scheduler):
         #self.ui_module.gdk.threads_leave()
                 
     def kivy_do_dispatch(self, element, time):
-        obj = Messenger(element=element, callback=self._on_kivy_msg_cb)
+        obj = Messenger(element=element, time=time, callback=self._on_kivy_msg_cb)
         self.kivy_messengers.add(obj)
         self.ui_module.schedule_once(obj.send, 0)
         
     def _on_kivy_msg_cb(self, messenger):
-        self._do_dispatch(messenger.element)
+        self._do_dispatch(messenger.element, messenger.time)
         self.kivy_messengers.discard(messenger)
 
 class Messenger(object):
-    __slots__ = ('element', 'callback', '__weakref__')
+    __slots__ = ('element', 'time', 'callback', '__weakref__')
     def __init__(self, **kwargs):
         for key, val in kwargs.iteritems():
             setattr(self, key, val)
