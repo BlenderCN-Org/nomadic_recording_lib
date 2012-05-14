@@ -462,11 +462,14 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         self.determine_ring_master()
         if session.name != self.session_name:
             return
-        if value != self.oscMaster:
-            if value is None:
-                m = self.determine_next_master()
-                if m == self.local_client:
-                    self.set_master()
+        if session.master is None:
+            m = self.determine_next_master()
+            if m == self.local_client:
+                self.set_master()
+        if session.master.name == self.oscMaster:
+            return
+        if session.master != self.local_client:
+            self.set_master(session.master.name)
             
     def on_session_members_update(self, **kwargs):
         session = kwargs.get('obj')
