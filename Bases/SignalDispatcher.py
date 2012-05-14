@@ -117,18 +117,44 @@ class SignalEmitter(object):
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
         self.parent_obj = kwargs.get('parent_obj')
+        self.emission_lock = threading.RLock()
         self.weakrefs = weakref.WeakValueDictionary()
         
     @property
     def emission_thread(self):
         return getattr(self.parent_obj, 'ParentEmissionThread', None)
         
+    def get_lock(self, *args, **kwargs):
+        emission_thread = self.emission_thread
+        if emission_thread is None:
+            return
+        elock = self.emission_lock
+#        if threading.currentThread() != emission_thread:
+#            print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
+#        if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
+#            owner = threading._active[elock._RLock__owner]
+#            current = threading.currentThread()
+#            print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
+        elock.acquire(True)
+        
+    def release_lock(self):
+        ethread = self.emission_thread
+        if ethread is None:
+            return
+        elock = self.emission_lock
+        if not elock._is_owned():
+            return
+        if elock._RLock__owner != ethread.ident:
+            return
+        elock.release()
+        
     def add_receiver(self, **kwargs):
+        #self.get_lock()
         cb = kwargs.get('callback')
-        #objID = str(id(cb))
         objID = id(cb.im_self)
         wrkey = (cb.im_func, objID)
         self.weakrefs[wrkey] = cb.im_self
+        #self.release_lock()
         return objID
         
     def del_receiver(self, **kwargs):
@@ -149,12 +175,16 @@ class SignalEmitter(object):
         if cb is not None:
             wrkey = (cb.im_func, id(cb.im_self))
             if wrkey in self.weakrefs:
+                #self.get_lock()
                 del self.weakrefs[wrkey]
+                #self.release_lock()
                 return True
         if wrkey is not None:
             if wrkey not in self.weakrefs:
                 return False
+            #self.get_lock()
             del self.weakrefs[wrkey]
+            #self.release_lock()
             return True
             
     def emit(self, *args, **kwargs):
@@ -166,17 +196,21 @@ class SignalEmitter(object):
             self._do_emit(*args, **kwargs)
             
     def _do_emit(self, *args, **kwargs):
-        wrefs = self.weakrefs
+        self.get_lock()
         emission_thread = self.emission_thread
+        wrefs = self.weakrefs
         for key in wrefs.keys()[:]:
             f, objID = key
-            obj = wrefs[key]
+            obj = wrefs.get(key)
+            if obj is None:
+                continue
             objthread = getattr(obj, 'ParentEmissionThread', None)
             if objthread is None or objthread == emission_thread:
                 f(obj, **kwargs)
             else:
                 m = getattr(obj, f.__name__)
                 objthread.insert_threaded_call(m, **kwargs)
+        self.release_lock()
             
     def __repr__(self):
         return '<SignalEmitter %s of object %r>' % (self.name, self.parent_obj)

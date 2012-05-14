@@ -310,14 +310,28 @@ class ObjProperty(object):
         self.queue_emission = False
             
     def get_lock(self, *args, **kwargs):
-        def do_call(cb, *args, **kwargs):
-            with self.emission_lock:
-                cb(*args, **kwargs)
-        if self.emission_lock._is_owned():
-            t = threading.Thread(target=do_call, args=args, kwargs=kwargs, daemon=False)
-            t.start()
+        emission_thread = self.emission_thread
+        if emission_thread is None:
             return
-        do_call(*args, **kwargs)
+        elock = self.emission_lock
+#        if threading.currentThread() != emission_thread:
+#            print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
+#        if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
+#            owner = threading._active[elock._RLock__owner]
+#            current = threading.currentThread()
+#            print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
+        elock.acquire(True)
+        
+    def release_lock(self):
+        ethread = self.emission_thread
+        if ethread is None:
+            return
+        elock = self.emission_lock
+        if not elock._is_owned():
+            return
+        if elock._RLock__owner != ethread.ident:
+            return
+        elock.release()
         
     def bind(self, cb):
         #if not self.emission_lock._is_owned() and self.emission_lock._RLock__owner != threading._get_ident():
@@ -326,9 +340,11 @@ class ObjProperty(object):
         if getattr(cb, 'im_self', None) == self.parent_obj:
             self.own_callbacks.add(cb)
         else:
+            #self.get_lock()
             wrkey = (cb.im_func, id(cb.im_self))
             self.weakrefs[wrkey] = cb.im_self
-            
+            #self.release_lock()
+        
     def unbind(self, cb):
         #if not self.emission_lock._is_owned() and self.emission_lock._RLock__owner != threading._get_ident():
         #    self.get_lock(self.unbind, cb)
@@ -349,7 +365,9 @@ class ObjProperty(object):
             return result
         wrkey = (cb.im_func, id(cb.im_self))
         if wrkey in self.weakrefs:
+            #self.get_lock()
             del self.weakrefs[wrkey]
+            #self.release_lock()
             result = True
         if cb in self.own_callbacks:
             result = True
@@ -407,23 +425,16 @@ class ObjProperty(object):
             self._do_emission(**cb_kwargs)
             
     def _do_emission(self, **kwargs):
-        elock = self.emission_lock
-        emission_thread = self.emission_thread
-        if emission_thread is not None:
-            if threading.currentThread() != emission_thread:
-                print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
-            if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
-                owner = threading._active[elock._RLock__owner]
-                current = threading.currentThread()
-                print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
-            elock.acquire()
         for cb in self.own_callbacks.copy():
             cb(**kwargs)
-        
+        self.get_lock()
+        emission_thread = self.emission_thread
         wrefs = self.weakrefs
         for wrkey in wrefs.keys()[:]:
             f, objID = wrkey
-            obj = wrefs[wrkey]
+            obj = wrefs.get(wrkey)
+            if obj is None:
+                continue
             objthread = getattr(obj, 'ParentEmissionThread', None)
             if objthread is None or objthread == emission_thread:
                 f(obj, **kwargs)
@@ -434,8 +445,7 @@ class ObjProperty(object):
             self.parent_obj.emit('property_changed', **kwargs)
         for prop, key in self.linked_properties:
             self.update_linked_property(prop, key)
-        if emission_thread is not None:
-            elock.release()
+        self.release_lock()
             
     def __repr__(self):
         return '<Property %s of object %r>' % (self.name, self.parent_obj)
