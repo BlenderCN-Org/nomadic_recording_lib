@@ -53,6 +53,8 @@ class ListModel(BaseObject, PropertyConnector):
         self.store.remove(iter)
         self.iters.clear()
         for row in self.store:
+            if row[0] == key:
+                continue
             self.iters[row[0]] = row.iter
         #print self.iters
     @ThreadToGtk
