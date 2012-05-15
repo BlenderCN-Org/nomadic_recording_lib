@@ -198,8 +198,10 @@ class BaseThread(OSCBaseObject, threading.Thread):
             newid = '__'.join([thread_id, setID(None)])
             self.LOG.warning('thread_id %s already exists using %s' % (thread_id, newid))
             thread_id = newid
-        
         _THREADS[thread_id] = self
+        self.AllowedEmissionThreads = set()
+        self.AllowedEmissionThreads |= set(kwargs.get('AllowedEmissionThreads', []))
+        self.AllowedEmissionThreads.add(thread_id)
         threading.Thread.__init__(self, name=thread_id)
         OSCBaseObject.__init__(self, **kwargs)
         self._thread_id = thread_id
@@ -225,8 +227,14 @@ class BaseThread(OSCBaseObject, threading.Thread):
     def pethread_log(self):
         return pethread_logger
         
+    @property
+    def can_currentthread_emit(self):
+        name = threading.currentThread().name
+        val = name in self.AllowedEmissionThreads
+        #print 'Thread %s can emit=%s currentthread=%s' % (self.name, val, name)
+        return val
     def insert_threaded_call(self, call, *args, **kwargs):
-        if threading.currentThread().name == self.name:
+        if self.can_currentthread_emit:
             call(*args, **kwargs)
             return
         with self._insertion_lock:
@@ -293,10 +301,14 @@ class BaseThread(OSCBaseObject, threading.Thread):
         if self.IsParentEmissionThread:
             self.pethread_log('do_call: ', p)
         try:
-            result = p()
+            #result = p()
+            result = self._really_do_call(p)
             return (result, p.cb, p.args, p.kwargs)
         except:
             self.LOG.warning(traceback.format_exc())
+            
+    def _really_do_call(self, p):
+        return p()
         
 class PEThreadLogger(BaseObject):
     def __init__(self, **kwargs):

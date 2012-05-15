@@ -416,7 +416,8 @@ class ObjProperty(object):
         value = getattr(self.parent_obj, self.name)
         cb_kwargs = dict(name=self.name, Property=self, value=value, old=old, obj=self.parent_obj)
         t = self.emission_thread
-        if t is not None and t._thread_id != threading.currentThread().name:
+        #if t is not None and t._thread_id != threading.currentThread().name:
+        if t is not None and not t.can_currentthread_emit:
             #print 'Property %s doing threaded emission to %s from %s' % (self.name, self.emission_thread._thread_id, threading.currentThread().name)
             t.insert_threaded_call(self._do_emission, **cb_kwargs)
             #self.emission_event.set()
@@ -436,7 +437,7 @@ class ObjProperty(object):
             if obj is None:
                 continue
             objthread = getattr(obj, 'ParentEmissionThread', None)
-            if objthread is None or objthread == emission_thread:
+            if objthread is None or objthread == emission_thread or getattr(objthread, 'can_currentthread_emit', False):
                 f(obj, **kwargs)
             else:
                 m = getattr(obj, f.__name__)

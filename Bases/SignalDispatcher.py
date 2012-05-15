@@ -189,7 +189,8 @@ class SignalEmitter(object):
             
     def emit(self, *args, **kwargs):
         t = self.emission_thread
-        if t is not None and t._thread_id != threading.currentThread().name:
+        #if t is not None and t._thread_id != threading.currentThread().name:
+        if t is not None and not t.can_currentthread_emit:
             #print 'Signal %s doing threaded emission to %s from %s' % (self.name, t._thread_id, threading.currentThread().name)
             t.insert_threaded_call(self._do_emit, *args, **kwargs)
         else:
@@ -205,7 +206,7 @@ class SignalEmitter(object):
             if obj is None:
                 continue
             objthread = getattr(obj, 'ParentEmissionThread', None)
-            if objthread is None or objthread == emission_thread:
+            if objthread is None or objthread == emission_thread or getattr(objthread, 'can_currentthread_emit', False):
                 f(obj, **kwargs)
             else:
                 m = getattr(obj, f.__name__)
