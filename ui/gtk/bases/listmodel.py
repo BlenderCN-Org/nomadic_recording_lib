@@ -50,6 +50,7 @@ class ListModel(BaseObject, PropertyConnector):
         iter = self.iters.get(key)
         if iter is None:
             return
+        del self.items[key]
         self.store.remove(iter)
         self.iters.clear()
         for row in self.store:

@@ -103,6 +103,7 @@ class GCallbackInserter(BaseThread):
     _cb_per_mainloop_iteration = 4
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'GtkCallbackInserter'
+        kwargs['AllowedEmissionThreads'] = ['MainThread']
         kwargs['disable_threaded_call_waits'] = True
         super(GCallbackInserter, self).__init__(**kwargs)
         #self.running = threading.Event()
