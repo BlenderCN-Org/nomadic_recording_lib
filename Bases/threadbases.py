@@ -24,6 +24,7 @@ import functools
 
 from BaseObject import BaseObject
 from osc_base import OSCBaseObject
+from partial import Partial
 from logger import Logger
 from Properties import ObjProperty
 from misc import setID, iterbases
@@ -128,28 +129,28 @@ class ChannelEvent(BaseObject):
     def _off_event_state_set(self, **kwargs):
         pass
 
-class Partial(object):
-    def __init__(self, cb, *args, **kwargs):
-        obj = cb.im_self
-        self.id = id(obj)
-        self.obj_name = obj.__class__.__name__
-        self.func_name = cb.im_func.func_name
-        self._partial = functools.partial(cb, *args, **kwargs)
-    @property
-    def cb(self):
-        return self._partial.func
-    @property
-    def args(self):
-        return self._partial.args
-    @property
-    def kwargs(self):
-        return self._partial.keywords
-    def __call__(self):
-        self._partial()
-    def __str__(self):
-        return '%s(%s), %s' % (self.obj_name, self.id, self.func_name)
-    def __repr__(self):
-        return 'ThreadBasePartial object %s: %s' % (id(self), str(self))
+#class Partial(object):
+#    def __init__(self, cb, *args, **kwargs):
+#        obj = cb.im_self
+#        self.id = id(obj)
+#        self.obj_name = obj.__class__.__name__
+#        self.func_name = cb.im_func.func_name
+#        self._partial = functools.partial(cb, *args, **kwargs)
+#    @property
+#    def cb(self):
+#        return self._partial.func
+#    @property
+#    def args(self):
+#        return self._partial.args
+#    @property
+#    def kwargs(self):
+#        return self._partial.keywords
+#    def __call__(self, *args, **kwargs):
+#        self._partial()
+#    def __str__(self):
+#        return '%s(%s), %s' % (self.obj_name, self.id, self.func_name)
+#    def __repr__(self):
+#        return 'ThreadBasePartial object %s: %s' % (id(self), str(self))
 
 _THREADS = weakref.WeakValueDictionary()
 
@@ -221,6 +222,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         timed_events.reverse()
         self.timed_events = timed_events
         self._threaded_calls_queue = collections.deque()
+        self._timed_calls_queue = TimeQueue()
         self.disable_threaded_call_waits = kwargs.get('disable_threaded_call_waits', False)
         
     @property
@@ -233,7 +235,12 @@ class BaseThread(OSCBaseObject, threading.Thread):
         val = name in self.AllowedEmissionThreads
         #print 'Thread %s can emit=%s currentthread=%s' % (self.name, val, name)
         return val
+        
+    def get_now_for_timed_calls(self):
+        return time.time()
+        
     def insert_threaded_call(self, call, *args, **kwargs):
+        p = None
         if self.can_currentthread_emit:
             call(*args, **kwargs)
             return
@@ -241,8 +248,12 @@ class BaseThread(OSCBaseObject, threading.Thread):
             if self.IsParentEmissionThread:
                 self.pethread_log('insert call', call, ' to PEThread %s' % (self.name))
             p = Partial(call, *args, **kwargs)
-            self._threaded_calls_queue.append(p)
+            if p.call_time is not None:
+                self._timed_calls_queue.put(p.call_time, p)
+            else:
+                self._threaded_calls_queue.append(p)
             self._cancel_event_timeouts()
+        return p
         
     def _cancel_event_timeouts(self, events=None):
         if events is None:
@@ -255,7 +266,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
             
     def run(self):
         disable_call_waits = self.disable_threaded_call_waits
-        do_calls = self._do_threaded_calls
+        do_threaded_calls = self._do_threaded_calls
+        do_timed_calls = self._do_timed_calls
         loop_iteration = self._thread_loop_iteration
         self._running = True
         while self._running:
@@ -263,7 +275,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 loop_iteration()
                 if not disable_call_waits:
                     self._threaded_call_ready.wait()
-                    do_calls()
+                    do_threaded_calls()
+                    do_timed_calls()
         self._stopped = True
         
     def stop(self, **kwargs):
@@ -295,7 +308,8 @@ class BaseThread(OSCBaseObject, threading.Thread):
         queue = self._threaded_calls_queue
         if not len(queue):
             if self._running:
-                self._threaded_call_ready = False
+                if not len(self._timed_calls_queue):
+                    self._threaded_call_ready = False
             return
         p = queue.popleft()
         if self.IsParentEmissionThread:
@@ -306,10 +320,29 @@ class BaseThread(OSCBaseObject, threading.Thread):
             return (result, p.cb, p.args, p.kwargs)
         except:
             self.LOG.warning(traceback.format_exc())
-            
+    def _do_timed_calls(self):
+        queue = self._timed_calls_queue
+        lowest_time = queue.lowest_time()
+        now = self.get_now_for_timed_calls()
+        if lowest_time is None or now < lowest_time:
+            if self._running:
+                if not len(self._threaded_calls_queue):
+                    self._threaded_call_ready = False
+            return
+        if self.IsParentEmissionThread:
+            self.pethread_log('do_timed_call, now=%s: %r' % (now, p))
+        p = queue.pop(lowest_time)
+        try:
+            result = self._really_do_call(p)
+            return (result, p.cb, p.args, p.kwargs)
+        except:
+            self.LOG.warning(traceback.format_exc())
+        
     def _really_do_call(self, p):
         return p()
-        
+
+from scheduler import TimeQueue
+
 class PEThreadLogger(BaseObject):
     def __init__(self, **kwargs):
         super(PEThreadLogger, self).__init__(**kwargs)

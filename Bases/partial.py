@@ -1,7 +1,9 @@
 import functools
 
 class Partial(object):
+    __slots__ = ('call_time', 'id', 'obj_name', 'func_name', '_partial')
     def __init__(self, cb, *args, **kwargs):
+        self.call_time = kwargs.get('_Partial_call_time_')
         obj = cb.im_self
         self.id = id(obj)
         self.obj_name = obj.__class__.__name__
@@ -16,9 +18,13 @@ class Partial(object):
     @property
     def kwargs(self):
         return self._partial.keywords
-    def __call__(self):
+    def __call__(self, *args, **kwargs):
         self._partial()
     def __str__(self):
-        return '%s(%s), %s' % (self.obj_name, self.id, self.func_name)
+        s = '%s(%s), %s' % (self.obj_name, self.id, self.func_name)
+        t = self.call_time
+        if t is not None:
+            s = '%s (%s)' % (s, t)
+        return s
     def __repr__(self):
-        return 'Partial object %s: %s' % (id(self), str(self))
+        return '<Partial object %s: %s>' % (id(self), str(self))

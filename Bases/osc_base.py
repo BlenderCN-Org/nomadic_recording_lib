@@ -174,6 +174,7 @@ class OSCBaseObject(BaseObject):
 class OSCHandler(BaseObject, PropertyConnector):
     def __init__(self, **kwargs):
         super(OSCHandler, self).__init__()
+        self.Property_set_by_osc = False
         self.callbacks = {}
         self.request_initial_value = kwargs.get('request_initial_value')
         self.address = kwargs.get('address')

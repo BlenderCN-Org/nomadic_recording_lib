@@ -114,3 +114,6 @@ class TimeQueue(object):
         if not len(self.times):
             return None
         return min(self.times)
+        
+    def __len__(self):
+        return len(self.times)
