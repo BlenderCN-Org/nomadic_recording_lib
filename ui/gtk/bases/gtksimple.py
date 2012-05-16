@@ -97,6 +97,7 @@ class deque(collections.deque):
         
 class GCallbackInserter(BaseThread):
     _Events = {'active':{}, 
+               'gtk_lock_ready':{}, 
                'have_gtk_lock':{}, 
                'waiting_for_lock':{}, 
                'lock_released':{}}
@@ -118,13 +119,6 @@ class GCallbackInserter(BaseThread):
         return self.add_callback(cb, *args, **kwargs)
         
     def add_callback(self, cb, *args, **kwargs):
-        #obj = cb.im_self
-        #key = (id(obj), cb.im_func.func_name)
-        #if key in self.queue and self.queue[0] != key:
-        #    self.queue.remove(key)
-        #    #print 'removed existing cb: ', key
-        #self.queue.append(key)
-        #self.cb_data[key] = (cb, args, kwargs)
         queue_ids = self.queue_ids
         queue = self.partial_queue
         def add_to_queue(_p):
@@ -142,27 +136,12 @@ class GCallbackInserter(BaseThread):
                     add_to_queue(p)
             else:
                 add_to_queue(p)
-#        pid = p.id
-#        i = 0
-#        queue_ids = self.queue_ids
-#        newpid = pid
-#        while newpid in queue_ids:
-#            newpid = '__'.join([pid, str(i)])
-#            i += 1
-#        p.id = newpid
-#        queue_ids.add(p.id)
             self.active = True
         return p
         
     def _thread_loop_iteration(self):
-        def should_do_mainloop_iter():
-            i = len(self.partial_queue)
-            step = self._cb_per_mainloop_iteration
-            return i % step == 0
         self.active.wait()
         if not self._running:
-            #if self.have_gtk_lock:
-            #    self._release_gtk_lock()
             return
         if not len(self.partial_queue):
             if self.have_gtk_lock:
@@ -170,21 +149,16 @@ class GCallbackInserter(BaseThread):
             self.active = False
             return
         if self.have_gtk_lock:
-            r = self._next_callback()
-            self.build_testtimer()
-            if r is False:
-                self._release_gtk_lock()
-                self.active = False
-                #print 'queue=%s, cbdata=%s' % (self.queue, self.cb_data)
-            elif False:#should_do_mainloop_iter():
-                #print 'doing gtk main iteration: queue_len=%s' % (len(self.partial_queue))
-                gtk.main_iteration_do(False)
-                #print 'did gtk main iteration: queue_len=%s' % (len(self.partial_queue))
+            with self._insertion_lock:
+                r = self._next_callback()
+            #self.build_testtimer()
         else:
             self.waiting_for_lock = True
             gobject.idle_add(self._on_gtk_idle)
-            self.have_gtk_lock.wait()
-            self.waiting_for_lock = False
+            #self.have_gtk_lock.wait()
+            self.gtk_lock_ready.wait()
+            self._acquire_gtk_lock()
+            #self.waiting_for_lock = False
             #print 'lock acquired, len: ', len(self.queue)
     def stop(self, **kwargs):
         self._running = False
@@ -194,43 +168,13 @@ class GCallbackInserter(BaseThread):
             self._release_gtk_lock()
         #self.have_gtk_lock = True
         super(GCallbackInserter, self).stop(**kwargs)
-            
-    def old_run(self):
-        self.running.set()
-        while self.running.isSet():
-            self.active.wait()
-            if self.running.isSet():
-                if self.have_gtk_lock.isSet():
-                    r = self._next_callback()
-                    if r is False:
-                        self._release_gtk_lock()
-                        self.active.clear()
-                        #print 'queue=%s, cbdata=%s' % (self.queue, self.cb_data)
-                else:
-                    #gobject.idle_add(self._on_gtk_idle)
-                    #gdk.threads_add_idle(self._on_gtk_idle, None)
-                    glib.idle_add(self._on_gtk_idle)
-                    self.have_gtk_lock.wait()
-                    #print 'lock acquired, len: ', len(self.queue)
-                
-    def old_stop(self):
-        self.running.clear()
-        self.active.set()
-        if self.have_gtk_lock.isSet():
-            self._release_gtk_lock()
-                
+        
     def _on_gtk_idle(self, *args):
         if not self._running:
             return False
         if not len(self.partial_queue):
             return False
-        gdk.threads_enter()
-        self.lock_released.clear()
-        now = time.time()
-        self.gtk_lock_start = now
-        #print 'gtk idle start: ', self.partial_queue
-        self.build_testtimer()
-        self.have_gtk_lock.set()
+        self.gtk_lock_ready = True
         return False
         
     def build_testtimer(self):
@@ -248,13 +192,23 @@ class GCallbackInserter(BaseThread):
         print 'GCallBack inserter locked gtk too long: ', self.partial_queue, '\nEvents: ', ', '.join([str(e) for e in self.Events.values()])
         self._release_gtk_lock()
         
+    def _acquire_gtk_lock(self):
+        gdk.threads_enter()
+        self.lock_released = False
+        #now = time.time()
+        #self.gtk_lock_start = now
+        #print 'acquire gtk lock: ', len(self.partial_queue), threading.currentThread().name
+        #self.build_testtimer()
+        self.have_gtk_lock = True
+        self.waiting_for_lock = False
     def _release_gtk_lock(self):
-        now = time.time()
-        #print 'release gtk lock: ', now - self.gtk_lock_start, self.partial_queue
-        self.kill_testtimer()
+        #now = time.time()
+        #print 'release gtk lock: ', len(self.partial_queue), threading.currentThread().name
+        #self.kill_testtimer()
         gdk.threads_leave()
-        self.have_gtk_lock.clear()
-        self.lock_released.set()
+        self.gtk_lock_ready = False
+        self.have_gtk_lock = False
+        self.lock_released = True
         #print 'lock released, len: ', len(self.queue)
             
     def _next_callback(self):
@@ -269,21 +223,7 @@ class GCallbackInserter(BaseThread):
             self.LOG.warning('GTK thread insertion error: \n' + traceback.format_exc())
         
         return len(queue) > 0
-        
-    def old_next_callback(self):
-        if not len(self.queue):
-            #self.active.clear()
-            return False
-        #print 'cb len=%s, have_lock=%s' % (len(self.queue), self.have_gtk_lock.isSet())
-        key = self.queue.popleft()
-        if key in self.cb_data:
-            cb, args, kwargs = self.cb_data[key]
-            del self.cb_data[key]
-            try:
-                cb(*args, **kwargs)
-            except:
-                self.LOG.warning('GTK thread insertion error: \n' + traceback.format_exc())
-        return True
+
 
 gCBThread = GCallbackInserter()
 gCBThread.start()

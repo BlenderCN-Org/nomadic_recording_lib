@@ -12,27 +12,14 @@ class Application(BaseUI.Application):
         super(Application, self).__init__(**kwargs)
         self._app_running = False
         self._application = KivyApp(Application=self)
-        print 'application: ', self._application
         self._application.bind(on_stop=self.on_mainwindow_close)
-    def _build_mainwindow(self, **kwargs):
-        print 'buildmainwindow: ', kwargs
-        mw = super(Application, self)._build_mainwindow(**kwargs)
-        print 'mainwindow built: ', mw
-        return mw
     def start_GUI_loop(self, *args):
-        #self._app_running = True
-        print 'starting app'
         self._application.run()
     def stop_GUI_loop(self):
         running = self._app_running
         self._app_running = False
         if running:
             self._application.stop()
-    def emit(self, *args, **kwargs):
-        #print 'application emit: ', args, kwargs
-        #if args[0] == 'start':
-        #    return
-        super(Application, self).emit(*args, **kwargs)
     
 class KivyApp(_KVApp):
     def __init__(self, **kwargs):
@@ -43,13 +30,10 @@ class KivyApp(_KVApp):
         self.Application.bind(name=self.on_Application_name_set)
         
     def build(self):
-        print 'KivyApp build'
         return widgets.VBox()
     def on_start(self):
-        print 'KivyApp on_start'
         super(KivyApp, self).on_start()
         mw = getattr(self.Application, 'mainwindow', None)
-        print 'KivyApp on_start post-super: mw=%s' % (mw)
         if mw is None:
             return
         mw.init_build(self)
@@ -62,10 +46,10 @@ class KivyApp(_KVApp):
 class GUIThread(BaseThread):
     def __init__(self, **kwargs):
         kwargs['thread_id'] = 'GUIThread'
-        kwargs['AllowedEmissionThreads'] = ['MainThread']
+        #kwargs['AllowedEmissionThreads'] = ['MainThread']
         self.Application = kwargs.get('Application')
         super(GUIThread, self).__init__(**kwargs)
-        self._threaded_call_ready.wait_timeout = None
+        #self._threaded_call_ready.wait_timeout = None
     def insert_threaded_call(self, call, *args, **kwargs):
         if not self.Application._app_running:
             call(*args, **kwargs)
@@ -80,9 +64,34 @@ class GUIThread(BaseThread):
         _KVClock.schedule_once(p, -1)
     
 class BaseWindow(BaseUI.BaseWindow):
+    def __init__(self, **kwargs):
+        self.window = None
+        super(BaseWindow, self).__init__(**kwargs)
     def init_build(self, app):
         self.app = app
-    #def _on_own_property_changed(self, **kwargs):
-    #    prop = kwargs.get('Property')
-    #    value = kwargs.get('value')
+        self.window = app._app_window
+        self.window.system_size = self.size
+        self.window.bind(fullscreen=self.on_window_fullscreen, 
+                         system_size=self.on_window_system_size)
+    def on_window_fullscreen(self, *args, **kwargs):
+        value = self.window.fullscreen
+        if type(value) == bool and value != self.fullscreen:
+            self.fullscreen = value
+    def on_window_system_size(self, *args, **kwargs):
+        value = self.window.system_size
+        #print 'WINDOW SIZE: ', value
+        if value != self.size:
+            self.size = value
+    def _on_own_property_changed(self, **kwargs):
+        w = self.window
+        if w is None:
+            return
+        prop = kwargs.get('Property')
+        value = kwargs.get('value')
+        keys = ['title', 'fullscreen']
+        propmap = {'title':'title', 'size':'system_size', 'fullscreen':'fullscreen'}
+        if prop.name in propmap:
+            attr = propmap[prop.name]
+            if getattr(w, attr) != value:
+                setattr(w, attr, value)
         

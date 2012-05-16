@@ -90,14 +90,16 @@ class LabelMixIn(PropertyConnector):
         super(LabelMixIn, self).detach_Property(prop)
         self._update_text_from_Property()
     def on_Property_value_changed(self, **kwargs):
-        self._update_text_from_Property()
-    def get_Property_text(self):
-        value = self.get_Property_value()
+        self._update_text_from_Property(**kwargs)
+    def get_Property_text(self, **kwargs):
+        value = kwargs.get('value')
+        if value is None:
+            value = self.get_Property_value()
         if value is None:
             return 'None'
         return self.value_fmt_str % {'value':value}
-    def _update_text_from_Property(self):
-        s = self.get_Property_text()
+    def _update_text_from_Property(self, **kwargs):
+        s = self.get_Property_text(**kwargs)
         self.update_text_from_Property(s)
         
 class EntryBuffer(BaseObject, PropertyConnector):
@@ -284,6 +286,7 @@ class Fader(BaseObject, PropertyConnector):
     _Properties = {'widget_is_adjusting':dict(default=False, quiet=True)}
     def __init__(self, **kwargs):
         super(Fader, self).__init__(**kwargs)
+        self.widget_set_by_program = False
         #self.register_signal('obj_value_changed')
         self.offset_value_range = kwargs.get('offset_value_range', False)
         self.value_fmt_string = '%(value)d%(symbol)s'
@@ -321,14 +324,21 @@ class Fader(BaseObject, PropertyConnector):
         super(Fader, self).unlink()
     
     def on_widget_change_value(self, *args):
+        if self.widget_set_by_program:
+            return
+        if not self.widget_is_adjusting:
+            return
         self.set_Property_value(self.get_widget_value(), convert_type=True)
     
     def on_Property_value_changed(self, **kwargs):
-        value = self.get_Property_value()
-        if not self.widget_is_adjusting:
-            self.set_widget_value(value)
-            #print 'fader %s, attribute %s, value %s' % (self, attrib, value)
-            #self.emit('obj_value_changed', attribute=self.attribute, obj=self)
+        value = kwargs.get('value')
+        if self.widget_is_adjusting:
+            return
+        self.widget_set_by_program = True
+        self.set_widget_value(value)
+        self.widget_set_by_program = False
+        #print 'fader %s, attribute %s, value %s' % (self, attrib, value)
+        #self.emit('obj_value_changed', attribute=self.attribute, obj=self)
         
     def _on_widget_is_adjusting_set(self, **kwargs):
         state = kwargs.get('value')

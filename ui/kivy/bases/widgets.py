@@ -672,6 +672,7 @@ class ColorPicker(simple.Color):
         
     def unlink(self):
         self.picker.unlink()
+        self.slider.unlink()
         super(ColorPicker, self).unlink()
     def on_picker_hsv_changed(self, **kwargs):
         value = kwargs.get('value')
@@ -710,7 +711,7 @@ class ColorXY(XYPad):
         super(ColorXY, self).__init__(**kwargs)
         self.color_mode = kwargs.get('color_mode')
         self.bgwidget = Widgets.Label(size=self.widget.size, pos=self.widget.pos)
-        self.bgwidget.prepare_remove = self.prepare_remove
+        #self.bgwidget.prepare_remove = self.prepare_remove
         self.widget.add_widget(self.bgwidget, index=1)
         self._current_pixel = None
         self.register_signal('color_changed')
