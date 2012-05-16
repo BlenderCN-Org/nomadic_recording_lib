@@ -320,8 +320,9 @@ class OSCNode(BaseObject):
 
 def get_ui_module(name):
     if name == 'kivy':
-        from kivy.clock import Clock
-        return Clock
+        return None
+        #from kivy.clock import Clock
+        #return Clock
     elif name == 'gtk':
         return None
     t = imp.find_module(name)
@@ -407,9 +408,10 @@ class OSCDispatchThread(Scheduler):
         #self.ui_module.gdk.threads_leave()
                 
     def kivy_do_dispatch(self, element, time):
-        obj = Messenger(element=element, time=time, callback=self._on_kivy_msg_cb)
-        self.kivy_messengers.add(obj)
-        self.ui_module.schedule_once(obj.send, 0)
+        #obj = Messenger(element=element, time=time, callback=self._on_kivy_msg_cb)
+        #self.kivy_messengers.add(obj)
+        #self.ui_module.schedule_once(obj.send, 0)
+        self._do_dispatch(element, time)
         
     def _on_kivy_msg_cb(self, messenger):
         self._do_dispatch(messenger.element, messenger.time)
