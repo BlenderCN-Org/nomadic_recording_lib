@@ -257,7 +257,8 @@ class BoolArgument(Argument):
             else:
                 cls = FalseArgument
             return cls.__new__(cls, value)
-        return super(BoolArgument, cls).__new__(cls, value)
+        #return Argument.__new__(cls, value)
+        return object.__new__(cls)
     def __init__(self, value):
         self._value = value
     def __nonzero__(self):
