@@ -57,7 +57,9 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     signals_to_register = ['property_changed']
     _Properties = {'Index':dict(type=int, fvalidate='_Index_validate')}
     def __new__(*args, **kwargs):
-        cls = args[0]
+        realcls = args[0]
+        cls = realcls
+        #print 'Baseobject __new__: ', cls
         if cls != BaseObject:
             while issubclass(cls, BaseObject):
                 #props = getattr(cls, '_Properties', {})
@@ -71,7 +73,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                         setattr(cls, property.name, property)
                 cls = cls.__bases__[0]
         #return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
-        return object.__new__(*args, **kwargs)
+        return object.__new__(realcls)
         
     @staticmethod
     def collect_garbage(timeout=True):
