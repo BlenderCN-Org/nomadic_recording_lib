@@ -199,7 +199,7 @@ class ObjProperty(object):
                  'type', '_type', 'parent_obj', 'quiet', 'weakrefs', '__weakref__', 
                  'threaded', 'ignore_range', 'own_callbacks',  
                  'linked_properties', 'enable_emission', 'queue_emission', 
-                 'emission_event', 'emission_thread', 'emission_lock')
+                 'emission_event', 'emission_thread', 'emission_lock', 'own_emission_lock')
     def __init__(self, **kwargs):
         self.enable_emission = True
         self.queue_emission = False
@@ -223,6 +223,7 @@ class ObjProperty(object):
         self.weakrefs = weakref.WeakValueDictionary()
         self.linked_properties = set()
         self.emission_lock = threading.RLock()
+        self.own_emission_lock = threading.Lock()
         self.emission_event = threading.Event()
         #self.emission_thread = kwargs.get('emission_thread', getattr(self.parent_obj, 'ParentEmissionThread', None))
         
@@ -408,6 +409,8 @@ class ObjProperty(object):
         return True
         
     def emit(self, old):
+        if self.own_emission_lock.locked():
+            return
         if not self.enable_emission:
             self.queue_emission = True
             return
@@ -426,8 +429,9 @@ class ObjProperty(object):
             self._do_emission(**cb_kwargs)
             
     def _do_emission(self, **kwargs):
-        for cb in self.own_callbacks.copy():
-            cb(**kwargs)
+        with self.own_emission_lock:
+            for cb in self.own_callbacks.copy():
+                cb(**kwargs)
         self.get_lock()
         emission_thread = self.emission_thread
         wrefs = self.weakrefs
