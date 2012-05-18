@@ -23,7 +23,6 @@ class ListModel(BaseObject, PropertyConnector):
                     self.default_sort_column = i
                     break
         self.store = gtk.ListStore(*self.list_types)
-        self.sorted_store = TreeModelSort(model=self.store)
         self.widget = kwargs.get('widget')
         self._init_widget()
         self.items = kwargs.get('items', {})
@@ -32,6 +31,9 @@ class ListModel(BaseObject, PropertyConnector):
         self.set_sort_column(self.default_sort_column)
         self.bind(current_selection=self._on_current_selection_set)
         self.Property = kwargs.get('Property')
+    def unlink(self):
+        self.Property = None
+        super(ListModel, self).unlink()
     @ThreadToGtk
     def update(self, d):
         for key, val in d.iteritems():
@@ -57,7 +59,6 @@ class ListModel(BaseObject, PropertyConnector):
             if row[0] == key:
                 continue
             self.iters[row[0]] = row.iter
-        #print self.iters
     @ThreadToGtk
     def clear(self):
         self.store.clear()
@@ -88,7 +89,7 @@ class ListModel(BaseObject, PropertyConnector):
         return None
     def _init_widget(self):
         if self.widget is not None:
-            self.widget.set_model(self.sorted_store)
+            self.widget.set_model(self.store)
             if isinstance(self.widget, gtk.TreeView):
                 for x in self.column_order:
                     name = self.column_names[x]
@@ -118,14 +119,13 @@ class ListModel(BaseObject, PropertyConnector):
         cell.connect('toggled', self.on_cell_toggled)
         col = gtk.TreeViewColumn(name, cell, active=i, activatable=i+1)
         return col
-    def set_sort_column(self, i, order=True):
+    def set_sort_column(self, i, order=False):
         if i is None:
             return
-        self.sorted_store.set_sort_column_id(i, order)
+        order = int(order)
+        self.store.set_sort_column_id(i, order)
     def on_cell_toggled(self, cell, path):
-        iter = self.sorted_store.get_iter(path)
-        key = self.sorted_store[iter][0]
-        #print 'toggled', key
+        key = self.store[path][0]
         self.emit('cell_toggled', obj=self, key=key, state=not(cell.get_active()))
     def on_cell_edited(self, cell, path, text, col_index):
         value = self.list_types[col_index](text)
@@ -147,36 +147,30 @@ class ListModelTree(ListModel):
         self.emit('selection_changed', obj=self, key=None)
     def on_widget_sel_changed(self, treesel):
         iter = treesel.get_selected()[1]
-        #iter = self.sorted_store.convert_iter_to_child_iter(None, s_iter)
-        #print iter
         if iter is not None:
-            key = self.sorted_store[iter][0]
+            key = self.store[iter][0]
         else:
             key = None
         if key != self.current_selection:
-            #print 'widget select:', key
             self.current_selection = key
-            #print key
             self.emit('selection_changed', obj=self, key=key)
     @ThreadToGtk
     def set_current_selection(self, **kwargs):
         key = kwargs.get('key')
-        if key != self.current_selection and key in self.items:
-            self.current_selection = key
-            iter = self.iters.get(key)
-            path = self.store.get_path(iter)
-            s_path = self.sorted_store.convert_child_path_to_path(path)
-            s_iter = self.store.get_iter(s_path)
-            self.widget.get_selection().select_iter(s_iter)
+        if key is None:
+            self.widget.get_selection().unselect_all()
+            return
+        if key == self.current_selection or key not in self.items:
+            return
+        self.current_selection = key
+        iter = self.iters.get(key)
+        self.widget.get_selection().select_iter(iter)
 
 class ListModelCombo(ListModel):
     def __init__(self, **kwargs):
-        #self.name = kwargs.get('name', '')
-        #self.topwidget = Frame(label=self.name)
         kwargs.setdefault('list_types', [str])
         kwargs.setdefault('widget', gtk.ComboBox())
         super(ListModelCombo, self).__init__(**kwargs)
-        #self.topwidget.pack_start(self.widget)
         self.widget.connect('changed', self.on_widget_sel_changed)
     def clear(self):
         super(ListModelCombo, self).clear()
@@ -184,23 +178,20 @@ class ListModelCombo(ListModel):
         self.emit('selection_changed', obj=self, key=None)
     def on_widget_sel_changed(self, widget):
         iter = self.widget.get_active_iter()
-        #iter = self.sorted_store.convert_iter_to_child_iter(None, s_iter)
-        key = self.sorted_store[iter][0]
-        #print [col for col in self.store[iter]]
+        if iter is None:
+            return
+        key = self.store[iter][0]
         if key != self.current_selection:
             self.current_selection = key
-            #print key
             self.emit('selection_changed', obj=self, key=key)
     @ThreadToGtk
     def set_current_selection(self, **kwargs):
         key = kwargs.get('key')
-        if key != self.current_selection:
-            self.current_selection = key
-            iter = self.iters.get(key)
-            path = self.store.get_path(iter)
-            #s_iter = self.sorted_store.convert_child_iter_to_iter(iter)
-            s_path = self.sorted_store.convert_child_path_to_path(path)
-            #s_iter = gtk.TreeIter()
-            s_iter = self.sorted_store.get_iter(s_path)
-            
-            self.widget.set_active_iter(s_iter)
+        if key == self.current_selection:
+            return
+        self.current_selection = key
+        if key is None:
+            self.widget.set_active(-1)
+            return
+        iter = self.iters.get(key)
+        self.widget.set_active_iter(iter)

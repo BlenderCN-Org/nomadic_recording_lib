@@ -283,16 +283,23 @@ class Toggle(BaseObject, PropertyConnector):
         #self.toggled_by_program = False
 
 class Fader(BaseObject, PropertyConnector):
-    _Properties = {'widget_is_adjusting':dict(default=False, quiet=True)}
+    _Properties = {'name':dict(default='', fformat='_name_format'), 
+                   'widget_is_adjusting':dict(default=False, quiet=True)}
     def __init__(self, **kwargs):
         super(Fader, self).__init__(**kwargs)
+        name = kwargs.get('name')
+        self._name = name
         self.widget_set_by_program = False
         #self.register_signal('obj_value_changed')
         self.offset_value_range = kwargs.get('offset_value_range', False)
         self.value_fmt_string = '%(value)d%(symbol)s'
         self.setup_widgets(**kwargs)
+        self.bind(name=self._on_name_set, 
+                  widget_is_adjusting=self._on_widget_is_adjusting_set)
+        
+        if name is not None:
+            self.name = name
         self.Property = kwargs.get('Property')
-        self.bind(widget_is_adjusting=self._on_widget_is_adjusting_set)
     
     @property
     def value_range(self):
@@ -307,12 +314,18 @@ class Fader(BaseObject, PropertyConnector):
             return ''
         return self.Property.symbol
         
+    def _name_format(self, value):
+        if self._name is not None:
+            value = self._name
+        return value
+        
     def attach_Property(self, prop):
         super(Fader, self).attach_Property(prop)
         if prop.type == float:
             self.value_fmt_string = '%(value).3f%(symbol)s'
         else:
             self.value_fmt_string = '%(value)d%(symbol)s'
+        self.name = prop.name
         self.set_widget_range()
         self.set_widget_value(self.get_Property_value())
         
@@ -345,6 +358,8 @@ class Fader(BaseObject, PropertyConnector):
         if not state:
             self.on_widget_change_value()
             
+    def _on_name_set(self, **kwargs):
+        pass
     def set_widget_value(self, value):
         pass
     def get_widget_value(self):

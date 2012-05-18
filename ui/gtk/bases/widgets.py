@@ -825,15 +825,17 @@ class CheckBox(gtk.CheckButton):
 
 class Slider(gtksimple.Fader):
     def __init__(self, **kwargs):
-        self.name = kwargs.get('name', kwargs.get('label', ''))
-        self.topwidget = Frame(label=self.name)
+        #self.name = kwargs.get('name', kwargs.get('label', ''))
+        label = kwargs.get('label')
+        if label is not None:
+            kwargs.setdefault('name', label)
+        self.topwidget = Frame(label='')
         super(Slider, self).__init__(**kwargs)
         self.topwidget.pack_start(self.widget, expand=True)
         self.widget.set_digits(2)
-    def attach_Property(self, prop):
-        super(Slider, self).attach_Property(prop)
-        if self.name == '':
-            self.topwidget.set_label(prop.name)
+    def _on_name_set(self, **kwargs):
+        self.topwidget.set_label(kwargs.get('value'))
+        super(Slider, self)._on_name_set(**kwargs)
         
 class VSlider(Slider):
     def __init__(self, **kwargs):
