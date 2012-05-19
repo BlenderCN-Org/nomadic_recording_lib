@@ -165,7 +165,8 @@ def add_call_to_thread(call, *args, **kwargs):
 class BaseThread(OSCBaseObject, threading.Thread):
     _Events = {'_running':{}, 
                '_stopped':{}, 
-               '_threaded_call_ready':dict(wait_timeout=.1)}
+               '_threaded_call_ready':dict(wait_timeout=.1), 
+               '_threaded_calls_idle':{}}
     _Properties = {'_thread_id':dict(default='')}
     def __new__(*args, **kwargs):
         events_by_cls = {}
@@ -218,7 +219,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 self.Events[key] = e
                 if e.wait_timeout is not None:
                     timed_events.append(e.name)
-                    
+        self._threaded_calls_idle = True
         timed_events.reverse()
         self.timed_events = timed_events
         self._threaded_calls_queue = collections.deque()
@@ -252,6 +253,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
                 self._timed_calls_queue.put(p.call_time, p)
             else:
                 self._threaded_calls_queue.append(p)
+            self._threaded_calls_idle = False
             self._cancel_event_timeouts()
         return p
         
@@ -310,6 +312,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
             if self._running:
                 if not len(self._timed_calls_queue):
                     self._threaded_call_ready = False
+                    self._threaded_calls_idle = True
             return
         p = queue.popleft()
         if self.IsParentEmissionThread:
@@ -328,6 +331,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
             if self._running:
                 if not len(self._threaded_calls_queue):
                     self._threaded_call_ready = False
+                    self._threaded_calls_idle = True
             return
         if self.IsParentEmissionThread:
             self.pethread_log('do_timed_call, now=%s: %r' % (now, p))
