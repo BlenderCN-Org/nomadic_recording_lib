@@ -21,6 +21,7 @@ import threading
 import weakref
 
 from threadbases import BaseThread
+from partial import WeakPartial
 from incrementor import IncrementorGroup
 
 MIDNIGHT = datetime.time()
@@ -66,25 +67,32 @@ class BaseClock(object):
         #self.ticks = 0
     
     def add_callback(self, callback, threaded=False):
+        #p = WeakPartial(callback, self._on_WeakPartial_dead)
         if not threaded:
             self.callbacks.add(callback)
+            print 'masterclock callback <%s> added: %s' % (callback, self.callbacks)
             return
-        if callback in self.callback_threads:
+        cbid = id(callback)
+        if cbid in self.callback_threads:
             return
         t = ThreadedCallback(clock=self, callback=callback)
         #e = t.trigger
-        self.callback_threads[callback] = t
+        self.callback_threads[cbid] = t
         #self.callback_triggers[callback] = t.trigger
         t.start()
         
     def del_callback(self, callback, blocking=False):
+        print 'masterclock del_callback %s, %s' % (callback, self.callbacks)
         self.callbacks_to_delete.add(callback)
         if not blocking:
             return
-        cbThread = self.callback_threads.get(callback)
+        cbThread = self.callback_threads.get(id(callback))
         if not cbThread:
             return
         cbThread._stopped.wait()
+        
+    def _on_WeakPartial_dead(self, p):
+        print 'MASTERCLOCK weakpartial %s dead' % (p)
         
     def add_raw_tick_callback(self, cb):
         self.raw_tick_callbacks.add(cb)
@@ -93,15 +101,22 @@ class BaseClock(object):
         self.callbacks_to_delete.add(cb)
         
     def _do_remove_callbacks(self):
-        for cb in self.callbacks_to_delete:
-            self.callbacks.discard(cb)
-            if cb in self.callback_threads:
-                self.callback_threads[cb].stop()
-                del self.callback_threads[cb]
+        to_delete = self.callbacks_to_delete
+        callbacks = self.callbacks
+        callback_threads = self.callback_threads
+        if not len(to_delete):
+            return
+        for cb in to_delete:
+            callbacks.discard(cb)
+            cbid = id(cb)
+            if cbid in callback_threads:
+                callback_threads[cbid].stop()
+                del callback_threads[cbid]
             self.raw_tick_callbacks.discard(cb)
                 #del self.callback_triggers[cb]
         #if len(self.callbacks) == 0:
         #    self.stop()
+        print 'masterclock removed callbacks %s, %s' % (to_delete, callbacks)
         self.callbacks_to_delete.clear()
         
     def do_callbacks(self):

@@ -24,7 +24,7 @@ import functools
 
 from BaseObject import BaseObject
 from osc_base import OSCBaseObject
-from partial import Partial
+from partial import WeakPartial
 from logger import Logger
 from Properties import ObjProperty
 from misc import setID, iterbases
@@ -248,7 +248,7 @@ class BaseThread(OSCBaseObject, threading.Thread):
         with self._insertion_lock:
             if self.IsParentEmissionThread:
                 self.pethread_log('insert call', call, ' to PEThread %s' % (self.name))
-            p = Partial(call, *args, **kwargs)
+            p = WeakPartial(call, self._on_WeakPartial_dead, *args, **kwargs)
             if p.call_time is not None:
                 self._timed_calls_queue.put(p.call_time, p)
             else:
@@ -256,6 +256,18 @@ class BaseThread(OSCBaseObject, threading.Thread):
             self._threaded_calls_idle = False
             self._cancel_event_timeouts()
         return p
+        
+    def _on_WeakPartial_dead(self, p):
+        callqueue = self._threaded_calls_queue
+        timequeue = self._timed_calls_queue
+        print '%s WeakPartial %s dead' % (self._thread_id, p)
+        with self._insertion_lock:
+            if p in callqueue:
+                callqueue.remove(p)
+                print '%s removed %s from callqueue' % (self._thread_id, p)
+            if p.call_time is not None and p.call_time in timequeue.times:
+                r = timequeue.remove(time=p.call_time, item=p)
+                print '%s removed %s from timequeue, result=%s' % (self._thread_id, p, r)
         
     def _cancel_event_timeouts(self, events=None):
         if events is None:
@@ -314,15 +326,18 @@ class BaseThread(OSCBaseObject, threading.Thread):
                     self._threaded_call_ready = False
                     self._threaded_calls_idle = True
             return
-        p = queue.popleft()
-        if self.IsParentEmissionThread:
-            self.pethread_log('do_call: ', p)
-        try:
-            #result = p()
-            result = self._really_do_call(p)
-            return (result, p.cb, p.args, p.kwargs)
-        except:
-            self.LOG.warning(traceback.format_exc())
+        with self._insertion_lock:
+            p = queue.popleft()
+            if p.is_dead:
+                print 'PARTIAL %s already dead' % (p)
+            if self.IsParentEmissionThread:
+                self.pethread_log('do_call: ', repr(p))
+            try:
+                #result = p()
+                result = self._really_do_call(p)
+                return (result, p.cb, p.args, p.kwargs)
+            except:
+                self.LOG.warning(traceback.format_exc())
     def _do_timed_calls(self):
         queue = self._timed_calls_queue
         lowest_time = queue.lowest_time()

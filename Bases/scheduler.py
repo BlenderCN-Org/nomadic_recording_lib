@@ -95,6 +95,27 @@ class TimeQueue(object):
         data.append(item)
         self.data[time] = data
         
+    def remove(self, **kwargs):
+        def do_remove(t, item):
+            data = self.data.get(t)
+            if data is None:
+                return False
+            if item not in data:
+                return False
+            data.remove(item)
+            if not len(data):
+                del self.data[t]
+                self.times.discard(t)
+            return True
+        item = kwargs.get('item')
+        t = kwargs.get('time')
+        if t is not None:
+            return do_remove(t, item)
+        for key, val in self.data.iteritems():
+            if item in val:
+                return do_remove(key, item)
+        return False
+        
     def pop(self, t=None):
         if t is None:
             t = self.lowest_time()
