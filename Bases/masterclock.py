@@ -20,6 +20,7 @@ import time
 import threading
 import weakref
 
+from SignalDispatcher import dispatcher
 from threadbases import BaseThread
 from partial import WeakPartial
 from incrementor import IncrementorGroup
@@ -28,8 +29,10 @@ MIDNIGHT = datetime.time()
 
 _CLOCKS = weakref.WeakValueDictionary()
 
-class BaseClock(object):
+class BaseClock(dispatcher):
     def __init__(self, **kwargs):
+        super(BaseClock, self).__init__(**kwargs)
+        self.register_signal('tick')
         if not len(_CLOCKS):
             i = 0
         else:
@@ -72,7 +75,8 @@ class BaseClock(object):
             self.callbacks.add(callback)
             print 'masterclock callback <%s> added: %s' % (callback, self.callbacks)
             return
-        cbid = id(callback)
+        obj = callback.im_self
+        cbid = '%s-%s' % (callback.im_func.__name__, id(obj))
         if cbid in self.callback_threads:
             return
         t = ThreadedCallback(clock=self, callback=callback)
@@ -108,7 +112,8 @@ class BaseClock(object):
             return
         for cb in to_delete:
             callbacks.discard(cb)
-            cbid = id(cb)
+            obj = cb.im_self
+            cbid = '%s-%s' % (cb.im_func.__name__, id(obj))
             if cbid in callback_threads:
                 callback_threads[cbid].stop()
                 del callback_threads[cbid]
@@ -116,7 +121,7 @@ class BaseClock(object):
                 #del self.callback_triggers[cb]
         #if len(self.callbacks) == 0:
         #    self.stop()
-        print 'masterclock removed callbacks %s, %s' % (to_delete, callbacks)
+        print 'masterclock removed callbacks %s, %s, %s' % (to_delete, callbacks, callback_threads.keys())
         self.callbacks_to_delete.clear()
         
     def do_callbacks(self):
@@ -146,6 +151,7 @@ class BaseClock(object):
         if tickseconds is None:
             return
         self.do_tick_increment()
+        self.emit('tick', clock=self, seconds=self.seconds)
         try:
             self.do_callbacks()
         except:
@@ -289,6 +295,9 @@ class ThreadedCallback(BaseThread):
         super(ThreadedCallback, self).__init__(**kwargs)
     def trigger(self, clock, seconds):
         self.insert_threaded_call(self.callback, clock, clock.seconds)
+    def stop(self, **kwargs):
+        kwargs['wait_for_queues'] = False
+        super(ThreadedCallback, self).stop(**kwargs)
         
 class oldThreadedCallback(threading.Thread):
     def __init__(self, **kwargs):
