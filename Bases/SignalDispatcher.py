@@ -117,7 +117,7 @@ class SignalEmitter(object):
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
         self.parent_obj = kwargs.get('parent_obj')
-        self.emission_lock = threading.RLock()
+        self.emission_lock = threading.Lock()
         self.weakrefs = weakref.WeakValueDictionary()
         
     @property
@@ -129,23 +129,27 @@ class SignalEmitter(object):
         if emission_thread is None:
             return
         elock = self.emission_lock
+        if elock.locked():
+            return
 #        if threading.currentThread() != emission_thread:
 #            print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
 #        if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
 #            owner = threading._active[elock._RLock__owner]
 #            current = threading.currentThread()
 #            print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
-        elock.acquire(True)
+        elock.acquire()
         
     def release_lock(self):
         ethread = self.emission_thread
         if ethread is None:
             return
         elock = self.emission_lock
-        if not elock._is_owned():
+        if not elock.locked():
             return
-        if elock._RLock__owner != ethread.ident:
-            return
+        #if not elock._is_owned():
+        #    return
+        #if elock._RLock__owner != ethread.ident:
+        #    return
         elock.release()
         
     def add_receiver(self, **kwargs):
