@@ -27,7 +27,18 @@ def setID(id):
         #id = id.urn
     return 'UUID_' + id
 
-
+Lock = None
+def get_Lock_class():
+    global Lock
+    return threading.Lock
+    if Lock is not None:
+        return Lock
+    try:
+        import threadbases
+        Lock = threadbases.Lock
+        return Lock
+    except:
+        return threading.Lock
 
 class dispatcher(object):
     def __init__(self, *args, **kwargs):
@@ -117,7 +128,12 @@ class SignalEmitter(object):
     def __init__(self, **kwargs):
         self.name = kwargs.get('name')
         self.parent_obj = kwargs.get('parent_obj')
-        self.emission_lock = threading.Lock()
+        lockcls = get_Lock_class()
+        if getattr(lockcls, '_is_threadbases_Lock', False):
+            self.emission_lock = lockcls(owner_thread=self.emission_thread)
+        else:
+            self.emission_lock = lockcls()
+        #self.emission_lock = threading.Lock()
         self.weakrefs = weakref.WeakValueDictionary()
         
     @property
@@ -127,24 +143,24 @@ class SignalEmitter(object):
     def get_lock(self, *args, **kwargs):
         emission_thread = self.emission_thread
         if emission_thread is None:
-            return
+            return True
         elock = self.emission_lock
-        if elock.locked():
-            return
+        if not getattr(elock, '_is_threadbases_Lock', False) and elock.locked():
+            return False
 #        if threading.currentThread() != emission_thread:
 #            print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
 #        if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
 #            owner = threading._active[elock._RLock__owner]
 #            current = threading.currentThread()
 #            print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
-        elock.acquire()
+        return elock.acquire()
         
     def release_lock(self):
         ethread = self.emission_thread
         if ethread is None:
             return
         elock = self.emission_lock
-        if not elock.locked():
+        if not getattr(elock, '_is_threadbases_Lock', False) and not elock.locked():
             return
         #if not elock._is_owned():
         #    return
@@ -201,7 +217,9 @@ class SignalEmitter(object):
             self._do_emit(*args, **kwargs)
             
     def _do_emit(self, *args, **kwargs):
-        self.get_lock()
+        r = self.get_lock()
+        if not r:
+            return
         emission_thread = self.emission_thread
         wrefs = self.weakrefs
         for key in wrefs.keys()[:]:

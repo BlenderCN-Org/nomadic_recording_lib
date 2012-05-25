@@ -22,12 +22,85 @@ import collections
 import weakref
 import functools
 
+class Lock(object):
+    _is_threadbases_Lock = True
+    def __init__(self, **kwargs):
+        self.owner_thread = kwargs.get('owner_thread')
+        self._current_owner = None
+        self.lock_count = 0
+        self.__lock = threading.Lock()
+    def locked(self):
+        return self.is_locked
+    @property
+    def is_locked(self):
+        return self.__lock.locked()
+    @property
+    def current_owner(self):
+        return self._current_owner
+    @current_owner.setter
+    def current_owner(self, value):
+        if isinstance(value, threading.Thread):
+            value = value.ident
+        self._current_owner = value
+#    @property
+#    def lock_count(self):
+#        return self._lock_count
+#    @lock_count.setter
+#    def lock_count(self, value):
+#        self._lock_count = value
+#        print self
+    def acquire(self, **kwargs):
+        blocking = kwargs.get('blocking', True)
+        ident = threading._get_ident()
+        ot = self.owner_thread
+        if self.is_locked:
+            if ident == self.current_owner:
+                self.lock_count += 1
+                return True
+            else:
+                if ot is not None and ot.ident != ident:
+                    return False
+        else:
+            if ot is not None and ot.ident != ident:
+                return False
+            self.__lock.acquire(blocking)
+            self.current_owner = ident
+            self.lock_count += 1
+    def release(self):
+        if not self.is_locked:
+            return False
+        ident = threading._get_ident()
+        ot = self.owner_thread
+        if ident != self.current_owner:
+            return False
+        self.lock_count -= 1
+        if self.lock_count == 0:
+            self.current_owner = None
+            self.__lock.release()
+        return True
+    def __enter__(self):
+        return self.acquire(blocking=True)
+    def __exit__(self, *args):
+        return self.release()
+    def __repr__(self):
+        clsname = self.__class__.__name__
+        ident = self.current_owner
+        owner = None
+        if ident is not None:
+            owner = threading._active.get(ident)
+        s = '<%s (%s) owner_thread: %r, current_owner: %s, lock_count: %s>' % (clsname, id(self), self.owner_thread, owner, self.lock_count)
+        return s
+
 from BaseObject import BaseObject
 from osc_base import OSCBaseObject
 from partial import WeakPartial
 from logger import Logger
-from Properties import ObjProperty
+#from Properties import ObjProperty
+import Properties
 from misc import setID, iterbases
+
+setattr(Properties, 'Lock', Lock)
+ObjProperty = Properties.ObjProperty
 
 class EventValue(int):
     @property
@@ -62,7 +135,8 @@ class EventValue(int):
         return self > 0
     def __str__(self):
         return str(self > 0)
-
+        
+        
 class Event(ObjProperty):
     __slots__ = ['wait_timeout', '_event', '_event_set_local']
     def __init__(self, **kwargs):

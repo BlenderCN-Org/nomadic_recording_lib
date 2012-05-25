@@ -31,6 +31,19 @@ def getbases(startcls, endcls=None, reverse=False):
         clslist.reverse()
     #print clslist
     return clslist
+    
+Lock = None
+def get_Lock_class():
+    global Lock
+    return threading.Lock
+    if Lock is not None:
+        return Lock
+    try:
+        import threadbases
+        Lock = threadbases.Lock
+        return Lock
+    except:
+        return threading.Lock
 
 class ClsProperty(object):
     '''Property that can be attached to a class.  Can be created automatically
@@ -222,8 +235,14 @@ class ObjProperty(object):
         #self.weakrefs = MyWVDict(printstring='property weakref' + self.name)
         self.weakrefs = weakref.WeakValueDictionary()
         self.linked_properties = set()
-        self.emission_lock = threading.Lock()
-        self.own_emission_lock = threading.Lock()
+        #self.emission_lock = threading.Lock()
+        lockcls = get_Lock_class()
+        if getattr(lockcls, '_is_threadbases_Lock', False):
+            self.emission_lock = lockcls(owner_thread=self.emission_thread)
+            self.own_emission_lock = lockcls(owner_thread=self.emission_thread)
+        else:
+            self.emission_lock = lockcls()
+            self.own_emission_lock = lockcls()
         self.emission_event = threading.Event()
         #self.emission_thread = kwargs.get('emission_thread', getattr(self.parent_obj, 'ParentEmissionThread', None))
         
@@ -313,24 +332,24 @@ class ObjProperty(object):
     def get_lock(self, *args, **kwargs):
         emission_thread = self.emission_thread
         if emission_thread is None:
-            return
+            return True
         elock = self.emission_lock
-        if elock.locked():
-            return
+        if not getattr(elock, '_is_threadbases_Lock', False) and elock.locked():
+            return False
 #        if threading.currentThread() != emission_thread:
 #            print 'emitting from wrong thread: %s, should be %s' % (threading.currentThread(), emission_thread)
 #        if elock._is_owned() and elock._RLock__owner != emission_thread.ident:
 #            owner = threading._active[elock._RLock__owner]
 #            current = threading.currentThread()
 #            print 'emission_lock owned by thread %s, not %s, current=%s' % (owner, emission_thread, current)
-        elock.acquire()
+        return elock.acquire()
         
     def release_lock(self):
         ethread = self.emission_thread
         if ethread is None:
             return
         elock = self.emission_lock
-        if not elock.locked():
+        if not getattr(elock, '_is_threadbases_Lock', False) and not elock.locked():
             return
         #if not elock._is_owned():
         #    return
@@ -436,7 +455,9 @@ class ObjProperty(object):
         with self.own_emission_lock:
             for cb in self.own_callbacks.copy():
                 cb(**kwargs)
-        self.get_lock()
+        r = self.get_lock()
+        if not r:
+            return
         emission_thread = self.emission_thread
         wrefs = self.weakrefs
         for wrkey in wrefs.keys()[:]:
