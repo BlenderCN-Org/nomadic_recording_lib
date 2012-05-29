@@ -2,10 +2,31 @@ import threading
 import functools
 import weakref
 
+Lock = None
+def get_Lock_class():
+    global Lock
+    return threading.Lock
+    if Lock is not None:
+        return Lock
+    try:
+        import threadbases
+        Lock = threadbases.Lock
+        return Lock
+    except:
+        return threading.Lock
+
 class Partial(object):
     #__slots__ = ('call_time', 'id', 'obj_name', 'func_name', '_partial')
     def __init__(self, cb, *args, **kwargs):
-        self.call_lock = threading.Lock()
+        t = kwargs.get('__PartialObjOwnerThread__')
+        if t is not None:
+            del kwargs['__PartialObjOwnerThread__']
+        self.owner_thread = t
+        lockcls = get_Lock_class()
+        if getattr(lockcls, '_is_threadbases_Lock', False):
+            self.call_lock = lockcls(owner_thread=self.owner_thread)
+        else:
+            self.call_lock = lockcls()
         self.call_count = 0
         self.call_time = kwargs.get('_Partial_call_time_')
         obj = cb.im_self
@@ -33,7 +54,8 @@ class Partial(object):
             self._partial()
     def __str__(self):
         #s = '%s(%s), %s' % (self.obj_name, self.id, self.func_name)
-        s = repr(self._partial.func)
+        #s = repr(self._partial.func)
+        s = '%r, args=%s, kwargs=%s' % (self._partial.func, self.args, self.kwargs)
         t = self.call_time
         if t is not None:
             s = '%s (%s)' % (s, t)
@@ -56,6 +78,8 @@ class WeakPartial(Partial):
         if cb is None:
             return
         cb(self)
+    def __repr__(self):
+        return '<WeakPartial object %s: %s>' % (id(self), str(self))
     
 class WeakPartialPartial(object):
     def __init__(self, cb, dead_cb, *args, **kwargs):

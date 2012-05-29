@@ -200,6 +200,15 @@ class MyWVDict(weakref.WeakValueDictionary):
         #print 'ADD: ', len(self.data), self.printstring, key
         
 
+def normalize_value(value, min, max):
+    return value / float(max - min)
+def unnormalize_value(value, min, max):
+    return value * float(max - min)
+def normalize_and_offset_value(value, min, max):
+    return (value - min) / float(max - min)
+def unnormalize_and_offset_value(value, min, max):
+    return (value * float(max - min)) + min
+    
 class ObjProperty(object):
     '''This object will be added to an instance of a class that contains a
         ClsProperty.  It is used to store the Property value, min and max settings,
@@ -258,60 +267,36 @@ class ObjProperty(object):
     range = property(_get_range, _set_range)
         
     def _get_normalized(self):
-        if isinstance(self.value, dict):
-            d = {}
-            for key, val in self.value.iteritems():
-                d[key] = val / float(self.max[key] - self.min[key])
-            return d
-        elif isinstance(self.value, list):
-            return [v / float(self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
-        return self.value / float(self.max - self.min)
+        value = getattr(self.parent_obj, self.name)
+        f = normalize_value
+        if hasattr(value, '_normalization_iter'):
+            return value._normalization_iter(value, self.min, self.max, f)
+        return f(value, self.min, self.max)
     def _set_normalized(self, value):
-        if isinstance(self.value, dict):
-            value = value.copy()
-            for key in value.iterkeys():
-                value[key] = value[key] * float(self.max[key] - self.min[key])
-            self.set_value(value)
-        elif isinstance(self.value, list):
-            value = [v * float(self.max[i] - self.min[i]) for i, v in enumerate(value)]
-            self.set_value(value)
+        _value = getattr(self.parent_obj, self.name)
+        f = unnormalize_value
+        if hasattr(_value, '_normalization_iter'):
+            value = _value._normalization_iter(value, self.min, self.max, f)
         else:
-            self.set_value(self.type(value * float(self.max - self.min)))
+            value = self.type(f(value, self.min, self.max))
+        self.set_value(value)
     
     normalized = property(_get_normalized, _set_normalized)
     
     def _get_normalized_and_offset(self):
-        if isinstance(self.value, dict):
-            d = {}
-            for key, val in self.value.iteritems():
-                d[key] = (val - self.min[key]) / float(self.max[key] - self.min[key])
-            return d
-#            d = self.normalized
-#            for key in d.iterkeys():
-#                #d[key] = d[key] + ((self.max[key] - self.min[key]) / 2.)
-#                d[key] = d[key] - self.min[key]
-#            return d
-        elif isinstance(self.value, list):
-            #return [v + ((self.max[i] - self.min[i]) / 2.) for i, v in self.normalized]
-            return [(v - self.min[i]) / float(self.max[i] - self.min[i]) for i, v in enumerate(self.value)]
-            #return [v - self.min[i] for i, v in enumerate(self.normalized)]
-        return (self.value - self.min) / float(self.max - self.min)
+        value = getattr(self.parent_obj, self.name)
+        f = normalize_and_offset_value
+        if hasattr(value, '_normalization_iter'):
+            return value._normalization_iter(value, self.min, self.max, f)
+        return f(value, self.min, self.max)
     def _set_normalized_and_offset(self, value):
-        if isinstance(self.value, dict):
-            value = value.copy()
-            for key in value.iterkeys():
-                value[key] = (value[key] * float(self.max[key] - self.min[key])) + self.min[key]
-                #value[key] = value[key] - ((self.max[key] - self.min[key]) / 2.)
-            #self.normalized = value
-            self.set_value(value)
-        elif isinstance(self.value, list):
-            value = [(v * float(self.max[i] - self.min[i])) + self.min[i] for i, v in enumerate(value)]
-            self.set_value(value)
-            #value = [v - ((self.max[i] - self.min[i]) / 2.) for i, v in enumerate(value)]
-            #self.normalized = value
+        _value = getattr(self.parent_obj, self.name)
+        f = unnormalize_and_offset_value
+        if hasattr(_value, '_normalization_iter'):
+            value = _value._normalization_iter(value, self.min, self.max, f)
         else:
-            #self.normalized = value - ((self.max - self.min) / 2.)
-            self.set_value(self.type((value * float(self.max - self.min)) + self.min))
+            value = self.type(f(value, self.min, self.max))
+        self.set_value(value)
     
     normalized_and_offset = property(_get_normalized_and_offset, _set_normalized_and_offset)
     
@@ -512,6 +497,24 @@ class ListProperty(list):
     def __init__(self, initlist=None, **kwargs):
         self.parent_property = kwargs.get('parent_property')
         super(ListProperty, self).__init__(initlist)
+    @staticmethod
+    def _check_normalize(value, min, max):
+        if not isinstance(value, list):
+            raise TypeError(value)
+        if not isinstance(min, list):
+            min = [min] * len(value)
+        if not isinstance(max, list):
+            max = [max] * len(value)
+        return value, min, max
+    @staticmethod
+    def _normalization_iter(value, min, max, f=None):
+        value, min, max = ListProperty._check_normalize(value, min, max)
+        if f is not None:
+            return [f(value[i], min[i], max[i]) for i in range(len(value))]
+        results = []
+        for i in range(len(value)):
+            results.append((i, value[i], min[i], max[i]))
+        return results
     def copy(self):
         return self[:]
     def clear(self):
@@ -563,6 +566,27 @@ class DictProperty(dict):
         if initdict is None:
             initdict = {}
         super(DictProperty, self).__init__(initdict)
+    @staticmethod
+    def _check_normalize(value, min, max):
+        if not isinstance(value, dict):
+            raise TypeError(value)
+        if not isinstance(min, dict):
+            keys = value.keys()
+            min = dict(zip(keys, [min]*len(keys)))
+        if not isinstance(max, dict):
+            keys = value.keys()
+            max = dict(zip(keys, [max]*len(keys)))
+        return value, min, max
+    @staticmethod
+    def _normalization_iter(value, min, max, f=None):
+        value, min, max = DictProperty._check_normalize(value, min, max)
+        keys = value.keys()[:]
+        if f is not None:
+            return dict(zip(keys, [f(value[key], min[key], max[key]) for key in keys]))
+        results = {}
+        for key in keys:
+            results[key] = (key, value[key], min[key], max[key])
+        return results
     def _update_value(self, value):
         self.update(value)
     def __setitem__(self, key, item):
