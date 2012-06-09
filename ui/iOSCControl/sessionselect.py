@@ -8,6 +8,7 @@ class SessionSelect(OSCBaseObject):
         self.client = kwargs.get('client')
         kwargs.setdefault('osc_parent_node', self.client.osc_node)
         kwargs.setdefault('osc_address', 'SessionSelect')
+        kwargs.setdefault('ParentEmissionThread', self.iOsc.ParentEmissionThread)
         super(SessionSelect, self).__init__(**kwargs)
         x = .25
         y = .1

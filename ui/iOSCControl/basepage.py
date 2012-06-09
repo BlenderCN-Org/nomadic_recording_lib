@@ -7,6 +7,7 @@ class BasePage(OSCBaseObject):
         self.MainController = self.iOsc.MainController
         kwargs.setdefault('osc_parent_node', self.client.osc_node)
         kwargs.setdefault('osc_address', self.__class__.__name__)
+        kwargs.setdefault('ParentEmissionThread', self.iOsc.ParentEmissionThread)
         super(BasePage, self).__init__(**kwargs)
         self.x_offset = kwargs.get('x_offset', 0)
         self.y_offset = kwargs.get('y_offset', 0)
@@ -14,6 +15,7 @@ class BasePage(OSCBaseObject):
     def build_topwidget(self, cls, **kwargs):
         kwargs.setdefault('client', self.client)
         kwargs.setdefault('osc_parent_node', self.osc_node)
+        kwargs.setdefault('ParentEmissionThread', self.ParentEmissionThread)
         self.topwidget = self.iOsc.add_widget(cls, **kwargs)
         
     def remove(self):

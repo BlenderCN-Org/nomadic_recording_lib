@@ -11,10 +11,10 @@ from pagemenu import PageMenu
 from sessionselect import SessionSelect
 
 class iOSCController(OSCBaseObject):
+    BuildEmissionThread = True
     def __init__(self, **kwargs):
-        self.MainController = kwargs.get('MainController')
-        self.comm = self.MainController.comm
-        kwargs.setdefault('osc_parent_node', self.MainController.osc_parent_node)
+        self.comm = kwargs.get('comm')
+        #kwargs.setdefault('osc_parent_node', self.MainController.osc_parent_node)
         kwargs.setdefault('osc_address', 'iOSCControl')
         super(iOSCController, self).__init__(**kwargs)
         self.widgets = {}
@@ -75,7 +75,8 @@ class iOSCController(OSCBaseObject):
         if cls:
             w_kwargs = kwargs.copy()
             d = dict(osc_parent_node=self.osc_node, 
-                     osc_root_address=self.osc_address)
+                     osc_root_address=self.osc_address, 
+                     ParentEmissionThread=self.ParentEmissionThread)
             for key, val in d.iteritems():
                 if key not in w_kwargs:
                     w_kwargs[key] = val
@@ -237,6 +238,7 @@ class iOscClient(OSCBaseObject):
         client_obj = kwargs.get('client')
         kwargs.setdefault('osc_parent_node', self.iOsc.osc_node)
         kwargs.setdefault('osc_address', client_obj.name)
+        kwargs.setdefault('ParentEmissionThread', self.iOsc.ParentEmissionThread)
         self.session_select_remove_thread = None
         super(iOscClient, self).__init__(**kwargs)
         print 'IOSC_CLIENT: ', client_obj.name, self.osc_node.name, self.osc_node.get_full_path()

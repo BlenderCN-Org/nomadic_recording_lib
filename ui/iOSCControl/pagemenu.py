@@ -1,14 +1,15 @@
 from Bases import OSCBaseObject, ChildGroup
 import widgets
 
-from pages.groups import GroupMasters
-from pages.cuestacks import CueStacks
-from pages.groupcontrol import GroupControl
-from pages.devicecontrol import DeviceControl
-from pages.palettes import Palettes
-from pages.setup import Setup
-
-PAGES = (GroupMasters, CueStacks, GroupControl, DeviceControl, Palettes, Setup)
+#from pages.groups import GroupMasters
+#from pages.cuestacks import CueStacks
+#from pages.groupcontrol import GroupControl
+#from pages.devicecontrol import DeviceControl
+#from pages.palettes import Palettes
+#from pages.setup import Setup
+#
+#PAGES = (GroupMasters, CueStacks, GroupControl, DeviceControl, Palettes, Setup)
+PAGES = []
 
 class PageMenu(OSCBaseObject):
     #button_size = dict(w=.2, h=.05)
@@ -18,6 +19,7 @@ class PageMenu(OSCBaseObject):
         self.current_page = None
         kwargs.setdefault('osc_parent_node', self.client.osc_node)
         kwargs.setdefault('osc_address', 'PageMenu')
+        kwargs.setdefault('ParentEmissionThread', self.iOsc.ParentEmissionThread)
         super(PageMenu, self).__init__(**kwargs)
         self.x_offset = kwargs.get('x_offset', 0.)
         self.y_offset = kwargs.get('y_offset', 0.)

@@ -60,6 +60,7 @@ class BaseWidget(OSCBaseObject, PropertyConnector):
         
         self.child_widgets = {}
         self.Property = kwargs.get('Property')
+        print self, self.ParentEmissionThread
             
     def unlink(self):
         self.Property = None
@@ -88,6 +89,7 @@ class BaseWidget(OSCBaseObject, PropertyConnector):
         for key in ['client', 'osc_root_address']:
             kwargs.setdefault(key, getattr(self, key))
         kwargs.setdefault('osc_parent_node', self.osc_node)
+        kwargs.setdefault('ParentEmissionThread', self.ParentEmissionThread)
         kwargs['parent_widget'] = self
 #        prebind = kwargs.get('prebind', {})
 #        prebind.update(dict(interface_update=self.on_child_interface_update, 
