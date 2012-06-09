@@ -26,6 +26,7 @@ import weakref
 import SignalDispatcher
 from Serialization import Serializer
 import Properties
+#from misc import iterbases
 
 save_keys = {}
 for key in ['saved_attributes', 'saved_child_classes', 'saved_child_objects']:
@@ -58,10 +59,11 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     _Properties = {'Index':dict(type=int, fvalidate='_Index_validate')}
     def __new__(*args, **kwargs):
         realcls = args[0]
-        cls = realcls
+        #cls = realcls
         #print 'Baseobject __new__: ', cls
-        if cls != BaseObject:
-            while issubclass(cls, BaseObject):
+        if realcls != BaseObject:
+            for cls in iterbases(realcls, BaseObject.__bases__[0]):
+            #while issubclass(cls, BaseObject):
                 #props = getattr(cls, '_Properties', {})
                 props = cls.__dict__.get('_Properties', {})
                 for key, val in props.iteritems():
@@ -71,7 +73,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                         p_kwargs['cls'] = cls
                         property = Properties.ClsProperty(**p_kwargs)
                         setattr(cls, property.name, property)
-                cls = cls.__bases__[0]
+                #cls = cls.__bases__[0]
         #return SignalDispatcher.dispatcher.__new__(*args, **kwargs)
         return object.__new__(realcls)
         
@@ -116,7 +118,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         self.ParentEmissionThread = kwargs.get('ParentEmissionThread')
         self.Properties = {}
         self._Index_validate_default = True
-        cls = self.__class__
+        #cls = self.__class__
         #bases_limit = getattr(cls, '_saved_bases_limit', self._saved_class_name)
         signals_to_register = set()
         save_dict = {}
@@ -126,7 +128,8 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         self.SettingsPropKeys = []
         self.ChildGroups = {}
         childgroups = {}
-        while cls != BaseObject.__bases__[0]:# and getattr(cls, '_saved_class_name', '') != bases_limit:
+        for cls in iterbases(self, BaseObject.__bases__[0]):
+        #while cls != BaseObject.__bases__[0]:# and getattr(cls, '_saved_class_name', '') != bases_limit:
             if not hasattr(self, 'saved_class_name'):
                 if hasattr(cls, '_saved_class_name'):
                     self.saved_class_name = cls._saved_class_name
@@ -156,7 +159,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
                         childgroups[cgkey].update(cgval)
                     else:
                         childgroups[cgkey] = cgval
-            cls = cls.__bases__[0]
+            #cls = cls.__bases__[0]
         self.SettingsPropKeys.reverse()
         self.SettingsPropKeys = tuple(self.SettingsPropKeys)
         for key, val in save_dict.iteritems():
@@ -342,6 +345,7 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     def LOG(self):
         return LOGGER
 
+from misc import iterbases
 from ChildGroup import ChildGroup
 
 class _GlobalConfig(BaseObject, UserDict.UserDict):
