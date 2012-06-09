@@ -29,6 +29,12 @@ class iOSCController(OSCBaseObject):
         #self.SelectionGroup = self.MainController.add_group(name='OSCControl', id='OSCControl', index=999)
         self.add_osc_handler(callbacks={'dummy':self.dummy_cb})
         
+    def unlink(self):
+        for c in self.clients.values()[:]:
+            self.remove_client(client=c)
+        self.stop_ParentEmissionThread()
+        super(iOSCController, self).unlink()
+        
     def dummy_cb(self, **kwargs):
         pass
         

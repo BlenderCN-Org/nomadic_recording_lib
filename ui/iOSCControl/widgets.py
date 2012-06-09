@@ -60,7 +60,6 @@ class BaseWidget(OSCBaseObject, PropertyConnector):
         
         self.child_widgets = {}
         self.Property = kwargs.get('Property')
-        print self, self.ParentEmissionThread
             
     def unlink(self):
         self.Property = None
