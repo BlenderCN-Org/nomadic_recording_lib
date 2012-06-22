@@ -47,6 +47,8 @@ class Config(object):
     def set_conf_filename(self, filename):
         self._conf_filename = filename
         self._read_conf_file()
+        if self._confsection is None:
+            return
         if self._confparser.has_section(self._confsection) is False:
             self._confparser.add_section(self._confsection)
     def _read_conf_file(self):
@@ -55,6 +57,8 @@ class Config(object):
         self._confparser.read(self._conf_filename)
     def get_conf(self, key=None, default=None):
         self._read_conf_file()
+        if self._confsection is None:
+            return {}
         items = dict(self._confparser.items(self._confsection))
         if items is None:
             return default
