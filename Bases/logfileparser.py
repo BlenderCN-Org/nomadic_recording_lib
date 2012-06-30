@@ -83,6 +83,43 @@ class DelimitedFileParser(FileParser):
                 print 'setattr: ', key, val
                 setattr(self, key, val)
             
+    def parse_line(self, s):
+        quote_char = self.quote_char
+        delim = self.delimiter
+        parse_field = self.parse_field
+        s = s.lstrip(self.line_strip_chars)
+        if delim != ' ':
+            s = s.strip()
+        for field in s.split(delim):
+            yield parse_field(field)
+        
+    def parse_field(self, field):
+        quote_char = self.quote_char
+        if quote_char is None:
+            return field
+        if field[:1] == quote_char and field[-1:] == quote_char:
+            field = field[1:-1]
+        else:
+            if field.isdigit():
+                field = int(field)
+            elif '.' in field and False not in [n.isdigit() for n in field.split('.')]:
+                field = float(field)
+        return field
+        
+    def process_header(self, line_number, line):
+        if line_number < self.header_line_num:
+            return True, line
+        return False, line
+        
+    def process_field_header(self, line_number, line):
+        if line_number != self.header_line_num:
+            return False, []
+        if not self.field_names_in_header:
+            return False, []
+        l = []
+        for fn in self.parse_line(line):
+            l.append(fn)
+        return True, l
     def do_parse(self):
         f = self.fileobj
         if f is None:
@@ -93,50 +130,40 @@ class DelimitedFileParser(FileParser):
         field_names = self.field_names
         line_strip_chars = self.line_strip_chars
         header_line_num = self.header_line_num
-        def parse_line(s):
-            l = []
-            s = s.lstrip(line_strip_chars)
-            if delim != ' ':
-                s = s.strip()
-            for field in s.split(delim):
-                if is_quoted:
-                    if field[:1] == quote_char and field[-1:] == quote_char:
-                        field = field[1:-1]
-                    else:
-                        if field.isdigit():
-                            field = int(field)
-                        elif '.' in field and False not in [n.isdigit() for n in field.split('.')]:
-                            field = float(field)
-                l.append(field)
-            return l
-        d = {'pre_header':[], 'fields_by_line':{}, 'fields_by_key':{}}
+        parse_line = self.parse_line
+        process_header = self.process_header
+        process_field_header = self.process_field_header
+        d = {'header_data':[], 'fields_by_line':{}, 'fields_by_key':{}}
         i = 0
         line_num = 0
         for line in f:
-            if i < header_line_num:
-                d['pre_header'].append(line)
+            line = line.rstrip('\n').rstrip('\r')
+            is_header, header_data = process_header(i, line)
+            if is_header:
+                d['header_data'].append(header_data)
                 i += 1
                 line_num += 1
                 continue
-            if i == header_line_num:
-                if self.field_names_in_header:
-                    field_names = parse_line(line)
-                    ##self.field_names = field_names
-                    for fn in field_names:
-                        d['fields_by_key'][fn] = {}
-                    line_num = 0
-                    i += 1
-                    continue
+            is_field_header, l = process_field_header(i, line)
+            if is_field_header:
+                for fn in l:
+                    if fn in field_names:
+                        continue
+                    d['fields_by_key'][fn] = {}
+                    field_names.append(fn)
+                line_num = 0
+                i += 1
+                continue
             if line.startswith('#'):
                 i += 1
                 continue
-            parsed = parse_line(line)
             d['fields_by_line'][line_num] = {}
-            for field_index, field_val in enumerate(parsed):
+            field_index = 0
+            for field_val in parse_line(line):
                 field_name = field_names[field_index]
                 d['fields_by_key'][field_name][line_num] = field_val
                 d['fields_by_line'][line_num][field_name] = field_val
-                #d['fields'][field_names[field_index]][line_num] = field_val
+                field_index += 1
             i += 1
             line_num += 1
         return d
@@ -155,3 +182,21 @@ class DelimitedFileParser(FileParser):
             if value.lower() in NON_CTRL_DELIMITERS:
                 return NON_CTRL_DELIMITERS[value.lower()]
         return value
+
+class W3CExtendedLogfileParser(DelimitedFileParser):
+    def process_header(self, line_number, line):
+        if line.startswith('#Fields:'):
+            return False, line
+        if not line.startswith('#'):
+            return False, line
+        line = line.strip('#')
+        key, val = line.split(': ')
+        return True, {key:val}
+    def process_field_header(self, line_number, line):
+        if not line.startswith('#Fields:'):
+            return False, []
+        line = line.lstrip('#Fields:')
+        l = []
+        for fn in self.parse_line(line):
+            l.append(fn)
+        return True, l
