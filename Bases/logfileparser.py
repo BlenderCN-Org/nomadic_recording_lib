@@ -1,3 +1,4 @@
+import os.path
 from curses import ascii
 
 from BaseObject import BaseObject
@@ -34,37 +35,51 @@ class FileParser(BaseParser):
         self.bind(filename=self.on_filename_set)
         self.filename = kwargs.get('filename')
         
-    def parse_file(self):
-        print 'parse file', self.filename
-        self.open_file()
-        parsed = self.do_parse()
+    def parse_file(self, **kwargs):
+        f = self.open_file(**kwargs)
+        parsed = self.do_parse(fileobj=f)
         #print parsed
-        self.parsed.update(parsed)
+        #self.parsed.update(parsed)
+        for key, val in parsed.iteritems():
+            d = self.parsed.get(key)
+            if d is None:
+                self.parsed[key] = val
+            else:
+                print 'updating: ', key, val
+                d.update(val)
         self.sorted.update(self.do_sort(parsed))
-        self.close_file()
+        self.close_file(fileobj=f)
         
-    def open_file(self):
-        self.close_file()
-        if self.filename is None:
+    def open_file(self, **kwargs):
+        filename = kwargs.get('filename', self.filename)
+        #self.close_file()
+        if filename is None:
             print 'file is none'
             return
-        f = open(self.filename, self.rw_mode)
-        self.fileobj = f
-        print f
+        f = open(filename, self.rw_mode)
+        if self.fileobj is None:
+            self.fileobj = f
+        return f
         
     def close_file(self, **kwargs):
-        f = self.fileobj
+        f = kwargs.get('fileobj', self.fileobj)
         if f is None:
             return
         f.close()
-        self.fileobj = None
+        if f == self.fileobj:
+            self.fileobj = None
         
-    def do_parse(self):
+    def do_parse(self, **kwargs):
         return {}
         
     def on_filename_set(self, **kwargs):
-        print 'filename set', kwargs
-        self.parse_file()
+        value = kwargs.get('value')
+        parse_file = self.parse_file
+        if type(value) in [list, tuple]:
+            for fn in value:
+                parse_file(filename=fn)
+        else:
+            parse_file(filename=kwargs.get('value'))
         
 
 NON_CTRL_DELIMITERS = dict(comma=',', semicolon=';', colon=':', space=' ')
@@ -120,8 +135,9 @@ class DelimitedFileParser(FileParser):
         for fn in self.parse_line(line):
             l.append(fn)
         return True, l
-    def do_parse(self):
-        f = self.fileobj
+        
+    def do_parse(self, **kwargs):
+        f = kwargs.get('fileobj', self.fileobj)
         if f is None:
             return
         delim = self.delimiter
@@ -133,14 +149,14 @@ class DelimitedFileParser(FileParser):
         parse_line = self.parse_line
         process_header = self.process_header
         process_field_header = self.process_field_header
-        d = {'header_data':[], 'fields_by_line':{}, 'fields_by_key':{}}
+        d = {'header_data':{}, 'fields_by_line':{}, 'fields_by_key':{}}
         i = 0
         line_num = 0
         for line in f:
             line = line.rstrip('\n').rstrip('\r')
             is_header, header_data = process_header(i, line)
             if is_header:
-                d['header_data'].append(header_data)
+                d['header_data'][i] = header_data
                 i += 1
                 line_num += 1
                 continue
@@ -191,7 +207,7 @@ class W3CExtendedLogfileParser(DelimitedFileParser):
             return False, line
         line = line.strip('#')
         key, val = line.split(': ')
-        return True, {key:val}
+        return True, {key:val, 'line_number':line_number}
     def process_field_header(self, line_number, line):
         if not line.startswith('#Fields:'):
             return False, []
@@ -200,3 +216,51 @@ class W3CExtendedLogfileParser(DelimitedFileParser):
         for fn in self.parse_line(line):
             l.append(fn)
         return True, l
+
+class W3CExtendedLogfileRollingParser(W3CExtendedLogfileParser):
+    _Properties = {'last_line_number':dict(default=0)}
+    def do_parse(self, **kwargs):
+        parsed = super(W3CExtendedLogfileRollingParser, self).do_parse(**kwargs)
+        last_line = max(parsed['fields_by_line'].keys())
+        if self.last_line_number == 0:
+            self.last_line_number = last_line
+            print 'last_line:', last_line
+            return parsed
+        keys = parsed['fields_by_line'].keys()[:]
+        for key in keys:
+            newkey = key + last_line + 1
+            val = parsed['fields_by_line'][key]
+            del parsed['fields_by_line'][key]
+            parsed['fields_by_line'][newkey] = val
+        for fieldname, fields in parsed['fields_by_key'].iteritems():
+            keys = fields.keys()[:]
+            for key in keys:
+                newkey = key + last_line + 1
+                val = fields[key]
+                del fields[key]
+                fields[newkey] = val
+        keys = parsed['header_data'].keys()[:]
+        for key in keys:
+            newkey = key + last_line + 1
+            val = parsed['header_data'][key]
+            del parsed['header_data'][key]
+            parsed['header_data'][newkey] = val
+        print parsed, last_line
+        self.last_line_number = last_line
+        return parsed
+        
+    def on_filename_set(self, **kwargs):
+        prop = kwargs.get('Property')
+        value = kwargs.get('value')
+        if type(value) in [str, unicode]:
+            filenames = []
+            path = os.path.dirname(value)
+            basefile = os.path.basename(value)
+            for fn in os.listdir(path):
+                if fn.startswith(basefile):
+                    filenames.append(os.path.join(path, fn))
+            prop.value = filenames
+            kwargs['value'] = filenames
+        super(W3CExtendedLogfileRollingParser, self).on_filename_set(**kwargs)
+        
+        
