@@ -3,6 +3,56 @@ from curses import ascii
 
 from BaseObject import BaseObject
 
+class LogEntry(BaseObject):
+    def __init__(self, **kwargs):
+        super(LogEntry, self).__init__(**kwargs)
+        self._field_names = kwargs.get('field_names')
+        self.parser = kwargs.get('parser')
+        self.id = kwargs.get('id')
+        self.field_list = []
+        self.fields = {}
+        data = kwargs.get('data')
+        self.data = data
+        self.parse(data=data)
+    @property
+    def field_names(self):
+        if self._field_names is not None:
+            return self._field_names
+        return self.parser.field_names
+    def parse(self, **kwargs):
+        pass
+    
+class DelimitedLogEntry(LogEntry):
+    def __init__(self, **kwargs):
+        super(DelimitedLogEntry, self).__init__(**kwargs)
+        
+    def parse(self, **kwargs):
+        data = kwargs.get('data')
+        parser = self.parser
+        delim = parser.delimiter
+        field_names = self.field_names
+        field_list = self.field_list
+        parse_field = self.parse_field
+        #s = s.lstrip(self.line_strip_chars)
+        if delim != ' ':
+            data = data.strip()
+        for field in data.split(delim):
+            field_list.append(parse_field(field))
+        if field_names is not None:
+            self.fields.update(dict(zip(field_names, field_list)))
+            
+    def parse_field(self, field):
+        quote_char = self.parser.quote_char
+        if quote_char is None:
+            return field
+        if field[:1] == quote_char and field[-1:] == quote_char:
+            field = field[1:-1]
+        else:
+            if field.isdigit():
+                field = int(field)
+            elif '.' in field and False not in [n.isdigit() for n in field.split('.')]:
+                field = float(field)
+        return field
 
 class BaseParser(BaseObject):
     _Properties = {'field_names':dict(default=[]), 
@@ -128,13 +178,15 @@ class DelimitedFileParser(FileParser):
         
     def process_field_header(self, line_number, line):
         if line_number != self.header_line_num:
-            return False, []
+            return False
         if not self.field_names_in_header:
-            return False, []
-        l = []
-        for fn in self.parse_line(line):
-            l.append(fn)
-        return True, l
+            return False
+        entry = self.build_entry(data=line)
+        return entry
+        #l = []
+        #for fn in self.parse_line(line):
+        #    l.append(fn)
+        #return True, l
         
     def do_parse(self, **kwargs):
         f = kwargs.get('fileobj', self.fileobj)
@@ -149,40 +201,47 @@ class DelimitedFileParser(FileParser):
         parse_line = self.parse_line
         process_header = self.process_header
         process_field_header = self.process_field_header
-        d = {'header_data':{}, 'fields_by_line':{}, 'fields_by_key':{}}
+        d = {'header_data':{}, 'entries':{}}
         i = 0
         line_num = 0
         for line in f:
             line = line.rstrip('\n').rstrip('\r')
+            if not len(line):
+                continue
             is_header, header_data = process_header(i, line)
             if is_header:
                 d['header_data'][i] = header_data
                 i += 1
                 line_num += 1
                 continue
-            is_field_header, l = process_field_header(i, line)
-            if is_field_header:
-                for fn in l:
+            field_header = process_field_header(i, line)
+            if field_header is not False:
+                for fn in field_header.field_list:
                     if fn in field_names:
                         continue
-                    d['fields_by_key'][fn] = {}
+                    #d['fields_by_key'][fn] = {}
                     field_names.append(fn)
-                line_num = 0
+                line_num -= 1
                 i += 1
                 continue
             if line.startswith('#'):
                 i += 1
                 continue
-            d['fields_by_line'][line_num] = {}
-            field_index = 0
-            for field_val in parse_line(line):
-                field_name = field_names[field_index]
-                d['fields_by_key'][field_name][line_num] = field_val
-                d['fields_by_line'][line_num][field_name] = field_val
-                field_index += 1
+            entry = self.build_entry(data=line, id=line_num)
+            d['entries'][entry.id] = entry
+            #d['fields_by_line'][line_num] = {}
+            #field_index = 0
+            #for field_val in parse_line(line):
+            #    field_name = field_names[field_index]
+            #    d['fields_by_key'][field_name][line_num] = field_val
+            #    d['fields_by_line'][line_num][field_name] = field_val
+            #    field_index += 1
             i += 1
             line_num += 1
         return d
+    def build_entry(self, **kwargs):
+        kwargs['parser'] = self
+        return DelimitedLogEntry(**kwargs)
         
     def on_field_names_set(self, **kwargs):
         pass
@@ -209,13 +268,16 @@ class W3CExtendedLogfileParser(DelimitedFileParser):
         key, val = line.split(': ')
         return True, {key:val, 'line_number':line_number}
     def process_field_header(self, line_number, line):
+        if len(self.field_names):
+            return False
         if not line.startswith('#Fields:'):
-            return False, []
+            return False
         line = line.lstrip('#Fields:')
-        l = []
-        for fn in self.parse_line(line):
-            l.append(fn)
-        return True, l
+        return self.build_entry(data=line)
+        #l = []
+        #for fn in self.parse_line(line):
+        #    l.append(fn)
+        #return True, l
 
 class W3CExtendedLogfileRollingParser(W3CExtendedLogfileParser):
     _Properties = {'last_line_number':dict(default=0)}
