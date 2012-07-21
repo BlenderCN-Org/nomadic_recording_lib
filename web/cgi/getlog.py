@@ -34,7 +34,6 @@ def get_logfiles(**kwargs):
     basepath, basefn = os.path.split(findlogfilename(app, filetype))
     if getall:
         filenames, fn_by_dt = find_all_logfiles(**kwargs)
-        print str(fn_by_dt)
         if dateend is not None:
             filenames = []
             for dt in sorted(fn_by_dt.keys()):
@@ -173,7 +172,7 @@ logfileresult, logfilename = get_logfiles(**formdata)
 #logfileresult, logfilename = ('blahstuff', 'blahname')
 
 if formdata['wraphtml']:
-    body = '<h1>%s</h1>%s' % (logfilename, [formdata['datestart'], formdata['dateend']])#logfileresult)
+    body = '<h1>%s</h1>%s' % (logfilename, logfileresult)
     print wrapdochtml(body)
 else:
     #print 'Content-Disposition: attachment; filename=%s' % (logfilename)
