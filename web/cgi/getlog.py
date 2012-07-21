@@ -34,9 +34,10 @@ def get_logfiles(**kwargs):
     basepath, basefn = os.path.split(findlogfilename(app, filetype))
     if getall:
         filenames, fn_by_dt = find_all_logfiles(**kwargs)
+        print str(fn_by_dt)
         if dateend is not None:
             filenames = []
-            for dt in reversed(sorted(fn_by_dt.keys())):
+            for dt in sorted(fn_by_dt.keys()):
                 if dt.date < dateend.date:
                     break
                 if dt.date >= datestart.date:
