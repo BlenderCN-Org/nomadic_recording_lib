@@ -158,7 +158,8 @@ if formdata['datestart'] is None:
 
 content_type = 'text/html'
 if formdata['getall']:
-    formdata['wraphtml'] = False
+    pass
+    #formdata['wraphtml'] = False
     #content_type = 'application/x-tar-gz'
 if not formdata['wraphtml']:
     content_type = 'text/plain'
