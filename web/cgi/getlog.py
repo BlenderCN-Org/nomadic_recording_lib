@@ -36,7 +36,7 @@ def get_logfiles(**kwargs):
         filenames, fn_by_dt = find_all_logfiles(**kwargs)
         if dateend is not None:
             filenames = []
-            for dt in sorted(fn_by_dt.keys()):
+            for dt in reversed(sorted(fn_by_dt.keys())):
                 if dt.date() < dateend.date():
                     print 'date end: fn=%s, date=%s' % (fn_by_dt[dt], dt.date())
                     break
