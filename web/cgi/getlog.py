@@ -180,7 +180,7 @@ else:
     #print 'Content-Disposition: attachment; filename=%s' % (logfilename)
     #print
     if formdata['getall']:
-        #print '# %s' % ([ld['filename'] for ld in logfileresult])
+        print '# %s' % ([ld['filename'] for ld in logfileresult])
         for logdata in logfileresult:
             print logdata['contents']
     else:
