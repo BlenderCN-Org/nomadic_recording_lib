@@ -172,7 +172,7 @@ logfileresult, logfilename = get_logfiles(**formdata)
 #logfileresult, logfilename = ('blahstuff', 'blahname')
 
 if formdata['wraphtml']:
-    body = '<h1>%s</h1>%s' % (logfilename, logfileresult)
+    body = '<h1>%s</h1>%s' % (logfilename, [formdata['datestart'], formdata['dateend']])#logfileresult)
     print wrapdochtml(body)
 else:
     #print 'Content-Disposition: attachment; filename=%s' % (logfilename)
