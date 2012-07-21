@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2012-02-21, 09:37:14 -->
+<!-- Saved: 2012-07-21, 09:01:06 -->
 <!-- Copyright (C) 2012 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -90,7 +90,6 @@
     <Source>ui/gtk/osc_tree.py</Source>
     <Source>ui/gtk/gtkBaseUI.py</Source>
     <Source>ui/gtk/childgroup_list.py</Source>
-    <Source>ui/gtk/editors.py</Source>
     <Source>ui/gtk/__init__.py</Source>
     <Source>ui/gtk/bases/tree.py</Source>
     <Source>ui/gtk/bases/gtksimple.py</Source>
@@ -108,21 +107,25 @@
     <Source>ui/iOSCControl/pagemenu.py</Source>
     <Source>ui/iOSCControl/sessionselect.py</Source>
     <Source>ui/iOSCControl/__init__.py</Source>
-    <Source>ui/iOSCControl/pages/basepage.py</Source>
-    <Source>ui/iOSCControl/pages/__init__.py</Source>
     <Source>ui/qt/qtBaseUI.py</Source>
     <Source>ui/qt/__init__.py</Source>
     <Source>ui/qt/bases/widgets.py</Source>
     <Source>ui/qt/bases/__init__.py</Source>
     <Source>ui/qt/bases/qtsimple.py</Source>
-    <Source>ui/kivy/mainwindow.py</Source>
-    <Source>ui/kivy/editors.py</Source>
     <Source>ui/kivy/__init__.py</Source>
     <Source>ui/kivy/bases/widget_classes.py</Source>
     <Source>ui/kivy/bases/widgets.py</Source>
     <Source>ui/kivy/bases/__init__.py</Source>
     <Source>ui/kivy/views/baseview.py</Source>
     <Source>ui/kivy/views/__init__.py</Source>
+    <Source>Bases/garbage_collection.py</Source>
+    <Source>Bases/logfileparser.py</Source>
+    <Source>Bases/osc_node.py</Source>
+    <Source>Bases/partial.py</Source>
+    <Source>Bases/virtualmoduletree.py</Source>
+    <Source>web/__init__.py</Source>
+    <Source>web/cgi/__init__.py</Source>
+    <Source>web/cgi/getlog.py</Source>
   </Sources>
   <Forms>
   </Forms>
