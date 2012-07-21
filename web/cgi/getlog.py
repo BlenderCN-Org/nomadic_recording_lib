@@ -38,12 +38,12 @@ def get_logfiles(**kwargs):
             filenames = []
             for dt in sorted(fn_by_dt.keys()):
                 if dt.date() < dateend.date():
-                    #print 'date end: fn=%s, date=%s' % (fn_by_dt[dt], dt.date())
+                    print 'date end: fn=%s, date=%s' % (fn_by_dt[dt], dt.date())
                     break
                 if dt.date() >= datestart.date():
-                    #print 'before datestart: fn=%s, date=%s' % (fn_by_dt[dt],  dt.date())
+                    print 'before datestart: fn=%s, date=%s' % (fn_by_dt[dt],  dt.date())
                     continue
-                #print 'added fn=%s, date=%s' % (fn_by_dt[dt], dt.date())
+                print 'added fn=%s, date=%s' % (fn_by_dt[dt], dt.date())
                 filenames.append(fn_by_dt[dt])
         logs = []
         for i, fn in enumerate(filenames):
