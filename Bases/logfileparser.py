@@ -3,9 +3,9 @@ from curses import ascii
 
 from BaseObject import BaseObject
 
-class LogEntry(BaseObject):
+class LogEntry(object):
     def __init__(self, **kwargs):
-        super(LogEntry, self).__init__(**kwargs)
+        #super(LogEntry, self).__init__(**kwargs)
         self._field_names = kwargs.get('field_names')
         self.parser = kwargs.get('parser')
         self.id = kwargs.get('id')
@@ -59,6 +59,9 @@ class BaseParser(BaseObject):
                    'key_field':dict(ignore_type=True)}
     def __init__(self, **kwargs):
         super(BaseParser, self).__init__(**kwargs)
+        cls = kwargs.get('entry_class')
+        if cls is not None:
+            self.entry_class = cls
         self.parsed = {}
         self.sorted = {}
         self.bind(field_names=self.on_field_names_set)
@@ -72,6 +75,10 @@ class BaseParser(BaseObject):
         
     def on_field_names_set(self, **kwargs):
         pass
+        
+    def build_entry(self, **kwargs):
+        kwargs['parser'] = self
+        return self.entry_class(**kwargs)
         
 class FileParser(BaseParser):
     _Properties = {'filename':dict(ignore_type=True), 
@@ -140,6 +147,7 @@ class DelimitedFileParser(FileParser):
                    'line_strip_chars':dict(default=''), 
                    'delimiter':dict(default=',', fformat='_format_delimiter', ignore_type=True), 
                    'quote_char':dict(default=None, ignore_type=True)}
+    entry_class = DelimitedLogEntry
     def __init__(self, **kwargs):
         super(DelimitedFileParser, self).__init__(**kwargs)
         for key in ['header_line_num', 'line_strip_chars', 'delimiter', 'quote_char']:
@@ -196,6 +204,7 @@ class DelimitedFileParser(FileParser):
         quote_char = self.quote_char
         is_quoted = quote_char is not None
         field_names = self.field_names
+        current_field_names = field_names[:]
         line_strip_chars = self.line_strip_chars
         header_line_num = self.header_line_num
         parse_line = self.parse_line
@@ -221,13 +230,14 @@ class DelimitedFileParser(FileParser):
                         continue
                     #d['fields_by_key'][fn] = {}
                     field_names.append(fn)
+                current_field_names = field_header.field_list[:]
                 line_num -= 1
                 i += 1
                 continue
             if line.startswith('#'):
                 i += 1
                 continue
-            entry = self.build_entry(data=line, id=line_num)
+            entry = self.build_entry(data=line, id=line_num, field_names=current_field_names)
             d['entries'][entry.id] = entry
             #d['fields_by_line'][line_num] = {}
             #field_index = 0
@@ -239,9 +249,6 @@ class DelimitedFileParser(FileParser):
             i += 1
             line_num += 1
         return d
-    def build_entry(self, **kwargs):
-        kwargs['parser'] = self
-        return DelimitedLogEntry(**kwargs)
         
     def on_field_names_set(self, **kwargs):
         pass
