@@ -38,88 +38,21 @@ class Config(object):
         _conf_filename = kwargs.get('_conf_filename', build_conf_filename())
         self._confsection = kwargs.get('confsection', getattr(self.__class__, '_confsection', None))
         self._save_config_file = kwargs.get('_save_config_file', True)
-        #self._confparser = SafeConfigParser()
         conf_data = {'filename':_conf_filename, 
                      'section':self._confsection, 
                      'read_only':not self._save_config_file}
         self._confparser = cls(conf_data=conf_data)
-        #self.set_conf_filename(_conf_filename)
         GLOBAL_CONFIG.bind(update=self._CONF_ON_GLOBAL_CONFIG_UPDATE)
-##    def set_conf_filename(self, filename):
-##        self._conf_filename = filename
-##        self._read_conf_file()
-##        if self._confsection is None:
-##            return
-##        if self._confparser.has_section(self._confsection) is False:
-##            self._confparser.add_section(self._confsection)
-##    def _read_conf_file(self):
-##        if not self._conf_filename:
-##            return
-##        self._confparser.read(self._conf_filename)
     def get_conf(self, key=None, default=None):
         return self._confparser.get_conf(key, default)
     def update_conf(self, **kwargs):
         self._confparser.update_conf(**kwargs)
     def remove_conf_options(self, options=None):
         self._confparser.remove_conf_options(options)
-#    def get_conf(self, key=None, default=None):
-#        self._read_conf_file()
-#        if self._confsection is None:
-#            return {}
-#        items = dict(self._confparser.items(self._confsection))
-#        if items is None:
-#            return default
-#        for itemkey in items.iterkeys():
-#            value = items[itemkey]
-#            dict_chars = '{:}'
-#            if False not in [c in items[itemkey] for c in dict_chars]:
-#                ## a possible dictionary repr
-#                try:
-#                    d = eval(items[itemkey])
-#                    items[itemkey] = d
-#                except:
-#                    pass
-#            elif ',' in items[itemkey]:
-#                items[itemkey] = items[itemkey].split(',')
-#        if key is not None:
-#            return items.get(key, default)
-#        return items
-#    def update_conf(self, **kwargs):
-#        self._read_conf_file()
-#        for key, val in kwargs.iteritems():
-#            if isinstance(val, list) or isinstance(val, tuple):
-#                slist = [str(element) for element in val]
-#                if len(slist) == 1:
-#                    s = slist[0] + ','
-#                else:
-#                    s = ','.join(slist)
-#            else:
-#                s = str(val)
-#            self._confparser.set(self._confsection, key, s)
-#        self.write_conf()
-#    def remove_conf_options(self, options=None):
-#        self._read_conf_file()
-#        items = dict(self._confparser.items(self._confsection))
-#        if options is None:
-#            options = items.keys()
-#        for option in options:
-#            if option not in items:
-#                continue
-#            self._confparser.remove_option(self._confsection, option)
-#        self.write_conf()
-##    def write_conf(self):
-##        if not self._conf_filename:
-##            return
-##        if not self._save_config_file:
-##            return
-##        file = open(self._conf_filename, 'w')
-##        self._confparser.write(file)
-##        file.close()
     def _CONF_ON_GLOBAL_CONFIG_UPDATE(self, **kwargs):
         cfilename = build_conf_filename()
         if cfilename == self._confparser._conf_data.get('filename'):
             return
-        #self.set_conf_filename(cfilename)
         self._confparser.set_conf_data({'filename':cfilename})
     
 class ConfParserBase(object):
@@ -129,7 +62,6 @@ class ConfParserBase(object):
         self._conf_data = {}
         self.conf_source = None
         self.set_conf_data(kwargs.get('conf_data', {}))
-        
     @property
     def is_conf_valid(self):
         if self.conf_source is None:
@@ -202,7 +134,6 @@ class ConfParserINI(ConfParserBase):
         super(ConfParserINI, self).set_conf_data(d)
         if not self.is_conf_valid:
             return
-        #self._parser.read(d['filename'])
         self.read_source()
         section = self._conf_data['section']
         if not self._parser.has_section(section):
@@ -213,7 +144,6 @@ class ConfParserINI(ConfParserBase):
             ## a possible dictionary repr
             try:
                 d = eval(val)
-                #items[itemkey] = d
                 val = d
             except:
                 pass
@@ -235,13 +165,10 @@ class ConfParserINI(ConfParserBase):
             return super(ConfParserINI, self)._get_conf_items()
         d = self._conf_data
         self.read_source()
-        #self._parser.read(d['filename'])
         items = dict(self._parser.items(d['section']))
-        print self, self._conf_data, items
         for key in items.keys()[:]:
             val = self._unformat_item(items[key])
             items[key] = val
-        #self.items.update(items)
         return items
     def _do_set_item(self, key, val):
         val = self._format_item(val)
@@ -264,9 +191,6 @@ class ConfParserINI(ConfParserBase):
         src = self.conf_source
         with src:
             self._parser.write(src.fp)
-        #file = open(self._conf_data['filename'], 'w')
-        #self._parser.write(file)
-        #file.close()
         
 conftypes = (ConfParserINI, )
 CONFPARSER_TYPES = dict(zip([cls.name for cls in conftypes], conftypes))
@@ -309,17 +233,14 @@ class FilenameConfSource(BaseConfSource):
     def __init__(self, **kwargs):
         self.filename = kwargs.get('filename')
         super(FilenameConfSource, self).__init__(**kwargs)
-        #print self, 'filename=%s, valid=%s, kwargs=%s' % (self.filename, self.valid, kwargs)
     def check_valid(self):
         b = super(FilenameConfSource, self).check_valid()
         return b and isinstance(self.filename, basestring)
     def build_fp(self):
         fp = open(self.filename, 'rw')
-        print 'open ', self, fp
         return fp
     def close_fp(self):
         self.fp.close()
-        print 'close', self, self.fp
     
 srctypes = (FilenameConfSource, )
 CONF_SOURCE_TYPES = dict(zip([cls.name for cls in srctypes], srctypes))
