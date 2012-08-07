@@ -18,6 +18,8 @@ import sys
 import os
 import threading
 from ConfigParser import SafeConfigParser
+from urllib2 import urlopen
+from urlparse import urlparse
 from BaseObject import GLOBAL_CONFIG
 
 #default_conf = os.path.expanduser('~/.openlightingdesigner.conf')
@@ -33,15 +35,26 @@ def build_conf_filename():
 
 class Config(object):
     def __init__(self, **kwargs):
-        conf_type = kwargs.get('confparser_type', getattr(self, 'confparser_type', 'INI'))
-        cls = CONFPARSER_TYPES.get(conf_type)
-        _conf_filename = kwargs.get('_conf_filename', build_conf_filename())
-        self._confsection = kwargs.get('confsection', getattr(self.__class__, '_confsection', None))
-        self._save_config_file = kwargs.get('_save_config_file', True)
-        conf_data = {'filename':_conf_filename, 
-                     'section':self._confsection, 
-                     'read_only':not self._save_config_file}
-        self._confparser = cls(conf_data=conf_data)
+        self.init_config_parser(**kwargs)
+    def init_config_parser(self, **kwargs):
+        conf_data = getattr(self, 'confparser_data', {})
+        conf_data.update(kwargs.get('confparser_data', {}))
+        if len(conf_data):
+            self.__config_object_legacy = False
+            conf_type = conf_data.get('confparser_type', 'INI')
+            cls = CONFPARSER_TYPES.get(conf_type)
+            self._confparser = cls(conf_data=conf_data)
+        else:
+            self.__config_object_legacy = True
+            conf_type = kwargs.get('confparser_type', getattr(self, 'confparser_type', 'INI'))
+            cls = CONFPARSER_TYPES.get(conf_type)
+            _conf_filename = kwargs.get('_conf_filename', build_conf_filename())
+            self._confsection = kwargs.get('confsection', getattr(self.__class__, '_confsection', None))
+            self._save_config_file = kwargs.get('_save_config_file', True)
+            conf_data = {'filename':_conf_filename, 
+                         'section':self._confsection, 
+                         'read_only':not self._save_config_file}
+            self._confparser = cls(conf_data=conf_data)
         GLOBAL_CONFIG.bind(update=self._CONF_ON_GLOBAL_CONFIG_UPDATE)
     def get_conf(self, key=None, default=None):
         return self._confparser.get_conf(key, default)
@@ -69,11 +82,19 @@ class ConfParserBase(object):
         return None not in [self._conf_data.get(key) for key in self._conf_data_needed]
     def set_conf_data(self, d):
         self._conf_data.update(d)
-        fn = d.get('filename')
-        skwargs = {}
-        if isinstance(fn, basestring):
-            skwargs['type'] = FilenameConfSource
-            skwargs['filename'] = fn
+        #fn = d.get('filename')
+        skwargs = self._conf_data.copy()
+        srctype = None
+        for key, val in CONF_SOURCE_TYPES.iteritems():
+            if skwargs.get(key) is None:
+                continue
+            srctype = val
+        if srctype is None:
+            return
+        skwargs['type'] = srctype
+        #if isinstance(fn, basestring):
+        #    skwargs['type'] = FilenameConfSource
+        #    skwargs['filename'] = fn
         self.set_conf_source(**skwargs)
     def set_conf_source(self, **kwargs):
         if self.conf_source is not None:
@@ -82,9 +103,12 @@ class ConfParserBase(object):
         cls = kwargs.get('type')
         if cls is None:
             return
+        kwargs['parser'] = self
         src = cls(**kwargs)
         if src.valid:
             self.conf_source = src
+            if src.read_only:
+                self._conf_data['read_only'] = True
     def get_conf(self, key=None, default=None):
         items = self.items
         d = self._get_conf_items()
@@ -197,6 +221,7 @@ CONFPARSER_TYPES = dict(zip([cls.name for cls in conftypes], conftypes))
 del conftypes
 
 class BaseConfSource(object):
+    read_only = False
     def __init__(self, **kwargs):
         self._fp_open = threading.Event()
         self._fp_closed = threading.Event()
@@ -241,7 +266,25 @@ class FilenameConfSource(BaseConfSource):
         return fp
     def close_fp(self):
         self.fp.close()
+        
+class URLConfSource(BaseConfSource):
+    name = 'url'
+    read_only = True
+    def __init__(self, **kwargs):
+        self.url = kwargs.get('url')
+        super(URLConfSource, self).__init__(**kwargs)
+    def check_valid(self):
+        if not isinstance(self.url, basestring):
+            return False
+        b = super(URLConfSource, self).check_valid()
+        pr = urlparse(self.url)
+        return b and pr.netloc != ''
+    def build_fp(self):
+        fp = urlopen(self.url)
+        return fp
+    def close_fp(self):
+        self.fp.close()
     
-srctypes = (FilenameConfSource, )
+srctypes = (FilenameConfSource, URLConfSource)
 CONF_SOURCE_TYPES = dict(zip([cls.name for cls in srctypes], srctypes))
 del srctypes
