@@ -57,13 +57,33 @@ class Config(object):
             self._confparser = cls(conf_data=conf_data)
         GLOBAL_CONFIG.bind(update=self._CONF_ON_GLOBAL_CONFIG_UPDATE)
     def get_conf(self, key=None, default=None):
-        return self._confparser.get_conf(key, default)
+        p = getattr(self, '_confparser', None)
+        if p is None:
+            return default
+        return p.get_conf(key, default)
     def update_conf(self, **kwargs):
-        self._confparser.update_conf(**kwargs)
+        p = getattr(self, '_confparser', None)
+        if p is None:
+            return
+        p.update_conf(**kwargs)
     def remove_conf_options(self, options=None):
-        self._confparser.remove_conf_options(options)
+        p = getattr(self, '_confparser', None)
+        if p is None:
+            return
+        p.remove_conf_options(options)
     def _CONF_ON_GLOBAL_CONFIG_UPDATE(self, **kwargs):
         cfilename = build_conf_filename()
+        p = getattr(self, '_confparser', None)
+        if p is None:
+            if not cfilename:
+                return
+            conf_type = getattr(self, 'confparser_type', 'INI')
+            cls = CONFPARSER_TYPES.get(conf_type)
+            conf_data = {'filename':cfilename, 
+                         'section':self._confsection, 
+                         'read_only':not getattr(self, '_save_config_file', True)}
+            self._confparser = cls(conf_data=conf_data)
+            return
         if cfilename == self._confparser._conf_data.get('filename'):
             return
         self._confparser.set_conf_data({'filename':cfilename})
