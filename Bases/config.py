@@ -18,6 +18,7 @@ import sys
 import os
 import os.path
 import threading
+import StringIO
 from ConfigParser import SafeConfigParser
 from urllib2 import urlopen
 from urlparse import urlparse
