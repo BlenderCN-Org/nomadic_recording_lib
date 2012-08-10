@@ -16,6 +16,7 @@
 
 import sys
 import os
+import os.path
 import threading
 from ConfigParser import SafeConfigParser
 from urllib2 import urlopen
@@ -282,7 +283,10 @@ class FilenameConfSource(BaseConfSource):
         b = super(FilenameConfSource, self).check_valid()
         return b and isinstance(self.filename, basestring)
     def build_fp(self):
-        fp = open(self.filename, 'rw')
+        mode = 'rw'
+        if not os.path.exists(self.filename):
+            mode = 'w'
+        fp = open(self.filename, mode)
         return fp
     def close_fp(self):
         self.fp.close()
