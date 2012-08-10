@@ -343,6 +343,9 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         
     @property
     def LOG(self):
+        global LOGGER
+        if LOGGER is None:
+            LOGGER = Logger()
         return LOGGER
 
 from misc import iterbases
@@ -424,7 +427,7 @@ GLOBAL_CONFIG = _GlobalConfig()
 
 from logger import Logger
 
-LOGGER = Logger()
+LOGGER = None
 
 from category import Category
 
