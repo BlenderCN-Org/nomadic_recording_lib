@@ -228,14 +228,16 @@ class ConfParserINI(ConfParserBase):
         if not self.is_conf_valid:
             return
         src = self.conf_source
-        with src:
-            self._parser.readfp(src.fp)
+        src.open('r')
+        self._parser.readfp(src.fp)
+        src.close()
     def write_source(self, fp):
         if not self.is_conf_valid:
             return
         src = self.conf_source
-        with src:
-            self._parser.write(src.fp)
+        src.open('rw')
+        self._parser.write(src.fp)
+        src.close()
         
 conftypes = (ConfParserINI, )
 CONFPARSER_TYPES = dict(zip([cls.name for cls in conftypes], conftypes))
@@ -257,9 +259,9 @@ class BaseConfSource(object):
         pass
     def close_fp(self):
         pass
-    def open(self):
+    def open(self, mode='rw'):
         self._fp_closed.wait()
-        self.fp = self.build_fp()
+        self.fp = self.build_fp(mode)
         self._fp_closed.clear()
         self._fp_open.set()
     def close(self):
@@ -268,10 +270,10 @@ class BaseConfSource(object):
             self.fp = None
         self._fp_open.clear()
         self._fp_closed.set()
-    def __enter__(self):
-        self.open()
-    def __exit__(self, *args):
-        self.close()
+    #def __enter__(self):
+    #    self.open()
+    #def __exit__(self, *args):
+    #    self.close()
         
         
 class FilenameConfSource(BaseConfSource):
@@ -282,10 +284,13 @@ class FilenameConfSource(BaseConfSource):
     def check_valid(self):
         b = super(FilenameConfSource, self).check_valid()
         return b and isinstance(self.filename, basestring)
-    def build_fp(self):
-        mode = 'rw'
+    def build_fp(self, mode):
         if not os.path.exists(self.filename):
-            mode = 'w'
+            if mode == 'r':
+                fp = StringIO.StringIO()
+                return fp
+            elif mode == 'rw':
+                mode = 'w'
         fp = open(self.filename, mode)
         return fp
     def close_fp(self):
