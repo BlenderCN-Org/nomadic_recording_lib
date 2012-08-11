@@ -9,7 +9,7 @@ LEVELS = ('debug', 'info', 'warning', 'error', 'critical')
 
 class Logger(BaseObject, Config):
     _confsection = 'LOGGING'
-    _Properties = {'log_mode':dict(default='stdout', entries=['basicConfig', 'stdout']), 
+    _Properties = {'log_mode':dict(default='stdout', entries=['basicConfig', 'null', 'stdout']), 
                    'log_filename':dict(type=str), 
                    'log_level':dict(default='info', fformat='_format_log_level'), 
                    'log_format':dict(default='%(asctime)-15s %(levelname)-10s %(message)s')}
@@ -17,9 +17,13 @@ class Logger(BaseObject, Config):
     def __init__(self, **kwargs):
         BaseObject.__init__(self, **kwargs)
         Config.__init__(self, **kwargs)
-        appname = self.GLOBAL_CONFIG.get('app_name')
-        if appname is not None:
-            kwargs.setdefault('log_filename', os.path.expanduser('~/%s.log' % (appname)))
+        logger_setup = kwargs.get('logger_setup', self.GLOBAL_CONFIG.get('logger_setup'))
+        if logger_setup is not None:
+            kwargs = logger_setup
+        if not kwargs.get('log_filename'):
+            appname = self.GLOBAL_CONFIG.get('app_name')
+            if appname is not None:
+                kwargs.setdefault('log_filename', os.path.expanduser('~/%s.log' % (appname)))
         self._logger = None
         use_conf = kwargs.get('use_conf', True)
         if use_conf:
@@ -36,6 +40,10 @@ class Logger(BaseObject, Config):
         self.logger_kwargs = kwargs.get('logger_kwargs', {})
         self.set_logger()
         self.bind(property_changed=self._on_own_property_changed)
+    def __call__(self, *args, **kwargs):
+        m = getattr(self, 'info', None)
+        if callable(m):
+            m(*args, **kwargs)
     def _format_log_level(self, value):
         if type(value) == str and value.isdigit():
             value = int(value)
@@ -85,9 +93,7 @@ class StdoutLogger(object):
     def exception(self, *args, **kwargs):
         self.log('exception', *args, **kwargs)
         
-class BasicConfigLogger(object):
-    def __init__(self, **kwargs):
-        logging.basicConfig(**kwargs)
+class BuiltinLoggingLogger(object):
     def log(self, level, *args, **kwargs):
         msg = format_msg(*args)
         logging.log(level, msg, **kwargs)
@@ -110,4 +116,23 @@ class BasicConfigLogger(object):
         msg = format_msg(*args)
         logging.exception(msg, **kwargs)
         
-LOGGERS = {'stdout':StdoutLogger, 'basicConfig':BasicConfigLogger}
+class BasicConfigLogger(BuiltinLoggingLogger):
+    def __init__(self, **kwargs):
+        logging.basicConfig(**kwargs)
+        
+class NullLogger(BuiltinLoggingLogger):
+    def __init__(self, **kwargs):
+        logging._acquireLock()
+        try:
+            root = logging.getLogger()
+            if len(root.handlers):
+                for hdlr in root.handlers[:]:
+                    root.removeHandler(hdlr)
+            hdlr = logging.NullHandler()
+            root.addHandler(hdlr)
+        finally:
+            logging._releaseLock()
+    
+LOGGERS = {'stdout':StdoutLogger, 
+           'basicConfig':BasicConfigLogger, 
+           'null':NullLogger}

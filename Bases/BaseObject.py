@@ -347,6 +347,10 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
         if LOGGER is None:
             LOGGER = Logger()
         return LOGGER
+        
+    def _GET_LOGGER(self):
+        global LOGGER
+        return LOGGER
 
 from misc import iterbases
 from ChildGroup import ChildGroup
