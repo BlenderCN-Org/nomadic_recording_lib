@@ -96,7 +96,7 @@ class OSCManager(BaseIO.BaseIO, Config):
                                  client_removed=self.on_client_removed, 
                                  new_master=self.on_new_master)
         self.set_use_unique_address(flag, update_conf=False)
-        io = kwargs.get('connection_type', self.get_conf('connection_type', 'Multicast'))
+        io = kwargs.get('connection_type', self.get_conf('connection_type', 'Unicast'))
         self.ioManager.build_io(iotype=io, update_conf=False)
         self.ClockSync = ClockSync(osc_parent_node=self.root_node, 
                                    clients=self.clients)
