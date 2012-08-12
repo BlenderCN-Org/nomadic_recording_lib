@@ -6,12 +6,17 @@
 
 #MidiIO = pmzMidiIO
 
-from pyportmidi_midiIO import pypmMidiIO
+try:
+    from pyportmidi_midiIO import pypmMidiIO
+    MidiIO = pypmMidiIO
+    IO_LOADER = MidiIO
+except:
+    pass
 
-MidiIO = pypmMidiIO
+
 
 #from rtmidi_midiIO import rtmMidiIO
 
 #MidiIO = rtmMidiIO
 
-IO_LOADER = MidiIO
+
