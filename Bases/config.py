@@ -232,7 +232,7 @@ class ConfParserINI(ConfParserBase):
         src.open('r')
         self._parser.readfp(src.fp)
         src.close()
-    def write_source(self, fp):
+    def write_source(self):
         if not self.is_conf_valid:
             return
         src = self.conf_source
