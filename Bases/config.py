@@ -147,7 +147,10 @@ class ConfParserBase(object):
         for key, val in kwargs.iteritems():
             self._do_set_item(key, val)
         if not self._conf_data.get('read_only'):
-            self.write_source()
+            try:
+                self.write_source()
+            except:
+                pass
     def remove_conf_items(self, options=None):
         items = self._get_conf_items()
         if options is None:
@@ -157,7 +160,10 @@ class ConfParserBase(object):
                 continue
             self._do_remove_item(key)
         if not self._conf_data.get('read_only'):
-            self.write_source()
+            try:
+                self.write_source()
+            except:
+                pass
     def _get_conf_items(self):
         return self.items
     def read_source(self):
