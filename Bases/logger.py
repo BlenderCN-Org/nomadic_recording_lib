@@ -63,6 +63,8 @@ class Logger(BaseObject, Config):
         for key in ['log', 'debug', 'info', 'warning', 'error', 'critical', 'exception']:
             m = getattr(self._logger, key)
             setattr(self, key, m)
+    def close(self):
+        self._logger.close()
     def _on_own_property_changed(self, **kwargs):
         prop = kwargs.get('Property')
         value = kwargs.get('value')
@@ -92,6 +94,8 @@ class StdoutLogger(object):
         self.log('critical', *args, **kwargs)
     def exception(self, *args, **kwargs):
         self.log('exception', *args, **kwargs)
+    def close(self):
+        pass
         
 class BuiltinLoggingLogger(object):
     def log(self, level, *args, **kwargs):
@@ -115,6 +119,8 @@ class BuiltinLoggingLogger(object):
     def exception(self, *args, **kwargs):
         msg = format_msg(*args)
         logging.exception(msg, **kwargs)
+    def close(self):
+        logging.shutdown()
         
 class BasicConfigLogger(BuiltinLoggingLogger):
     def __init__(self, **kwargs):

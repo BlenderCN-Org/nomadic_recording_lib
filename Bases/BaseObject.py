@@ -345,8 +345,14 @@ class BaseObject(SignalDispatcher.dispatcher, Serializer):
     def LOG(self):
         global LOGGER
         if LOGGER is None:
-            LOGGER = Logger()
+            LOGGER = self._BUILD_LOGGER()
         return LOGGER
+        
+    def _BUILD_LOGGER(self, **kwargs):
+        global LOGGER
+        if LOGGER is not None:
+            LOGGER.close()
+        LOGGER = Logger(**kwargs)
         
     def _GET_LOGGER(self):
         global LOGGER
