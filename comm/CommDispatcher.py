@@ -21,7 +21,14 @@ import pkgutil
 
 from Bases import BaseObject, ChildGroup
 import BaseIO
-from interprocess.ServiceConnector import ServiceConnector
+try:
+    from interprocess.ServiceConnector import ServiceConnector
+except:
+    class ServiceConnector(BaseObject):
+        def publish(self, *args, **kwargs):
+            pass
+        def unpublish(self, *args, **kwargs):
+            pass
 
 from . import IO_CLASSES
 
