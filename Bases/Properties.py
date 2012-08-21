@@ -457,7 +457,9 @@ class ObjProperty(object):
                 m = getattr(obj, f.__name__)
                 objthread.insert_threaded_call(m, **kwargs)
         if not self.quiet:
-            self.parent_obj.emit('property_changed', **kwargs)
+            pobj = self.parent_obj
+            if hasattr(pobj, 'emit'):
+                pobj.emit('property_changed', **kwargs)
         for prop, key in self.linked_properties:
             self.update_linked_property(prop, key)
         self.release_lock()
