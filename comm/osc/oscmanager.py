@@ -313,8 +313,9 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
         #self.setMasterNode = self.root_node.add_child(name='setMaster')
         #self.setMasterNode.bind(message_received=self.on_master_set_by_osc)
         self.GLOBAL_CONFIG.bind(update=self.on_GLOBAL_CONFIG_update)
-        self.comm.ServiceConnector.connect('new_host', self.on_host_discovered)
-        self.comm.ServiceConnector.connect('remove_host', self.on_host_removed)
+        if self.GLOBAL_CONFIG.get('osc_use_discovery', True):
+            self.comm.ServiceConnector.connect('new_host', self.on_host_discovered)
+            self.comm.ServiceConnector.connect('remove_host', self.on_host_removed)
         
         self.Manager.bind(master_priority=self._on_master_priority_set, 
                           session_name=self._on_session_name_set, 

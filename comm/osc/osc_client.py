@@ -55,6 +55,10 @@ class Client(OSCBaseObject):
         #if mp is not None and self.master_priority is None:
         #    self.master_priority = int(mp)
         if self.isLocalhost:
+            local_name = self.GLOBAL_CONFIG.get('osc_local_client_name')
+            if local_name is not None:
+                self.name = local_name
+                self.set_osc_address(self.name)
             self.master_priority = self.GLOBAL_CONFIG.get('master_priority')
             self.session_name = self.GLOBAL_CONFIG.get('session_name')
             self.app_name = self.GLOBAL_CONFIG.get('app_name')
