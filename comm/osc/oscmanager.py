@@ -596,10 +596,13 @@ class OSCSessionManager(BaseIO.BaseIO, Config):
             self.oscMaster = s
             if self.oscMaster is None:
                 return
+            lc = self.local_client
             if self.isMaster:
-                self.local_client.isMaster = True
+                if lc is not None:
+                    lc.isMaster = True
             else:
-                self.local_client.isMaster = False
+                if lc is not None:
+                    lc.isMaster = False
                 m = self.determine_next_master()
                 if m and m.isLocalhost and name is not False:
                     self.LOG.info('master takeover in 10 seconds...')
