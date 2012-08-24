@@ -87,7 +87,7 @@ class BaseOSCSender(BaseIO):
             except socket.error, msg:
                 self.LOG.warning('%s, msg len=%s, address=%s' % (msg, len(s), element.address))
             if self.debug:
-                self.LOG.debug('_osc_send: ' + str(element) + '   ' + str(address))
+                self.LOG.info('_osc_send: ' + str(element) + '   ' + str(address))
 #                if isinstance(element, messages.Bundle):
 #                    self.LOG.debug('_send_bundle: ', element.timetag, element.elements)
 #                else:
