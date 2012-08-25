@@ -29,7 +29,12 @@ except:
             pass
         def unpublish(self, *args, **kwargs):
             pass
-
+        def add_service(self, *args, **kwargs):
+            pass
+        def update_service(self, *args, **kwargs):
+            pass
+        def add_listener(self, *args, **kwargs):
+            pass
 from . import IO_CLASSES
 
 
