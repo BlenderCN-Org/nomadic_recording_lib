@@ -1,8 +1,19 @@
 import SocketServer
 import code
+import os.path
+import sys
+
+if __name__ == '__main__':
+    dirname = os.path.dirname(__file__)
+    if dirname == '':
+        dirname = os.getcwd()
+        sys.path.append(dirname)
+    i = sys.path.index(dirname)
+    sys.path[i] = os.path.split(os.path.split(sys.path[i])[0])[0]
+    print sys.path[i]
 
 from Bases import BaseObject, BaseThread
-from ..BaseIO import BaseIO
+from comm.BaseIO import BaseIO
 
 PORT = 54321
 
@@ -10,12 +21,12 @@ class RemoteServer(BaseIO):
     def __init__(self, **kwargs):
         super(RemoteServer, self).__init__(**kwargs)
         self.locals = kwargs.get('locals')
-        self.interpreter = Interpreter(locals=self.locals, 
-                                       write_cb=self.on_interpreter_write)
+        #self.interpreter = Interpreter(locals=self.locals, 
+        #                               write_cb=self.on_interpreter_write)
         self.serve_thread = None
     def do_connect(self, **kwargs):
         self.do_disconnect()
-        t = self.serve_thread = ServerThread(interpreter=self.interpreter)
+        t = self.serve_thread = ServerThread(locals=self.locals)
         t.start()
         self.connected = True
     def do_disconnect(self, **kwargs):
@@ -24,17 +35,17 @@ class RemoteServer(BaseIO):
             t.stop(blocking=True)
             self.serve_thread = None
         self.connected = False
-    def on_interpreter_write(self, data):
-        t = self.serve_thread
-        if t is None:
-            return
-        s = t._server
-        if s is None:
-            return
-        h = s.current_handler
-        if h is None:
-            return
-        h.wfile.write(data)
+#    def on_interpreter_write(self, data):
+#        t = self.serve_thread
+#        if t is None:
+#            return
+#        s = t._server
+#        if s is None:
+#            return
+#        h = s.current_handler
+#        if h is None:
+#            return
+#        h.wfile.write(data)
         
 class Interpreter(code.InteractiveInterpreter):
     def __init__(self, **kwargs):
@@ -51,13 +62,17 @@ class ServerListener(BaseThread):
         super(ServerListener, self).__init__(**kwargs)
     
 class RemoteHandler(SocketServer.StreamRequestHandler):
+    def setup(self):
+        self.interpreter = Interpreter(locals=self.server.locals, 
+                                       write_cb=self.on_interpreter_write)
+        SocketServer.StreamRequestHandler.setup(self)
     def handle(self):
         def get_line():
             return self.rfile.readline().strip()
-        self.server.current_handler = self
+        #self.server.current_handler = self
         line = get_line()
         while len(line):
-            process_line(line)
+            self.process_line(line)
             line = get_line()
     def process_line(self, line):
 #        cobj = None
@@ -69,10 +84,20 @@ class RemoteHandler(SocketServer.StreamRequestHandler):
 #            return
 #        #try:
 #        #    exec cobj in self.server.locals
-        self.server.interpreter.run_source(line)
-    def finish(self):
-        self.server.current_handler = None
-        super(RemoteHandler, self).finish()
+        print 'running source: ', line
+        self.interpreter.runsource(line)
+    def on_interpreter_write(self, data):
+        if self.wfile.closed:
+            return
+        print 'sending response: ', data
+        self.wfile.write(data)
+    
+class Server(SocketServer.TCPServer):
+    def __init__(self, **kwargs):
+        keys = ['server_address', 'RequestHandlerClass', 'bind_and_activate']
+        skwargs = dict(zip(keys, [kwargs.get(key) for key in keys]))
+        SocketServer.TCPServer.__init__(self, **skwargs)
+        self.locals = kwargs.get('locals')
         
 class ServerThread(BaseThread):
     _server_conf_defaults = dict(server_address=('127.0.0.1', PORT), 
@@ -80,9 +105,9 @@ class ServerThread(BaseThread):
                                  bind_and_activate=True)
     def __init__(self, **kwargs):
         kwargs['disable_threaded_call_waits'] = True
-        super(ServerListener, self).__init__(**kwargs)
+        super(ServerThread, self).__init__(**kwargs)
         self.server_config = kwargs.get('server_config', {})
-        self.interpreter = kwargs.get('interpreter')
+        self.locals = kwargs.get('locals')
         self._server = None
     def build_server_kwargs(self, **kwargs):
         skwargs = self.server_config.copy()
@@ -96,12 +121,36 @@ class ServerThread(BaseThread):
         if self._server is not None:
             return
         skwargs = self.build_server_kwargs()
-        s = self._server = SocketServer.TCPServer(**skwargs)
-        s.interpreter = self.interpreter
-        s.current_handler = None
+        skwargs['locals'] = self.locals
+        s = self._server = Server(**skwargs)
+        #s.interpreter = self.interpreter
+        #s.current_handler = None
         s.serve_forever()
     def stop(self, **kwargs):
         s = self._server
         if s is not None:
             s.shutdown()
         super(ServerThread, self).stop(**kwargs)
+
+def test():
+    class A(BaseObject):
+        _Properties = {'name':dict(default=''), 
+                       'state':dict(default=False)}
+        _ChildGroups = {'children':{}}
+    a = A()
+    print a
+    serv = RemoteServer(locals=locals())
+    print serv
+    serv.do_connect()
+    print serv, 'connected'
+    
+if __name__ == '__main__':
+    import sys, time
+    print 'test start'
+    test()
+    while True:
+        try:
+            time.sleep(1.)
+        except KeyboardInterrupt:
+            sys.exit(0)
+        
