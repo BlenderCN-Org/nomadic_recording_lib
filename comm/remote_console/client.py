@@ -36,38 +36,59 @@ class RemoteConsole(code.InteractiveConsole):
         return s
     def build_socket(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(4.)
+        #s.settimeout(4.)
         s.connect((self.host_addr, self.host_port))
+        print 'socket built: ', s
         return s
     def close_socket(self):
         s = self._sock
         if s is not None:
             s.close()
+            print 'socket closed: ', s
             self._sock = None
     def runsource(self, source, filename="<input>", symbol="single"):
-        s = self.sock
-        print 'sending source: ', source
-        s.send(source)
+        #s = self.sock
+        source = '%s\n' % (source)
+        print 'sending source: ', ' '.join([hex(ord(c)) for c in source])
+        #s.send(source)
         print 'waiting...'
-        resp = self.wait_for_response()
+        resp = self.send_and_wait(source)
         print 'resp: ', resp
         if resp is not None:
             self.write(resp)
         self.close_socket()
-    def wait_for_response(self):
+    def send_and_wait(self, to_send):
         data = None
-        while self.sock is not None:
-            s = self.sock
-            r, w, e = select.select([s], [], [], .1)
+        s = self.sock
+        while s is not None:
+            s = self._sock
+            if s is None:
+                continue
+            if to_send is not None:
+                sargs = [[], [s], []]
+            else:
+                sargs = [[s], [], []]
+            r, w, e = select.select(*sargs)
+            if to_send is not None:
+                if s in w:
+                    print 'sending thru socket: ', to_send, s
+                    s.sendall(to_send)
+                    print 'data sent'
+                    to_send = None
+                continue
             if s not in r:
                 continue
+            print 'socket ready to receive...', s
             data = ''
             newdata = s.recv(4096)
             data += newdata
+            print 'data: ', data
             while len(newdata):
                 newdata = s.recv(4096)
                 data += newdata
+                print 'data: ', data
             #self.handle_response(data)
+            self.close_socket()
             break
         return data
     

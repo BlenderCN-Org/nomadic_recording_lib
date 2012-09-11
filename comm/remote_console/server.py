@@ -67,6 +67,10 @@ class RemoteHandler(SocketServer.StreamRequestHandler):
                                        write_cb=self.on_interpreter_write)
         SocketServer.StreamRequestHandler.setup(self)
     def handle(self):
+        data = self.rfile.read()
+        #print 'received: ', data
+        self.process_line(data)
+    def old_handle(self):
         def get_line():
             return self.rfile.readline().strip()
         #self.server.current_handler = self
