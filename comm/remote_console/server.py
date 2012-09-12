@@ -46,13 +46,31 @@ class RemoteServer(BaseIO):
 #        if h is None:
 #            return
 #        h.wfile.write(data)
+class StdOut(object):
+    def __init__(self, cb):
+        self.callback = cb
+    def open(self):
+        sys.stdout = self
+    def close(self):
+        sys.stdout = sys.__stdout__
+    def __enter__(self, *args):
+        self.open()
+    def __exit__(self, *args):
+        self.close()
+    def write(self, data):
+        self.callback(data)
         
 class Interpreter(code.InteractiveInterpreter):
     def __init__(self, **kwargs):
         _locals = kwargs.get('locals')
         self.write_cb = kwargs.get('write_cb')
         code.InteractiveInterpreter.__init__(self, _locals)
+    def runsource(self, *args, **kwargs):
+        stdout = StdOut(self.write)
+        with stdout:
+            code.InteractiveInterpreter.runsource(self, *args, **kwargs)
     def write(self, data):
+        #print 'interpreter write: ', data
         cb = self.write_cb
         if cb is not None:
             cb(data)
@@ -61,13 +79,15 @@ class ServerListener(BaseThread):
     def __init__(self, **kwargs):
         super(ServerListener, self).__init__(**kwargs)
     
-class RemoteHandler(SocketServer.StreamRequestHandler):
+class RemoteHandler(SocketServer.BaseRequestHandler):
     def setup(self):
         self.interpreter = Interpreter(locals=self.server.locals, 
                                        write_cb=self.on_interpreter_write)
-        SocketServer.StreamRequestHandler.setup(self)
+        #SocketServer.StreamRequestHandler.setup(self)
     def handle(self):
-        data = self.rfile.read()
+        print 'handling..'
+        #data = self.rfile.read()
+        data = self.request.recv(4096)
         #print 'received: ', data
         self.process_line(data)
     def old_handle(self):
@@ -91,10 +111,11 @@ class RemoteHandler(SocketServer.StreamRequestHandler):
         print 'running source: ', line
         self.interpreter.runsource(line)
     def on_interpreter_write(self, data):
-        if self.wfile.closed:
-            return
-        print 'sending response: ', data
-        self.wfile.write(data)
+        #if self.wfile.closed:
+        #    return
+        #print 'sending response: ', data
+        #self.wfile.write(data)
+        self.request.sendall(data)
     
 class Server(SocketServer.TCPServer):
     def __init__(self, **kwargs):

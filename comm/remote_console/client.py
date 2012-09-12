@@ -27,6 +27,8 @@ class RemoteConsole(code.InteractiveConsole):
         self.host_addr = kwargs.get('host_addr', '127.0.0.1')
         self.host_port = kwargs.get('host_port', PORT)
         self._sock = None
+        self._sock_wfile = None
+        self._sock_rfile = None
     @property
     def sock(self):
         s = self._sock
@@ -36,28 +38,45 @@ class RemoteConsole(code.InteractiveConsole):
         return s
     def build_socket(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #s.settimeout(4.)
         s.connect((self.host_addr, self.host_port))
-        print 'socket built: ', s
+        s.settimeout(None)
+        self._sock_rfile = s.makefile('rb', -1)
+        self._sock_wfile = s.makefile('wb', 0)
+        #print 'socket built: ', s
         return s
     def close_socket(self):
         s = self._sock
         if s is not None:
+            if not self._sock_wfile.closed:
+                self._sock_wfile.flush()
+            self._sock_wfile.close()
+            self._sock_rfile.close()
             s.close()
-            print 'socket closed: ', s
+            #print 'socket closed: ', s
             self._sock = None
+            self._sock_wfile = None
+            self._sock_rfile = None
     def runsource(self, source, filename="<input>", symbol="single"):
         #s = self.sock
         source = '%s\n' % (source)
-        print 'sending source: ', ' '.join([hex(ord(c)) for c in source])
+        #print 'sending source: ', ' '.join([hex(ord(c)) for c in source])
         #s.send(source)
-        print 'waiting...'
+        #print 'waiting...'
         resp = self.send_and_wait(source)
-        print 'resp: ', resp
+        #print 'resp: ', resp
         if resp is not None:
             self.write(resp)
         self.close_socket()
     def send_and_wait(self, to_send):
+        s = self.sock
+        wf = self._sock_wfile
+        rf = self._sock_rfile
+        wf.write(to_send)
+        #print 'wrote data'
+        data = rf.read()
+        #print 'read data: ', data
+        return data
+    def crappysend_and_wait(self, to_send):
         data = None
         s = self.sock
         while s is not None:
