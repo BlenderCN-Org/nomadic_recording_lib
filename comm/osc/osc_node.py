@@ -3,6 +3,7 @@ import traceback
 import threading
 import time
 import datetime
+import weakref
 if __name__ == '__main__':
     import sys
     import os.path
@@ -46,6 +47,25 @@ def pack_args(value):
     elif value is None:
         return []
     return [value]
+    
+class MyWVDict(weakref.WeakValueDictionary):
+    def __init__(self, *args, **kwargs):
+        weakref.WeakValueDictionary.__init__(self, *args, **kwargs)
+        def remove(wr, selfref=weakref.ref(self)):
+            self = selfref()
+            if self is not None:
+                print 'REMOVE oscnode: ', wr.key
+                del self.data[wr.key]
+                print 'len = ', len(self.data)
+        self._remove = remove
+    def __setitem__(self, key, value):
+        weakref.WeakValueDictionary.__setitem__(self, key, value)
+        print 'ADD oscnode: ', value
+        print 'add len = ', len(self.data)
+    def __delitem__(self, key):
+        print 'DEL oscnode: ', key, id(self[key])
+
+all_osc_nodes = MyWVDict()
 
 class OSCNode(BaseObject):
     _Properties = {'name':dict(default=''), 
@@ -79,7 +99,8 @@ class OSCNode(BaseObject):
                     propname = '_'.join([key, 'interrupt', attr])
                     setattr(self, propname, getattr(self.parent, propname))
             self.parent.bind(property_changed=self.on_parent_property_changed)
-            
+        if self.GLOBAL_CONFIG.get('debug_osc_nodes'):
+            all_osc_nodes[str(self.get_full_path())] = self
     @property
     def oscMaster(self):
         return self._oscMaster
@@ -143,6 +164,10 @@ class OSCNode(BaseObject):
         return node.add_child(address=address)
         
     def unlink(self):
+        if self.GLOBAL_CONFIG.get('debug_osc_nodes'):
+            key = self.get_full_path()
+            if key in all_osc_nodes:
+                del all_osc_nodes[key]
         if not self.is_root_node:
             for key in self.children.keys()[:]:
                 self.remove_node(name=key)
