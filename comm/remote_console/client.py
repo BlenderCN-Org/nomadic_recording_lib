@@ -114,7 +114,7 @@ class RemoteConsole(code.InteractiveConsole):
 if __name__ == '__main__':
     import argparse
     a = argparse.ArgumentParser()
-    a.add_argument('-h', dest='host')
+    a.add_argument('-i', dest='host')
     a.add_argument('-p', dest='port')
     args, remaining = parser.parse_known_args()
     o = vars(args)
