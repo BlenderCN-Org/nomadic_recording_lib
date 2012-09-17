@@ -116,7 +116,7 @@ if __name__ == '__main__':
     a = argparse.ArgumentParser()
     a.add_argument('-i', dest='host')
     a.add_argument('-p', dest='port')
-    args, remaining = parser.parse_known_args()
+    args, remaining = p.parse_known_args()
     o = vars(args)
     ckwargs = {}
     if o.get('host'):
