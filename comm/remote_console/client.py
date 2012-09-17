@@ -112,7 +112,18 @@ class RemoteConsole(code.InteractiveConsole):
         return data
     
 if __name__ == '__main__':
-    console = RemoteConsole()
+    import argparse
+    a = argparse.ArgumentParser()
+    a.add_argument('-h', dest='host')
+    a.add_argument('-p', dest='port')
+    args, remaining = parser.parse_known_args()
+    o = vars(args)
+    ckwargs = {}
+    if o.get('host'):
+        ckwargs['host_addr'] = o['host']
+    if o.get('port'):
+        ckwargs['host_port'] = int(o['port'])
+    console = RemoteConsole(**ckwargs)
     #if readfunc is not None:
     #    console.raw_input = readfunc
     #else:
