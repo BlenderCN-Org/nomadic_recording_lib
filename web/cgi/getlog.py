@@ -33,10 +33,10 @@ def parse_conf(fn):
                 itemdict[optkey] = optval
             d[key] = itemdict
         return d
-    try:
-        parsed = parse_ini(fn)
-    finally:
-        parsed = {}
+    #try:
+    parsed = parse_ini(fn)
+    #finally:
+    #    parsed = {}
     for lkey, lval in parsed.iteritems():
         d = logfiledata.get(lkey)
         if lkey not in logfiledata:
