@@ -64,6 +64,7 @@ conf_paths = [pwd.getpwuid(os.stat(os.getcwd()).st_uid).pw_dir,
               '~', 
               os.getcwd()]
 conf_write_path = None
+conf_parse_path = None
 for conf_path in conf_paths:
     conf_path = os.path.expanduser(conf_path)
     if not os.access(conf_path, os.F_OK | os.R_OK | os.W_OK):
@@ -71,6 +72,7 @@ for conf_path in conf_paths:
     full_fn = os.path.join(conf_path, conf_fn)
     if os.path.exists(full_fn):
         parse_conf(full_fn)
+        conf_parse_path = full_fn
         conf_write_path = False
     elif conf_write_path is None:
         conf_write_path = full_fn
@@ -228,6 +230,8 @@ if not formdata['wraphtml']:
 #logdiv, logfilename = findlogfile(logapp, logfile, wraphtml)
 print 'Content-Type: %s' % (content_type)
 print
+
+print '<h1>confparsepath=%s, logfiledata=%s</h1>' % (conf_parse_path, logfiledata)
 
 logfileresult, logfilename = get_logfiles(**formdata)
 #logfileresult, logfilename = ('blahstuff', 'blahname')
