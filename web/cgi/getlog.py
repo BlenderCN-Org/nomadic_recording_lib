@@ -56,7 +56,7 @@ def write_conf(fn, conftype='INI'):
         p.write(f)
         f.close()
     if conftype == 'INI':
-        write_ini(fn)
+        write_ini(fn, logfiledata)
     
 conf_fn = os.path.expanduser('~/.getlog.conf')
 if os.path.exists(conf_fn):
