@@ -5,12 +5,13 @@ import cgi
 import cgitb
 cgitb.enable()
 import os.path
+import pwd
 import datetime
 import gzip
 import tarfile
 import tempfile
 import StringIO
-from ConfigParser import SafeConfigParser
+from ConfigParser import ConfigParser
 
 logfiledata = {'wowza': {'root':'/usr/local/WowzaMediaServer/logs/',
                          'filename_fmt':'wowzamediaserver_%s.log',
@@ -20,7 +21,7 @@ logfiledata = {'wowza': {'root':'/usr/local/WowzaMediaServer/logs/',
                          'filenames':['access','error']}}
 def parse_conf(fn):
     def parse_ini(fn):
-        p = SafeConfigParser()
+        p = ConfigParser()
         p.read(fn)
         d = {}
         for key in p.sections():
@@ -45,7 +46,7 @@ def parse_conf(fn):
         
 def write_conf(fn, conftype='INI'):
     def write_ini(fn, d):
-        p = SafeConfigParser()
+        p = ConfigParser()
         for lkey, lval in d.iteritems():
             p.add_section(lkey)
             for optkey, optval in lval.iteritems():
@@ -58,11 +59,21 @@ def write_conf(fn, conftype='INI'):
     if conftype == 'INI':
         write_ini(fn, logfiledata)
     
-conf_fn = os.path.expanduser('~/.getlog.conf')
-if os.path.exists(conf_fn):
-    parse_conf(conf_fn)
-else:
-    write_conf(conf_fn)
+conf_fn = '.getlog.conf'
+conf_paths = [pwd.getpwuid(os.stat(os.getcwd()).st_uid).pw_dir, 
+              '~', 
+              os.getcwd()]
+conf_write_path = None
+for conf_path in conf_paths:
+    if not os.access(conf_path, os.F_OK | os.R_OK | os.W_OK):
+        continue
+    full_fn = os.path.join(conf_path, conf_fn)
+    if os.path.exists(full_fn):
+        parse_conf(full_fn)
+    elif conf_write_path is None:
+        conf_write_path = full_fn
+if conf_write_path is not None:
+    write_conf(conf_write_path)
 
 def wrapdochtml(body, head=None):
     if head is None:
