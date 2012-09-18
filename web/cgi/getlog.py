@@ -39,10 +39,9 @@ def parse_conf(fn):
         parsed = {}
     for lkey, lval in parsed.iteritems():
         d = logfiledata.get(lkey)
-        if d is None:
-            d = {}
-            logfiledata[lkey] = d
-        d.update(lval)
+        if lkey not in logfiledata:
+            logfiledata[lkey] = {}
+        logfiledata[lkey].update(lval)
         
 def write_conf(fn, conftype='INI'):
     def write_ini(fn, d):
