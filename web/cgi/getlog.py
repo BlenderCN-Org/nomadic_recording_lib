@@ -71,9 +71,10 @@ for conf_path in conf_paths:
     full_fn = os.path.join(conf_path, conf_fn)
     if os.path.exists(full_fn):
         parse_conf(full_fn)
+        conf_write_path = False
     elif conf_write_path is None:
         conf_write_path = full_fn
-if conf_write_path is not None:
+if conf_write_path:
     write_conf(conf_write_path)
 
 def wrapdochtml(body, head=None):
