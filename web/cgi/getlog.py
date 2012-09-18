@@ -33,10 +33,7 @@ def parse_conf(fn):
                 itemdict[optkey] = optval
             d[key] = itemdict
         return d
-    #try:
     parsed = parse_ini(fn)
-    #finally:
-    #    parsed = {}
     for lkey, lval in parsed.iteritems():
         d = logfiledata.get(lkey)
         if lkey not in logfiledata:
@@ -229,8 +226,6 @@ if not formdata['wraphtml']:
 #logdiv, logfilename = findlogfile(logapp, logfile, wraphtml)
 print 'Content-Type: %s' % (content_type)
 print
-
-print '<h1>confparsepath=%s, logfiledata=%s</h1>' % (conf_parse_path, logfiledata)
 
 logfileresult, logfilename = get_logfiles(**formdata)
 #logfileresult, logfilename = ('blahstuff', 'blahname')
