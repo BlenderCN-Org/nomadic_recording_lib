@@ -65,6 +65,7 @@ conf_paths = [pwd.getpwuid(os.stat(os.getcwd()).st_uid).pw_dir,
               os.getcwd()]
 conf_write_path = None
 for conf_path in conf_paths:
+    conf_path = os.path.expanduser(conf_path)
     if not os.access(conf_path, os.F_OK | os.R_OK | os.W_OK):
         continue
     full_fn = os.path.join(conf_path, conf_fn)
