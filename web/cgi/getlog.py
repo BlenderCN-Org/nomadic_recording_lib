@@ -10,6 +10,7 @@ import gzip
 import tarfile
 import tempfile
 import StringIO
+from ConfigParser import SafeConfigParser
 
 logfiledata = {'wowza': {'root':'/usr/local/WowzaMediaServer/logs/',
                          'filename_fmt':'wowzamediaserver_%s.log',
@@ -17,6 +18,51 @@ logfiledata = {'wowza': {'root':'/usr/local/WowzaMediaServer/logs/',
                'apache':{'root':'/var/log/apache2/',
                          'filename_fmt':'%s.log',
                          'filenames':['access','error']}}
+def parse_conf(fn):
+    def parse_ini(fn):
+        p = SafeConfigParser()
+        p.read(fn)
+        d = {}
+        for key in p.sections():
+            items = p.items(key)
+            itemdict = {}
+            for optkey, optval in items:
+                if ',' in optval:
+                    optval = [v.strip() for v in optval.split(',')]
+                itemdict[optkey] = optval
+            d[key] = itemdict
+        return d
+    try:
+        parsed = parse_ini(fn)
+    finally:
+        parsed = {}
+    for lkey, lval in parsed.iteritems():
+        d = logfiledata.get(lkey)
+        if d is None:
+            d = {}
+            logfiledata[lkey] = d
+        d.update(lval)
+        
+def write_conf(fn, conftype='INI'):
+    def write_ini(fn, d):
+        p = SafeConfigParser()
+        for lkey, lval in d.iteritems():
+            p.add_section(lkey)
+            for optkey, optval in lval.iteritems():
+                if isinstance(optval, list):
+                    optval = ','.join(optval)
+                p.set(lkey, optkey, optval)
+        f = open(fn, 'wb')
+        p.write(f)
+        f.close()
+    if conftype == 'INI':
+        write_ini(fn)
+    
+conf_fn = os.path.expanduser('~/.getlog.conf')
+if os.path.exists(conf_fn):
+    parse_conf(conf_fn)
+else:
+    write_conf(conf_fn)
 
 def wrapdochtml(body, head=None):
     if head is None:
