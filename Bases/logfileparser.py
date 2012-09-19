@@ -21,6 +21,10 @@ class LogEntry(object):
         return self.parser.field_names
     def parse(self, **kwargs):
         pass
+    def get_dict(self):
+        keys = ['id', 'field_names', 'fields']
+        d = dict(zip(keys, [getattr(self, key) for key in keys]))
+        return d
     
 class DelimitedLogEntry(LogEntry):
     def __init__(self, **kwargs):
@@ -80,6 +84,12 @@ class BaseParser(BaseObject):
         kwargs['parser'] = self
         return self.entry_class(**kwargs)
         
+    def get_dict(self):
+        entries = self.parsed
+        keys = entries.keys()
+        d = {'entries':dict(zip(keys, [entries[key].get_dict() for key in keys]))}
+        return d
+        
 class FileParser(BaseParser):
     _Properties = {'filename':dict(ignore_type=True), 
                    'rw_mode':dict(default='r')}
@@ -137,7 +147,7 @@ class FileParser(BaseParser):
                 parse_file(filename=fn)
         else:
             parse_file(filename=kwargs.get('value'))
-        
+    
 
 NON_CTRL_DELIMITERS = dict(comma=',', semicolon=';', colon=':', space=' ')
 
