@@ -86,8 +86,12 @@ class BaseParser(BaseObject):
         
     def get_dict(self):
         entries = self.parsed['entries']
-        keys = entries.keys()
-        d = {'entries':dict(zip(keys, [entries[key].get_dict() for key in keys]))}
+        #keys = entries.keys()
+        #d = {'entries':dict(zip(keys, [entries[key].get_dict() for key in keys]))}
+        d = {'entries':{}}
+        for key, val in entries.iteritems():
+            edict = val.get_dict()
+            d['entries'][edict['id']] = edict
         return d
         
 class FileParser(BaseParser):
