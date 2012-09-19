@@ -85,7 +85,7 @@ class BaseParser(BaseObject):
         return self.entry_class(**kwargs)
         
     def get_dict(self):
-        entries = self.parsed
+        entries = self.parsed['entries']
         keys = entries.keys()
         d = {'entries':dict(zip(keys, [entries[key].get_dict() for key in keys]))}
         return d
