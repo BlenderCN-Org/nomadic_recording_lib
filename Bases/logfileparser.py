@@ -251,6 +251,7 @@ class DelimitedFileParser(FileParser):
                 i += 1
                 continue
             if len(line.split(delim)) < len(current_field_names):
+                print 'buffering line %s last="%s", line="%s"' % (i, last_line, line)
                 i += 1
                 last_line += line
                 continue
