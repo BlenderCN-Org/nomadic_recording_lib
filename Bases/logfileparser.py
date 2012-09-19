@@ -223,7 +223,10 @@ class DelimitedFileParser(FileParser):
         d = {'header_data':{}, 'entries':{}}
         i = 0
         line_num = 0
+        last_line = ''
         for line in f:
+            line = last_line + line
+            last_line = ''
             line = line.rstrip('\n').rstrip('\r')
             if not len(line):
                 continue
@@ -246,6 +249,10 @@ class DelimitedFileParser(FileParser):
                 continue
             if line.startswith('#'):
                 i += 1
+                continue
+            if len(line.split(delim)) < len(current_field_names):
+                i += 1
+                last_line += line
                 continue
             entry = self.build_entry(data=line, id=line_num, field_names=current_field_names)
             d['entries'][entry.id] = entry
