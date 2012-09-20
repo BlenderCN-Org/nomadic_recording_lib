@@ -57,6 +57,13 @@ class DelimitedLogEntry(LogEntry):
             elif '.' in field and False not in [n.isdigit() for n in field.split('.')]:
                 field = float(field)
         return field
+    
+class W3CExtendedLogEntry(DelimitedLogEntry):
+    def parse_field(self, field):
+        field = super(W3CExtendedLogEntry, self).parse_field(field)
+        if field == '-':
+            field = None
+        return field
 
 class BaseParser(BaseObject):
     _Properties = {'field_names':dict(default=[]), 
@@ -288,6 +295,7 @@ class DelimitedFileParser(FileParser):
         return value
 
 class W3CExtendedLogfileParser(DelimitedFileParser):
+    entry_class = W3CExtendedLogEntry
     def process_header(self, line_number, line):
         if line.startswith('#Fields:'):
             return False, line
