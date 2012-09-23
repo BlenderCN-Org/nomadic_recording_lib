@@ -35,7 +35,15 @@ def build_conf_filename():
         #app = sys.argv[0].split('.py')[0]
     return os.path.expanduser('~/.%s.conf' % (app))
 
+class ConfigNeededException(Exception):
+    def __init__(self, key, obj):
+        self.key = key
+        self.obj = obj
+    def __str__(self):
+        return repr({'obj':self.obj, 'key':self.key})
+
 class Config(object):
+    ConfigNeededException = ConfigNeededException
     def __init__(self, **kwargs):
         self.init_config_parser(**kwargs)
     def init_config_parser(self, **kwargs):
@@ -73,6 +81,10 @@ class Config(object):
         if p is None:
             return
         p.remove_conf_options(options)
+    def raise_conf_exception(self, key, obj=None):
+        if obj is None:
+            obj = self
+        raise ConfigNeededException(key, obj)
     def _CONF_ON_GLOBAL_CONFIG_UPDATE(self, **kwargs):
         cfilename = build_conf_filename()
         p = getattr(self, '_confparser', None)
