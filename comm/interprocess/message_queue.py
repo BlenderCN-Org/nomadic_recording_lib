@@ -2,6 +2,7 @@ import os.path
 import sys
 import socket
 import SocketServer
+import collections
 
 
 if __name__ == '__main__':
@@ -20,11 +21,17 @@ from comm.BaseIO import BaseIO
 DEFAULT_PORT = 51515
 BUFFER_SIZE = 4096
 
+DATETIME_FMT_STR = '%Y-%m-%d %H:%M:%S.%f'
+def datetime_to_str(dt):
+    return dt.strftime(DATETIME_FMT_STR)
+def str_to_datetime(s):
+    return datetime.datetime.strptime(s, DATETIME_FMT_STR)
+
 class QueueMessage(object):
     _message_keys = ['client_id', 'client_address', 'timestamp', 
                      'message_id', 'message_type', 'data']
-    _datetime_fmt_str = '%Y-%m-%d %H:%M:%S.%f'
     def __init__(self, **kwargs):
+        self.message_handler = kwargs.get('message_handler')
         raw_data = kwargs.get('raw_data')
         if raw_data is not None:
             d = self.deserialize(raw_data)
@@ -32,6 +39,10 @@ class QueueMessage(object):
         else:
             d = kwargs
         self.load_data(d)
+        if self.timestamp is None:
+            self.timestamp = self.message_handler.message_queue.now()
+        if self.message_id is None:
+            self.message_id = (self.client_id, datetime_to_str(self.timestamp))
     def load_data(self, data):
         for key in self._message_keys:
             val = kwargs.get(key)
@@ -42,15 +53,14 @@ class QueueMessage(object):
         for key in keys:
             val = getattr(self, key)
             if isinstance(val, datetime.datetime):
-                val = val.strftime(val, self._datetime_fmt_str)
+                val = datetime_to_str(val)
             d[key] = val
-        #d = dict(zip(keys, [getattr(self, key) for key in keys]))
         return json.dumps(d)
     def deserialize(self, data):
         d = json.loads(data)
         ts = d.get('timestamp')
         if ts is not None:
-            dt = datetime.datetime.strptime(ts, self._datetime_fmt_str)
+            dt = str_to_datetime(ts)
             d['timestamp'] = dt
         return d
     
@@ -69,7 +79,8 @@ class MessageHandler(BaseObject):
         client = kwargs.get('client')
         mq = self.message_queue
         msg = self.message_class(raw_data=data, 
-                                 client_address=client)
+                                 client_address=client, 
+                                 message_handler=self)
         ts = msg.timestamp
         if ts is None:
             ts = mq.now()
@@ -78,18 +89,21 @@ class MessageHandler(BaseObject):
     def dispatch_message(self, msg, ts):
         self.emit('new_message', message=msg, timestamp=ts)
     
-class QueueClient(BaseObject):
+class Client(BaseObject):
     def __init__(self, **kwargs):
-        super(QueueClient, self).__init__(**kwargs)
+        super(Client, self).__init__(**kwargs)
         self.id = kwargs.get('id')
         self.hostaddr = kwargs.get('hostaddr')
         self.hostport = kwargs.get('hostport')
         self.queue_parent = kwargs.get('queue_parent')
+        self.pending_messages = collections.deque()
     def send_message(self, **kwargs):
+        pass
+    def handle_message(self, **kwargs):
         pass
         
 class QueueBase(BaseIO):
-    _ChildGroups = {'clients':dict(child_class=QueueClient, ignore_index=True)}
+    _ChildGroups = {'clients':dict(child_class=Client, ignore_index=True)}
     def __init__(self, **kwargs):
         super(QueueBase, self).__init__(**kwargs)
         self.register_signal('new_message')
@@ -111,12 +125,13 @@ class QueueBase(BaseIO):
             return
         self.clients.remove_child(client)
     def on_handler_new_message(self, **kwargs):
-        self.emit('new_message', **kwargs)
         msg = kwargs.get('message')
         c_id = msg.client_id
         client = self.clients.get(c_id)
         if client is not None:
-            client.send_message(message_type='message_received', data=msg.message_id)
+            client.handle_message(**kwargs)
+        else:
+            self.emit('new_message', **kwargs)
         
         
 class QueueServer(QueueBase):
