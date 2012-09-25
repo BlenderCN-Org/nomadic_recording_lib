@@ -1,5 +1,6 @@
 import os.path
 import sys
+import multiprocessing
 from multiprocessing.managers import BaseManager as _mpBaseManager
 import Queue
 
@@ -34,12 +35,13 @@ class _ClientPointer(BaseObject):
     @property
     def queues(self):
         q = self._queues
-        if None in q:
+        if None in q.values():
             q = self._build_queues()
             self._queues.update(q)
         return q
     def _build_queues(self):
-        return dict(zip(['in', 'out'], [Queue.Queue(), Queue.Queue()]))
+        m = self.q_server._manager
+        return dict(zip(['in', 'out'], [m.Queue(), m.Queue()]))
     def connect(self):
         pass
     def disconnect(self):
@@ -63,7 +65,8 @@ class QueueBase(BaseIO):
             pass
         registry = kwargs.get('registry', {})
         default_reg = {'client_request_queues':None, 
-                       'client_adding_self':None}
+                       'client_adding_self':None, 
+                       'Queue':Queue.Queue}
         default_reg.update(registry)
         for key, val in default_reg.iteritems():
             if val is None:
@@ -163,7 +166,7 @@ class QueueClient(QueueBase):
         m = self._build_manager()
         self._manager = m
         m.connect()
-        m.client_adding_self(self.id)
+        print m.client_adding_self(self.id)
         self.get_queues()
         self.connected = True
     def do_disconnect(self, **kwargs):
@@ -178,7 +181,7 @@ def test_server():
     serv = QueueServer()
     print 'serv: ', serv
     serv.do_connect()
-    print 'serv connected'
+    print 'serv connected, state: ', serv._manager._state.value
     return serv
 def test_client():
     c = QueueClient()
@@ -186,7 +189,11 @@ def test_client():
     return c
 if __name__ == '__main__':
     import time
+    import logging
+    logger = multiprocessing.log_to_stderr()
+    logger.setLevel(logging.INFO)
     serv = test_server()
+    time.sleep(5.)
     c = test_client()
     running = True
     while running:
