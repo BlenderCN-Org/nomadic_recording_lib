@@ -1,8 +1,8 @@
 import os.path
 import sys
-import multiprocessing
-from multiprocessing.managers import BaseManager as _mpBaseManager
-import Queue
+import socket
+import SocketServer
+
 
 if __name__ == '__main__':
     dirname = os.path.dirname(__file__)
@@ -14,192 +14,173 @@ if __name__ == '__main__':
     sys.path[i] = os.path.split(sys.path[i])[0]
     print sys.path[i]
 
-from Bases import BaseObject, setID
+from Bases import BaseObject, BaseThread, Scheduler, setID
 from comm.BaseIO import BaseIO
 
 DEFAULT_PORT = 51515
+BUFFER_SIZE = 4096
 
-class _ClientPointer(BaseObject):
-    _Properties = {'connected':dict(default=False)}
+class QueueMessage(object):
+    _message_keys = ['client_id', 'client_address', 'timestamp', 
+                     'message_id', 'message_type', 'data']
+    _datetime_fmt_str = '%Y-%m-%d %H:%M:%S.%f'
     def __init__(self, **kwargs):
-        super(_ClientPointer, self).__init__(**kwargs)
-        self.id = kwargs.get('id')
-        self._queues = {'in':None, 'out':None}
-        self.q_server = kwargs.get('queue_server')
-        if self.q_server.connected:
-            self.connect()
-        self.q_server.bind(connected=self.on_queue_server_state)
-    def unlink(self):
-        self.q_server.unbind(self)
-        super(_ClientPointer, self).unlink()
-    @property
-    def queues(self):
-        q = self._queues
-        if None in q.values():
-            q = self._build_queues()
-            self._queues.update(q)
-        return q
-    def _build_queues(self):
-        m = self.q_server._manager
-        return dict(zip(['in', 'out'], [m.Queue(), m.Queue()]))
-    def connect(self):
-        pass
-    def disconnect(self):
-        pass
-    def on_queue_server_state(self, **kwargs):
-        state = kwargs.get('value')
-        if state:
-            self.connect()
+        raw_data = kwargs.get('raw_data')
+        if raw_data is not None:
+            d = self.deserialize(raw_data)
+            d.update(kwargs)
         else:
-            self.disconnect()
+            d = kwargs
+        self.load_data(d)
+    def load_data(self, data):
+        for key in self._message_keys:
+            val = kwargs.get(key)
+            setattr(self, key, val)
+    def serialize(self):
+        keys = self._message_keys
+        d = {}
+        for key in keys:
+            val = getattr(self, key)
+            if isinstance(val, datetime.datetime):
+                val = val.strftime(val, self._datetime_fmt_str)
+            d[key] = val
+        #d = dict(zip(keys, [getattr(self, key) for key in keys]))
+        return json.dumps(d)
+    def deserialize(self, data):
+        d = json.loads(data)
+        ts = d.get('timestamp')
+        if ts is not None:
+            dt = datetime.datetime.strptime(ts, self._datetime_fmt_str)
+            d['timestamp'] = dt
+        return d
     
+    
+class MessageHandler(BaseObject):
+    def __init__(self, **kwargs):
+        super(MessageHandler, self).__init__(**kwargs)
+        self.register_signal('new_message')
+        self.message_class = kwargs.get('message_class', QueueMessage)
+        self.queue_time_method = kwargs.get('queue_time_method', 'datetime_utc')
+        self.message_queue = Scheduler(time_method=self.queue_time_method, 
+                                       callback=self.dispatch_message)
+        self.message_queue.start()
+    def incoming_data(self, **kwargs):
+        data = kwargs.get('data')
+        client = kwargs.get('client')
+        mq = self.message_queue
+        msg = self.message_class(raw_data=data, 
+                                 client_address=client)
+        ts = msg.timestamp
+        if ts is None:
+            ts = mq.now()
+        mq.add_item(ts, msg)
+    
+    def dispatch_message(self, msg, ts):
+        self.emit('new_message', message=msg, timestamp=ts)
+    
+class QueueClient(BaseObject):
+    def __init__(self, **kwargs):
+        super(QueueClient, self).__init__(**kwargs)
+        self.id = kwargs.get('id')
+        self.hostaddr = kwargs.get('hostaddr')
+        self.hostport = kwargs.get('hostport')
+        self.queue_parent = kwargs.get('queue_parent')
+    def send_message(self, **kwargs):
+        pass
+        
 class QueueBase(BaseIO):
+    _ChildGroups = {'clients':dict(child_class=QueueClient, ignore_index=True)}
     def __init__(self, **kwargs):
         super(QueueBase, self).__init__(**kwargs)
-        self._manager = None
-        self.hostaddr = kwargs.get('hostaddr')
+        self.register_signal('new_message')
+        self.id = setID(kwargs.get('id'))
+        self.hostaddr = kwargs.get('hostaddr', '127.0.0.1')
         self.hostport = int(kwargs.get('hostport', DEFAULT_PORT))
-        self.authkey = kwargs.get('authkey', '1234567890')
-    def _build_manager_cls(self, **kwargs):
-        class _QueueManager(_mpBaseManager):
-            pass
-        registry = kwargs.get('registry', {})
-        default_reg = {'client_request_queues':None, 
-                       'client_adding_self':None, 
-                       'Queue':Queue.Queue}
-        default_reg.update(registry)
-        for key, val in default_reg.iteritems():
-            if val is None:
-                val = getattr(self, key, None)
-            args = [key]
-            if val is not None:
-                args.append(val)
-            _QueueManager.register(*args)
-        return _QueueManager
-    def _build_manager(self, **kwargs):
-        cls = self._build_manager_cls(**kwargs)
-        addr = (self.hostaddr, self.hostport)
-        m = cls(address=addr, authkey=self.authkey)
-        return m
-class QueueServer(QueueBase):
-    _ChildGroups = {'clients':dict(child_class=_ClientPointer, ignore_index=True)}
-    def __init__(self, **kwargs):
-        kwargs.setdefault('hostaddr', '')
-        super(QueueServer, self).__init__(**kwargs)
-        self.clients.bind(update=self.on_clients_Childgroup_update)
-    def do_connect(self, **kwargs):
-        if self.connected:
-            return
-        if self._manager is not None:
-            self.do_disconnect(blocking=True)
-        m = self._build_manager()
-        self._manager = m
-        m.start()
-        self.connected = True
-    def do_disconnect(self, **kwargs):
-        m = self._manager
-        if m is not None:
-            m.shutdown()
-            self._manager = None
-        self.connected = False
-    
+        self.message_handler = MessageHandler()
+        self.message_handler.bind(new_message=self.on_handler_new_message)
     def add_client(self, **kwargs):
-        kwargs = kwargs.copy()
-        kwargs['queue_server'] = self
+        kwargs['queue_parent'] = self
         c = self.clients.add_child(**kwargs)
         return c
-    def remove_client(self, **kwargs):
-        client = kwargs.get('client')
+    def del_client(self, **kwargs):
         c_id = kwargs.get('id')
+        client = kwargs.get('client')
         if client is None:
             client = self.clients.get(c_id)
         if client is None:
             return
-        self.clients.del_child(client)
-    def client_adding_self(self, client_id):
-        if client_id in self.clients:
-            return False
-        c = self.add_client(id=client_id)
-        return True
-    def client_request_queues(self, client_id, key):
-        c = self.clients.get(client_id)
-        if c is None:
-            return False
-        return c.queues.get(key)
-    def on_clients_Childgroup_update(self, **kwargs):
-        print 'server client update: ', kwargs
+        self.clients.remove_child(client)
+    def on_handler_new_message(self, **kwargs):
+        self.emit('new_message', **kwargs)
+        msg = kwargs.get('message')
+        c_id = msg.client_id
+        client = self.clients.get(c_id)
+        if client is not None:
+            client.send_message(message_type='message_received', data=msg.message_id)
         
-
-class QueueClient(QueueBase):
+        
+class QueueServer(QueueBase):
     def __init__(self, **kwargs):
-        kwargs.setdefault('hostaddr', '127.0.0.1')
-        super(QueueClient, self).__init__(**kwargs)
-        self._queues = {'in':None, 'out':None}
-        self.id = setID(kwargs.get('id'))
-    @property
-    def queues(self):
-        return self._queues
-    def get_queues(self):
-        m = self._manager
-        q = self._queues
-        noqueue = ({'in':None, 'out':None})
-        if m is None:
-            q.update(noqueue)
-            return
-        _qdict = {}
-        for key in ['in', 'out']:
-            _q = m.client_request_queues(self.id, key)
-            if _q is not False:
-                _qdict[key] = _q
-        if not len(_qdict):
-            q.update(noqueue)
-            return
-        q.update(_qdict)
-        print 'client %s queues: %r' % (self.id, q)
-        print q['in'].__dict__
+        super(QueueServer, self).__init__(**kwargs)
+        self.serve_thread = None
         
-    def do_connect(self, **kwargs):
-        if self.connected:
-            return
-        if self._manager is not None:
-            self.do_disconnect(blocking=True)
-        m = self._build_manager()
-        self._manager = m
-        m.connect()
-        print m.client_adding_self(self.id)
-        self.get_queues()
+    def do_connect(self):
+        self.do_disconnect(blocking=True)
+        t = self.serve_thread = self.build_server()
+        t.start()
         self.connected = True
     def do_disconnect(self, **kwargs):
-        self._close_manager()
-        self._manager = None
+        t = self.serve_thread
+        if t is not None:
+            t.stop(blocking=True)
+            self.serve_thread = None
         self.connected = False
-    def _close_manager(self):
-        ## TODO: figure out how to close it?
-        pass
+    def build_server(self):
+        t = ServeThread(hostaddr=self.hostaddr, 
+                        hostport=self.hostport, 
+                        message_handler=self.message_handler)
+        return t
+    
+    
+class QueueClient(QueueBase):
+    def __init__(self, **kwargs):
+        super(QueueClient, self).__init__(**kwargs)
+        
+        
+class _Server(SocketServer.TCPServer):
+    pass
+    #def __init__(self, *args):
+    #    SocketServer.TCPServer.__init__(self, *args)
+class _RequestHandler(SocketServer.BaseRequestHandler):
+    def handle(self):
+        data = self.request.recv(BUFFER_SIZE)
+        client = self.client_address
+        mh = self.server.message_handler
+        mh.incoming_data(data=data, client=client)
+        
+class ServeThread(BaseThread):
+    def __init__(self, **kwargs):
+        kwargs['disable_threaded_call_waits'] = True
+        super(ServeThread, self).__init__(**kwargs)
+        self.hostaddr = kwargs.get('hostaddr')
+        self.hostport = kwargs.get('hostport')
+        self.message_handler = kwargs.get('message_handler')
+        self._server = None
+    def build_server(self):
+        host = (self.hostaddr, self.hostport)
+        s = _Server(host, _RequestHandler)
+        s.message_handler = self.message_handler
+        return s
+    def _thread_loop_iteration(self):
+        if not self._running:
+            return
+        if self._server is not None:
+            return
+        s = self._server = self.build_server()
+        s.serve_forever()
+    def stop(self, **kwargs):
+        s = self._server
+        if s is not None:
+            s.shutdown()
+        super(ServerThread, self).stop(**kwargs)
 
-def test_server():
-    serv = QueueServer()
-    print 'serv: ', serv
-    serv.do_connect()
-    print 'serv connected, state: ', serv._manager._state.value
-    return serv
-def test_client():
-    c = QueueClient()
-    c.do_connect()
-    return c
-if __name__ == '__main__':
-    import time
-    import logging
-    logger = multiprocessing.log_to_stderr()
-    logger.setLevel(logging.INFO)
-    serv = test_server()
-    time.sleep(5.)
-    c = test_client()
-    running = True
-    while running:
-        try:
-            time.sleep(.5)
-        except KeyboardInterrupt:
-            running = False
-    c.do_disconnect()
-    serv.do_disconnect()
