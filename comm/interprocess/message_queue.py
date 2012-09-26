@@ -28,7 +28,8 @@ def str_to_datetime(s):
     return datetime.datetime.strptime(s, DATETIME_FMT_STR)
 
 class QueueMessage(object):
-    _message_keys = ['client_id', 'client_address', 'timestamp', 
+    _message_keys = ['sender_id', 'sender_address', 'recipient_id', 
+                     'recipient_address', 'timestamp', 
                      'message_id', 'message_type', 'data']
     def __init__(self, **kwargs):
         self.message_handler = kwargs.get('message_handler')
@@ -42,7 +43,7 @@ class QueueMessage(object):
         if self.timestamp is None:
             self.timestamp = self.message_handler.message_queue.now()
         if self.message_id is None:
-            self.message_id = (self.client_id, datetime_to_str(self.timestamp))
+            self.message_id = (self.recipient_id, datetime_to_str(self.timestamp))
     def load_data(self, data):
         for key in self._message_keys:
             val = kwargs.get(key)
@@ -74,6 +75,7 @@ class MessageHandler(BaseObject):
         self.message_queue = Scheduler(time_method=self.queue_time_method, 
                                        callback=self.dispatch_message)
         self.message_queue.start()
+        
     def incoming_data(self, **kwargs):
         data = kwargs.get('data')
         client = kwargs.get('client')
@@ -98,7 +100,11 @@ class Client(BaseObject):
         self.queue_parent = kwargs.get('queue_parent')
         self.pending_messages = collections.deque()
     def send_message(self, **kwargs):
-        pass
+        kwargs = kwargs.copy()
+        qp = self.queue_parent
+        kwargs.update({'client_id':self.id, 'client_address':(self.hostaddr, self.hostport)})
+        msg = self.queue_parent.send_message(**kwargs)
+        return msg
     def handle_message(self, **kwargs):
         pass
         
@@ -132,7 +138,12 @@ class QueueBase(BaseIO):
             client.handle_message(**kwargs)
         else:
             self.emit('new_message', **kwargs)
-        
+    def send_message(self, **kwargs):
+        kwargs = kwargs.copy()
+        kwargs.update({'sender_id':self.queue_parent.id, 'sender_address':(qp.hostaddr, qp.hostport)})
+        msg = self.message_handler.message_class(**kwargs)
+        ## TODO: actually send it
+        return msg
         
 class QueueServer(QueueBase):
     def __init__(self, **kwargs):
