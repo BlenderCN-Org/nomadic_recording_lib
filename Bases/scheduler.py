@@ -1,4 +1,5 @@
 import time
+import datetime
 
 from threadbases import BaseThread
 
@@ -6,6 +7,14 @@ class Scheduler(BaseThread):
     _Events = {'waiting':{}}
     def __init__(self, **kwargs):
         super(Scheduler, self).__init__(**kwargs)
+        time_method = kwargs.get('time_method', 'timestamp')
+        if isinstance(time_method, basestring):
+            if not callable(getattr(self, time_method, None)):
+                time_method = '_now_%s' % (time_method)
+            m = getattr(self, time_method)
+        else:
+            m = time_method
+        self.now = m
         self.callback = kwargs.get('callback')
         self.spawn_threads = kwargs.get('spawn_threads', False)
         if self.spawn_threads:
@@ -14,8 +23,12 @@ class Scheduler(BaseThread):
             self._do_callback = self.do_callback
         self.queue = TimeQueue()
         
-    def now(self):
+    def _now_timestamp(self):
         return time.time()
+    def _now_datetime(self):
+        return datetime.datetime.now()
+    def _now_datetime_utc(self):
+        return datetime.datetime.utcnow()
         
     def add_item(self, time, item):
         self.queue.put(time, item)
@@ -82,7 +95,14 @@ class Scheduler(BaseThread):
         t = self.queue.lowest_time()
         if t is None:
             return False, False
-        return (t - self.now(), t)
+        result = t - self.now()
+        if isinstance(result, datetime.timedelta):
+            if hasattr(result, 'total_seconds'):
+                result = result.total_seconds()
+            else:
+                td = result
+                result = (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
+        return (result, t)
         
 class TimeQueue(object):
     def __init__(self, **kwargs):
