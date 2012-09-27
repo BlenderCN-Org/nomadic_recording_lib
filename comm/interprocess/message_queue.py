@@ -1,8 +1,12 @@
 import os.path
 import sys
+import time
 import socket
 import SocketServer
 import collections
+import datetime
+import json
+import threading
 
 
 if __name__ == '__main__':
@@ -13,7 +17,6 @@ if __name__ == '__main__':
     i = sys.path.index(dirname)
     sys.path[i] = os.path.split(sys.path[i])[0]
     sys.path[i] = os.path.split(sys.path[i])[0]
-    print sys.path[i]
 
 from Bases import BaseObject, BaseThread, Scheduler, setID
 from comm.BaseIO import BaseIO
@@ -44,9 +47,13 @@ class QueueMessage(object):
             self.timestamp = self.message_handler.message_queue.now()
         if self.message_id is None:
             self.message_id = (self.recipient_id, datetime_to_str(self.timestamp))
+        for key in ['recipient_address', 'sender_address', 'message_id']:
+            val = getattr(self, key)
+            if type(val) == list:
+                setattr(self, key, tuple(val))
     def load_data(self, data):
         for key in self._message_keys:
-            val = kwargs.get(key)
+            val = data.get(key)
             setattr(self, key, val)
     def serialize(self):
         keys = self._message_keys
@@ -64,6 +71,10 @@ class QueueMessage(object):
             dt = str_to_datetime(ts)
             d['timestamp'] = dt
         return d
+    def __repr__(self):
+        return '<%s object (%s)>' % (self.__class__.__name__, self)
+    def __str__(self):
+        return str(dict(zip(self._message_keys, [getattr(self, key, None) for key in self._message_keys])))
     
     
 class MessageHandler(BaseObject):
@@ -75,14 +86,21 @@ class MessageHandler(BaseObject):
         self.message_queue = Scheduler(time_method=self.queue_time_method, 
                                        callback=self.dispatch_message)
         self.message_queue.start()
-        
+    def unlink(self):
+        self.message_queue.stop(blocking=True)
+        q = self.message_queue
+        super(MessageHandler, self).unlink()
+    def create_message(self, **kwargs):
+        cls = self.message_class
+        kwargs['message_handler'] = self
+        return cls(**kwargs)
     def incoming_data(self, **kwargs):
         data = kwargs.get('data')
         client = kwargs.get('client')
         mq = self.message_queue
-        msg = self.message_class(raw_data=data, 
-                                 client_address=client, 
-                                 message_handler=self)
+        msg = self.create_message(raw_data=data)
+        if msg.recipient_address is None:
+            msg.recipient_address = client
         ts = msg.timestamp
         if ts is None:
             ts = mq.now()
@@ -94,19 +112,47 @@ class MessageHandler(BaseObject):
 class Client(BaseObject):
     def __init__(self, **kwargs):
         super(Client, self).__init__(**kwargs)
+        self.register_signal('new_message')
         self.id = kwargs.get('id')
         self.hostaddr = kwargs.get('hostaddr')
-        self.hostport = kwargs.get('hostport')
+        self.hostport = kwargs.get('hostport', DEFAULT_PORT)
         self.queue_parent = kwargs.get('queue_parent')
-        self.pending_messages = collections.deque()
+        self.pending_messages = {}
     def send_message(self, **kwargs):
         kwargs = kwargs.copy()
-        qp = self.queue_parent
-        kwargs.update({'client_id':self.id, 'client_address':(self.hostaddr, self.hostport)})
-        msg = self.queue_parent.send_message(**kwargs)
-        return msg
+        self._update_message_kwargs(kwargs)
+        msg = self.queue_parent._do_send_message(**kwargs)
+    def _on_message_built(self, msg):
+        if msg.recipient_id != self.id:
+            return
+        if msg.message_type == 'message_receipt':
+            return
+        self.pending_messages[msg.message_id] = msg
+    def _update_message_kwargs(self, kwargs):
+        d = {'recipient_id':self.id, 
+             'recipient_address':(self.hostaddr, self.hostport)}
+        kwargs.update(d)
+    def _send_message_receipt(self, msg, **kwargs):
+        kwargs = kwargs.copy()
+        msg_data = dict(message_type='message_receipt', 
+                        data=msg.message_id, 
+                        message_id=None, 
+                        timestamp=None, 
+                        client_id=msg.sender_id)
+        #kwargs.update(msg_data)
+        self.queue_parent.send_message(**msg_data)
     def handle_message(self, **kwargs):
-        pass
+        msg = kwargs.get('message')
+        if msg.message_type == 'message_receipt':
+            msgid = msg.data
+            if type(msgid) == list:
+                msgid = tuple(msgid)
+            _txmsg = self.pending_messages.get(msgid)
+            if _txmsg is not None:
+                del self.pending_messages[msgid]
+            return
+        self._send_message_receipt(msg, **kwargs)
+        self.emit('new_message', **kwargs)
         
 class QueueBase(BaseIO):
     _ChildGroups = {'clients':dict(child_class=Client, ignore_index=True)}
@@ -118,6 +164,11 @@ class QueueBase(BaseIO):
         self.hostport = int(kwargs.get('hostport', DEFAULT_PORT))
         self.message_handler = MessageHandler()
         self.message_handler.bind(new_message=self.on_handler_new_message)
+        self.local_client = self.add_client(hostaddr=self.hostaddr, hostport=self.hostport, id=self.id)
+    def unlink(self):
+        self.message_handler.unlink()
+        #self.clients.clear()
+        super(QueueBase, self).unlink()
     def add_client(self, **kwargs):
         kwargs['queue_parent'] = self
         c = self.clients.add_child(**kwargs)
@@ -132,17 +183,48 @@ class QueueBase(BaseIO):
         self.clients.remove_child(client)
     def on_handler_new_message(self, **kwargs):
         msg = kwargs.get('message')
-        c_id = msg.client_id
+        c_id = msg.recipient_id
         client = self.clients.get(c_id)
         if client is not None:
             client.handle_message(**kwargs)
         else:
             self.emit('new_message', **kwargs)
+    def _update_message_kwargs(self, kwargs):
+        d = {'sender_id':self.id, 'sender_address':(self.hostaddr, self.hostport)}
+        kwargs.update(d)
     def send_message(self, **kwargs):
         kwargs = kwargs.copy()
-        kwargs.update({'sender_id':self.queue_parent.id, 'sender_address':(qp.hostaddr, qp.hostport)})
-        msg = self.message_handler.message_class(**kwargs)
-        ## TODO: actually send it
+        client = kwargs.get('client')
+        c_id = kwargs.get('client_id')
+        if not isinstance(client, Client):
+            if client is not None:
+                client = self.clients.get(client)
+            if client is None:
+                client = self.clients.get(c_id)
+        if isinstance(client, Client):
+            client._update_message_kwargs(kwargs)
+        msg = self._do_send_message(**kwargs)
+        return msg
+    def _do_send_message(self, **kwargs):
+        msg = self.create_message(**kwargs)
+        client = self.clients.get(msg.recipient_id)
+        if client is not None:
+            client._on_message_built(msg)
+        s = msg.serialize()
+        h = kwargs.get('handler')
+        if h is not None:
+            sock = h.request
+        else:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect(msg.recipient_address)
+        sock.sendall(s)
+        if h is None:
+            sock.close()
+        return msg
+        
+    def create_message(self, **kwargs):
+        self._update_message_kwargs(kwargs)
+        msg = self.message_handler.create_message(**kwargs)
         return msg
         
 class QueueServer(QueueBase):
@@ -161,6 +243,9 @@ class QueueServer(QueueBase):
             t.stop(blocking=True)
             self.serve_thread = None
         self.connected = False
+    def shutdown(self):
+        self.do_disconnect(blocking=True)
+        self.unlink()
     def build_server(self):
         t = ServeThread(hostaddr=self.hostaddr, 
                         hostport=self.hostport, 
@@ -182,7 +267,7 @@ class _RequestHandler(SocketServer.BaseRequestHandler):
         data = self.request.recv(BUFFER_SIZE)
         client = self.client_address
         mh = self.server.message_handler
-        mh.incoming_data(data=data, client=client)
+        mh.incoming_data(data=data, client=client, handler=self)
         
 class ServeThread(BaseThread):
     def __init__(self, **kwargs):
@@ -208,5 +293,24 @@ class ServeThread(BaseThread):
         s = self._server
         if s is not None:
             s.shutdown()
-        super(ServerThread, self).stop(**kwargs)
+        super(ServeThread, self).stop(**kwargs)
 
+if __name__ == '__main__':
+    class TestObj(object):
+        def on_message(self, **kwargs):
+            print 'message received: ', kwargs
+    testobj = TestObj()
+    serv = QueueServer()
+    serv.do_connect()
+    print 'server connected'
+    c = serv.add_client(id='testclient', hostaddr='127.0.0.1')
+    c.bind(new_message=testobj.on_message)
+    time.sleep(1.)
+    print 'sending message'
+    msg = c.send_message(data='hi')
+    print 'message sent', msg
+    time.sleep(2.)
+    print 'disconnecting'
+    serv.shutdown()
+    print 'disconnected'
+    
