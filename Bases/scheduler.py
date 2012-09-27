@@ -1,5 +1,6 @@
 import time
 import datetime
+import threading
 
 from threadbases import BaseThread
 
@@ -7,6 +8,7 @@ class Scheduler(BaseThread):
     _Events = {'waiting':{}}
     def __init__(self, **kwargs):
         super(Scheduler, self).__init__(**kwargs)
+        self.process_lock = threading.Lock()
         time_method = kwargs.get('time_method', 'timestamp')
         if isinstance(time_method, basestring):
             if not callable(getattr(self, time_method, None)):
@@ -47,29 +49,31 @@ class Scheduler(BaseThread):
             self.waiting.wait(next_timeout)
             if not self._running:
                 break
-            if not len(queue.times):
-                self.waiting = False
-                next_timeout = None
-            else:
-                if next_timeout is not None:
-                    process_next_item()
+            with self.process_lock:
+                if not len(queue.times):
+                    self.waiting = False
+                    next_timeout = None
                 else:
-                    timeout, t = time_to_next_item()
-                    #print '%011.8f, %011.8f' % (timeout, t)
-                    if timeout <= 0:
-                        #self.process_item(t)
+                    if next_timeout is not None:
                         process_next_item()
-                        self.waiting = True
                     else:
-                        self.waiting = False
-                        next_timeout = timeout
-                        #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
+                        timeout, t = time_to_next_item()
+                        #print '%011.8f, %011.8f' % (timeout, t)
+                        if timeout <= 0:
+                            #self.process_item(t)
+                            process_next_item()
+                            self.waiting = True
+                        else:
+                            self.waiting = False
+                            next_timeout = timeout
+                            #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
         self._stopped = True
         
     def stop(self, **kwargs):
-        self._running = False
-        self.waiting = True
-        super(Scheduler, self).stop(**kwargs)
+        with self.process_lock:
+            self._running = False
+            self.waiting = True
+            super(Scheduler, self).stop(**kwargs)
         
     def process_item(self, time):
         t, item = self.queue.pop(time)
