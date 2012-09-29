@@ -7,6 +7,7 @@ import collections
 import datetime
 import json
 import threading
+import traceback
 
 
 if __name__ == '__main__':
@@ -212,14 +213,18 @@ class QueueBase(BaseIO):
             client._on_message_built(msg)
         s = msg.serialize()
         h = kwargs.get('handler')
-        if h is not None:
-            sock = h.request
-        else:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect(msg.recipient_address)
-        sock.sendall(s)
-        if h is None:
-            sock.close()
+        sock = None
+        try:
+            if h is not None:
+                sock = h.request
+            else:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect(msg.recipient_address)
+            sock.sendall(s)
+            if h is None:
+                sock.close()
+        except:
+            traceback.print_exc()
         return msg
         
     def create_message(self, **kwargs):
@@ -247,7 +252,7 @@ class QueueServer(QueueBase):
         self.do_disconnect(blocking=True)
         self.unlink()
     def build_server(self):
-        t = ServeThread(hostaddr=self.hostaddr, 
+        t = ServeThread(hostaddr='', 
                         hostport=self.hostport, 
                         message_handler=self.message_handler)
         return t
@@ -290,27 +295,38 @@ class ServeThread(BaseThread):
         s = self._server = self.build_server()
         s.serve_forever()
     def stop(self, **kwargs):
+        self._running = False
         s = self._server
         if s is not None:
             s.shutdown()
         super(ServeThread, self).stop(**kwargs)
 
 if __name__ == '__main__':
+    import argparse
     class TestObj(object):
         def on_message(self, **kwargs):
             print 'message received: ', kwargs
+    p = argparse.ArgumentParser()
+    p.add_argument('--host', dest='host')
+    p.add_argument('--client', dest='client')
+    args, remaining = p.parse_known_args()
+    o = vars(args)
     testobj = TestObj()
-    serv = QueueServer()
+    serv = QueueServer(id=o['host'], hostaddr=o['host'])
     serv.do_connect()
     print 'server connected'
-    c = serv.add_client(id='testclient', hostaddr='127.0.0.1')
+    c = serv.add_client(id=o['client'], hostaddr=o['client'])
     c.bind(new_message=testobj.on_message)
     time.sleep(1.)
     print 'sending message'
     msg = c.send_message(data='hi')
     print 'message sent', msg
-    time.sleep(2.)
-    print 'disconnecting'
-    serv.shutdown()
+    while True:
+        try:
+            time.sleep(.5)
+        except KeyboardInterrupt:
+            print 'disconnecting'
+            serv.shutdown()
+            break
     print 'disconnected'
     
