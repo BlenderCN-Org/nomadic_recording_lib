@@ -313,6 +313,7 @@ if __name__ == '__main__':
     o = vars(args)
     testobj = TestObj()
     serv = QueueServer(id=o['host'], hostaddr=o['host'])
+    serv.bind(new_message=testobj.on_message)
     serv.do_connect()
     print 'server connected'
     c = serv.add_client(id=o['client'], hostaddr=o['client'])
