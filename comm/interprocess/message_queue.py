@@ -152,7 +152,7 @@ class Client(BaseObject):
             if _txmsg is not None:
                 del self.pending_messages[msgid]
             return
-        self._send_message_receipt(msg, **kwargs)
+        #self._send_message_receipt(msg, **kwargs)
         self.emit('new_message', **kwargs)
         
 class QueueBase(BaseIO):
