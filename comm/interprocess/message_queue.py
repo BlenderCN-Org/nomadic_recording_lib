@@ -190,7 +190,7 @@ class QueueBase(BaseIO):
         self.clients.remove_child(client)
     def on_handler_new_message(self, **kwargs):
         msg = kwargs.get('message')
-        c_id = msg.recipient_id
+        c_id = msg.sender_id
         client = self.clients.get(c_id)
         if client is not None:
             client.handle_message(**kwargs)
