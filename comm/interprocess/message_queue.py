@@ -123,12 +123,13 @@ class Client(BaseObject):
         kwargs = kwargs.copy()
         self._update_message_kwargs(kwargs)
         msg = self.queue_parent._do_send_message(**kwargs)
+        return msg
     def _on_message_built(self, msg):
         if msg.recipient_id != self.id:
             return
         if msg.message_type == 'message_receipt':
             return
-        self.pending_messages[msg.message_id] = msg
+        #self.pending_messages[msg.message_id] = msg
     def _update_message_kwargs(self, kwargs):
         d = {'recipient_id':self.id, 
              'recipient_address':(self.hostaddr, self.hostport)}
@@ -314,6 +315,7 @@ if __name__ == '__main__':
     testobj = TestObj()
     serv = QueueServer(id=o['host'], hostaddr=o['host'])
     serv.bind(new_message=testobj.on_message)
+    serv.local_client.bind(new_message=testobj.on_message)
     serv.do_connect()
     print 'server connected'
     c = serv.add_client(id=o['client'], hostaddr=o['client'])
