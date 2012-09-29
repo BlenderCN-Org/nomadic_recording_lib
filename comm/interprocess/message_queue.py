@@ -154,7 +154,12 @@ class Client(BaseObject):
                 del self.pending_messages[msgid]
             return
         #self._send_message_receipt(msg, **kwargs)
+        kwargs['obj'] = self
         self.emit('new_message', **kwargs)
+    def __repr__(self):
+        return '<%s>' % (self)
+    def __str__(self):
+        return 'Client: %s, hostdata=(%s, %s)' % (self.id, self.hostaddr, self.hostport)
         
 class QueueBase(BaseIO):
     _ChildGroups = {'clients':dict(child_class=Client, ignore_index=True)}
