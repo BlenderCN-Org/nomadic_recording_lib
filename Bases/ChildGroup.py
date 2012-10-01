@@ -237,7 +237,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         return obj
         
     def __repr__(self):
-        return '<ChildGroup %s of object %r>' % (self.name, self.parent_obj)
+        return '<%s of object %r>' % (self, self.parent_obj)
         
     def __str__(self):
-        return 'ChildGroup %s: %s' % (self.name, self.data)
+        return 'ChildGroup %s: %r' % (self.name, self.data)
