@@ -112,6 +112,8 @@ class MessageHandler(BaseObject):
         self.emit('new_message', message=msg, timestamp=ts)
     
 class Client(BaseObject):
+    _Properties = {'hostaddr':dict(ignore_type=True), 
+                   'hostport':dict(ignore_type=True)}
     def __init__(self, **kwargs):
         super(Client, self).__init__(**kwargs)
         self.register_signal('new_message')
@@ -144,6 +146,14 @@ class Client(BaseObject):
                         client_id=msg.sender_id)
         #kwargs.update(msg_data)
         self.queue_parent.send_message(**msg_data)
+    def update_hostdata(self, data):
+        for attr in ['hostaddr', 'hostport']:
+            if attr not in data:
+                continue
+            val = data[attr]
+            if getattr(self, attr) == val:
+                continue
+            setattr(self, attr, val)
     def handle_message(self, **kwargs):
         msg = kwargs.get('message')
         if msg.message_type == 'message_receipt':
@@ -154,7 +164,13 @@ class Client(BaseObject):
             if _txmsg is not None:
                 del self.pending_messages[msgid]
             return
+        elif msg.message_type == 'hostdata_update':
+            if not isinstance(msg.data, dict):
+                return
+            self.update_hostdata(msg.data)
+            return
         #self._send_message_receipt(msg, **kwargs)
+        self.update_hostdata(dict(zip(['hostaddr', 'hostport'], msg.sender_address)))
         kwargs['obj'] = self
         self.emit('new_message', **kwargs)
     def __repr__(self):
@@ -168,11 +184,23 @@ class QueueBase(BaseIO):
         super(QueueBase, self).__init__(**kwargs)
         self.register_signal('new_message')
         self.id = setID(kwargs.get('id'))
-        self.hostaddr = kwargs.get('hostaddr', '127.0.0.1')
-        self.hostport = int(kwargs.get('hostport', DEFAULT_PORT))
+        hostaddr = kwargs.get('hostaddr', '127.0.0.1')
+        hostport = int(kwargs.get('hostport', DEFAULT_PORT))
         self.message_handler = MessageHandler()
         self.message_handler.bind(new_message=self.on_handler_new_message)
-        self.local_client = self.add_client(hostaddr=self.hostaddr, hostport=self.hostport, id=self.id)
+        self.local_client = self.add_client(hostaddr=hostaddr, hostport=hostport, id=self.id)
+    @property
+    def hostaddr(self):
+        return self.local_client.hostaddr
+    @hostaddr.setter
+    def hostaddr(self, value):
+        self.local_client.hostaddr = value
+    @property
+    def hostport(self):
+        return self.local_client.hostport
+    @hostport.setter
+    def hostport(self, value):
+        self.local_client.hostport = value
     def unlink(self):
         self.message_handler.unlink()
         #self.clients.clear()
