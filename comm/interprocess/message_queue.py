@@ -100,6 +100,7 @@ class MessageHandler(BaseObject):
         client = kwargs.get('client')
         mq = self.message_queue
         msg = self.create_message(raw_data=data)
+        self.LOG.info('incoming message: %s' % (msg))
         if msg.recipient_address is None:
             msg.recipient_address = client
         ts = msg.timestamp
@@ -192,6 +193,7 @@ class QueueBase(BaseIO):
         msg = kwargs.get('message')
         c_id = msg.sender_id
         client = self.clients.get(c_id)
+        self.LOG.info('handling message: %s, client=%s' % (msg, client))
         if client is not None:
             client.handle_message(**kwargs)
         else:
@@ -217,6 +219,7 @@ class QueueBase(BaseIO):
         client = self.clients.get(msg.recipient_id)
         if client is not None:
             client._on_message_built(msg)
+        self.LOG.info('sending message: %s' % (msg))
         s = msg.serialize()
         h = kwargs.get('handler')
         sock = None
