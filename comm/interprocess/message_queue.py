@@ -90,10 +90,9 @@ class AESEncryptedMessage(QueueMessage):
         super(AESEncryptedMessage, self).__init__(**kwargs)
     @staticmethod
     def pad_zeros(s, size=16):
-        r = len(s) % size
-        if r == 0:
+        if len(s) == size:
             return s
-        s += '\0' * r
+        s += '\0' * size
         return s
     @classmethod
     def set_message_key(cls, key):
