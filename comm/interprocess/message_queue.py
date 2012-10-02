@@ -92,7 +92,7 @@ class AESEncryptedMessage(QueueMessage):
     def pad_zeros(s, size=16):
         if len(s) == size:
             return s
-        padlen = len(s) - size
+        padlen = size - len(s)
         s += '\0' * padlen
         return s
     @classmethod
