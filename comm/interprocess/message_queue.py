@@ -119,7 +119,13 @@ class AESEncryptedMessage(QueueMessage):
         c = self.cipher
         if c is None:
             return
-        return c.encrypt(padded)
+        try:
+            s = c.encrypt(padded)
+            return s
+        except:
+            print 'encryption error: msglen=%s, paddedlen=%s, calcsize=%s' % (len(msg), len(padded), size)
+            return ''
+        
     def deserialize(self, data):
         c = self.cipher
         if c is None:
