@@ -98,17 +98,24 @@ class AESEncryptedMessage(QueueMessage):
     def set_message_key(cls, key):
         sizes = [32, 24, 16]
         if len(key) in sizes:
+            print 'key length in sizes'
             padded = key
         if len(key) > max(sizes):
             size = max(sizes)
+            print 'truncating key to %s from %s' % (size, len(key))
             padded = key[size:]
         else:
             for size in sizes:
                 if len(key) > size:
                     continue
+                print 'padding key to %s' % (size)
                 padded = cls.pad_zeros(key, size)
                 break
-        cls.cipher = AES.new(padded)
+        try:
+            cls.cipher = AES.new(padded)
+        except:
+            print 'aes key error: key=%s, keylen=%s, padded=%r, padlen=%s' % (key, len(key), padded, len(padded))
+            sys.exit(0)
     def serialize(self):
         msg = super(AESEncryptedMessage, self).serialize()
         size = len(msg)
