@@ -103,7 +103,8 @@ class AESEncryptedMessage(QueueMessage):
             for size in sizes:
                 if len(key) < size:
                     continue
-                padded = self.pad_zeros(key, size)
+                padded = cls.pad_zeros(key, size)
+                break
             if padded is None:
                 size = max(sizes)
                 padded = key[size:]
