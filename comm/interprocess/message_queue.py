@@ -8,6 +8,7 @@ import datetime
 import json
 import threading
 import traceback
+from Crypto.Cipher import AES
 
 
 if __name__ == '__main__':
@@ -77,12 +78,61 @@ class QueueMessage(object):
     def __str__(self):
         return str(dict(zip(self._message_keys, [getattr(self, key, None) for key in self._message_keys])))
     
+class AESEncryptedMessage(QueueMessage):
+    cipher = None
+    def __init__(self, **kwargs):
+        if self.cipher is None:
+            mh = kwargs.get('message_handler')
+            key = mh.queue_parent.message_key
+            if key is None:
+                key = ''.join([chr(i) for i in range(32)])
+            self.set_message_key(key)
+        super(AESEncryptedMessage, self).__init__(**kwargs)
+    @staticmethod
+    def pad_zeros(s, size=16):
+        r = len(s) % size
+        if r == 0:
+            return s
+        s += '\0' * r
+        return s
+    @classmethod
+    def set_message_key(cls, key):
+        sizes = [16, 24, 32]
+        if len(key) not in sizes:
+            padded = None
+            for size in sizes:
+                if len(key) < size:
+                    continue
+                padded = self.pad_zeros(key, size)
+            if padded is None:
+                size = max(sizes)
+                padded = key[size:]
+            key = padded
+        cls.cipher = AES.new(key)
+    def serialize(self):
+        msg = super(AESEncryptedMessage, self).serialize()
+        padded = self.pad_zeroes(msg)
+        c = self.cipher
+        if c is None:
+            return
+        return c.encrypt(padded)
+    def deserialize(self, data):
+        c = self.cipher
+        if c is None:
+            return
+        msg = c.decrypt(data)
+        msg = msg.strip('\0')
+        return super(AESEncryptedMessage, self).deserialize(msg)
     
+MESSAGE_CLASSES = {'Message':QueueMessage, 'AES':AESEncryptedMessage}
+
 class MessageHandler(BaseObject):
     def __init__(self, **kwargs):
         super(MessageHandler, self).__init__(**kwargs)
         self.register_signal('new_message')
-        self.message_class = kwargs.get('message_class', QueueMessage)
+        self.queue_parent = kwargs.get('queue_parent')
+        mcls = kwargs.get('message_class', getattr(self.queue_parent, 'message_class', 'Message'))
+        self.message_class = MESSAGE_CLASSES.get(mcls)
         self.queue_time_method = kwargs.get('queue_time_method', 'datetime_utc')
         self.message_queue = Scheduler(time_method=self.queue_time_method, 
                                        callback=self.dispatch_message)
@@ -184,9 +234,11 @@ class QueueBase(BaseIO):
         super(QueueBase, self).__init__(**kwargs)
         self.register_signal('new_message')
         self.id = setID(kwargs.get('id'))
+        self.message_key = kwargs.get('message_key')
         hostaddr = kwargs.get('hostaddr', '127.0.0.1')
         hostport = int(kwargs.get('hostport', DEFAULT_PORT))
-        self.message_handler = MessageHandler()
+        self.message_class = kwargs.get('message_class', 'Message')
+        self.message_handler = MessageHandler(queue_parent=self)
         self.message_handler.bind(new_message=self.on_handler_new_message)
         self.local_client = self.add_client(hostaddr=hostaddr, hostport=hostport, id=self.id)
     @property
