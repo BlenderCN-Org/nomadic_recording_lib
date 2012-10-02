@@ -96,17 +96,19 @@ class AESEncryptedMessage(QueueMessage):
         return s
     @classmethod
     def set_message_key(cls, key):
-        sizes = [16, 24, 32]
+        sizes = [32, 24, 16]
         if len(key) not in sizes:
-            padded = None
-            for size in sizes:
-                if len(key) < size:
-                    continue
-                padded = cls.pad_zeros(key, size)
-                break
-            if padded is None:
+            if len(key) in sizes:
+                padded = key
+            if len(key) > max(sizes):
                 size = max(sizes)
                 padded = key[size:]
+            else:
+                for size in sizes:
+                    if len(key) > size:
+                        continue
+                    padded = cls.pad_zeros(key, size)
+                    break
             key = padded
         cls.cipher = AES.new(key)
     def serialize(self):
