@@ -28,8 +28,6 @@ class Logger(BaseObject, Config):
         use_conf = kwargs.get('use_conf', True)
         if use_conf:
             d = self.get_conf()
-        elif logger_setup is not None:
-            d = kwargs
         else:
             d = {}
         for key in self._confkeys:
