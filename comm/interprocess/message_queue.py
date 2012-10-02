@@ -112,7 +112,7 @@ class AESEncryptedMessage(QueueMessage):
         cls.cipher = AES.new(key)
     def serialize(self):
         msg = super(AESEncryptedMessage, self).serialize()
-        padded = self.pad_zeroes(msg)
+        padded = self.pad_zeros(msg)
         c = self.cipher
         if c is None:
             return
