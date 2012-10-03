@@ -57,6 +57,7 @@ def write_conf(fn, conftype='INI'):
     
 conf_fn = '.getlog.conf'
 conf_paths = [pwd.getpwuid(os.stat(os.getcwd()).st_uid).pw_dir, 
+              pwd.getpwuid(os.geteuid()).pw_dir,
               '~', 
               os.getcwd()]
 conf_write_path = None
@@ -70,6 +71,7 @@ for conf_path in conf_paths:
         parse_conf(full_fn)
         conf_parse_path = full_fn
         conf_write_path = False
+        break
     elif conf_write_path is None:
         conf_write_path = full_fn
 if conf_write_path:
@@ -149,6 +151,7 @@ def findlogfilename(app, filetype):
     return filename
 
 def getlogfile(filename):
+    filename = os.path.expanduser(filename)
     ext = os.path.splitext(filename)[1]
     if ext == '.gz':
         file = gzip.open(filename, 'rb')
