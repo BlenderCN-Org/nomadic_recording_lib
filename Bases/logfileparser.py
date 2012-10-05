@@ -174,7 +174,7 @@ class DelimitedFileParser(FileParser):
         for key in ['header_line_num', 'line_strip_chars', 'delimiter', 'quote_char']:
             val = kwargs.get(key)
             if val is not None:
-                print 'setattr: ', key, val
+                #print 'setattr: ', key, val
                 setattr(self, key, val)
             
     def parse_line(self, s):
@@ -262,7 +262,7 @@ class DelimitedFileParser(FileParser):
                 i += 1
                 continue
             if len(line.split(delim)) < len(current_field_names):
-                print 'buffering line %s last="%s", line="%s"' % (i, last_line, line)
+                #print 'buffering line %s last="%s", line="%s"' % (i, last_line, line)
                 i += 1
                 last_line += line
                 continue
@@ -283,12 +283,12 @@ class DelimitedFileParser(FileParser):
         pass
         
     def _format_delimiter(self, value):
-        print 'format_delim: ', value
+        #print 'format_delim: ', value
         if type(value) in [str, unicode]:
-            print 'delim is str type'
+            #print 'delim is str type'
             if value.upper() in dir(ascii):
                 i = getattr(ascii, value.upper())
-                print 'ord is ', i, ', chr is ', chr(i)
+                #print 'ord is ', i, ', chr is ', chr(i)
                 return chr(i)
             if value.lower() in NON_CTRL_DELIMITERS:
                 return NON_CTRL_DELIMITERS[value.lower()]
@@ -323,7 +323,7 @@ class W3CExtendedLogfileRollingParser(W3CExtendedLogfileParser):
         last_line = max(parsed['fields_by_line'].keys())
         if self.last_line_number == 0:
             self.last_line_number = last_line
-            print 'last_line:', last_line
+            #print 'last_line:', last_line
             return parsed
         keys = parsed['fields_by_line'].keys()[:]
         for key in keys:
@@ -344,7 +344,7 @@ class W3CExtendedLogfileRollingParser(W3CExtendedLogfileParser):
             val = parsed['header_data'][key]
             del parsed['header_data'][key]
             parsed['header_data'][newkey] = val
-        print parsed, last_line
+        #print parsed, last_line
         self.last_line_number = last_line
         return parsed
         
