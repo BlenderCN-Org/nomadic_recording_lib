@@ -70,7 +70,11 @@ class Scheduler(BaseThread):
         self._stopped = True
         
     def stop(self, **kwargs):
+        blocking = kwargs.get('blocking', False)
+        cancel_events = kwargs.get('cancel_events', False)
         with self.process_lock:
+            if cancel_events:
+                self.queue.clear()
             self._running = False
             self.waiting = True
             super(Scheduler, self).stop(**kwargs)
@@ -154,6 +158,10 @@ class TimeQueue(object):
             del self.data[t]
             self.times.discard(t)
         return (t, item)
+        
+    def clear(self):
+        self.times.clear()
+        self.data.clear()
         
     def lowest_time(self):
         if not len(self.times):
