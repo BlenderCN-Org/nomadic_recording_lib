@@ -155,7 +155,11 @@ class MessageHandler(BaseObject):
         data = kwargs.get('data')
         client = kwargs.get('client')
         mq = self.message_queue
-        msg = self.create_message(raw_data=data)
+        try:
+            msg = self.create_message(raw_data=data)
+        except:
+            self.LOG.warning('message parse error: client = (%s), data = (%s)' % (client, data))
+            return
         #self.LOG.info('incoming message: %s' % (msg))
         if msg.recipient_address is None:
             msg.recipient_address = client
@@ -319,7 +323,7 @@ class QueueBase(BaseIO):
             if h is None:
                 sock.close()
         except:
-            traceback.print_exc()
+            self.LOG.warning(traceback.format_exc())
         return msg
         
     def create_message(self, **kwargs):
@@ -369,10 +373,12 @@ class _RequestHandler(SocketServer.BaseRequestHandler):
         mh = self.server.message_handler
         mh.incoming_data(data=data, client=client, handler=self)
         
-class ServeThread(BaseThread):
+class ServeThread(threading.Thread):
     def __init__(self, **kwargs):
-        kwargs['disable_threaded_call_waits'] = True
-        super(ServeThread, self).__init__(**kwargs)
+        threading.Thread.__init__(self)
+        self.running = threading.Event()
+        self.stopped = threading.Event()
+        self.stopped.set()
         self.hostaddr = kwargs.get('hostaddr')
         self.hostport = kwargs.get('hostport')
         self.message_handler = kwargs.get('message_handler')
@@ -382,19 +388,20 @@ class ServeThread(BaseThread):
         s = _Server(host, _RequestHandler)
         s.message_handler = self.message_handler
         return s
-    def _thread_loop_iteration(self):
-        if not self._running:
-            return
-        if self._server is not None:
-            return
+    def run(self):
+        self.stopped.clear()
+        self.running.set()
         s = self._server = self.build_server()
+        self.message_handler.LOG.info('%r STARTING' % (self))
         s.serve_forever()
+        self.running.clear()
+        self.stopped.set()
+        self.message_handler.LOG.info('%r STOPPED' % (self))
     def stop(self, **kwargs):
-        self._running = False
         s = self._server
         if s is not None:
             s.shutdown()
-        super(ServeThread, self).stop(**kwargs)
+        self.stopped.wait()
 
 if __name__ == '__main__':
     import argparse
