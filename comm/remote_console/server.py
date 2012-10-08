@@ -129,7 +129,6 @@ class ServerThread(BaseThread):
                                  RequestHandlerClass=RemoteHandler, 
                                  bind_and_activate=True)
     def __init__(self, **kwargs):
-        kwargs['disable_threaded_call_waits'] = True
         super(ServerThread, self).__init__(**kwargs)
         self.server_config = kwargs.get('server_config', {})
         self.locals = kwargs.get('locals')
@@ -140,17 +139,16 @@ class ServerThread(BaseThread):
             val = kwargs.get(key, skwargs.get(key, default))
             skwargs[key] = val
         return skwargs
-    def _thread_loop_iteration(self):
-        if not self._running:
-            return
-        if self._server is not None:
-            return
+    def run(self):
+        self._running = True
         skwargs = self.build_server_kwargs()
         skwargs['locals'] = self.locals
         s = self._server = Server(**skwargs)
         #s.interpreter = self.interpreter
         #s.current_handler = None
         s.serve_forever()
+        self._running = False
+        self._stopped = True
     def stop(self, **kwargs):
         s = self._server
         if s is not None:
