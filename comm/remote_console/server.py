@@ -1,4 +1,5 @@
 import SocketServer
+import traceback
 import code
 import os.path
 import sys
@@ -146,7 +147,10 @@ class ServerThread(BaseThread):
         s = self._server = Server(**skwargs)
         #s.interpreter = self.interpreter
         #s.current_handler = None
-        s.serve_forever()
+        try:
+            s.serve_forever()
+        except:
+            self.LOG(traceback.format_exc())
         self._running = False
         self._stopped = True
     def stop(self, **kwargs):
