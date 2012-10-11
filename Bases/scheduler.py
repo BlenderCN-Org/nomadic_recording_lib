@@ -2,13 +2,14 @@ import time
 import datetime
 import threading
 
+from BaseObject import BaseObject
 from threadbases import BaseThread
 
 class Scheduler(BaseThread):
     _Events = {'waiting':{}}
     def __init__(self, **kwargs):
         super(Scheduler, self).__init__(**kwargs)
-        self.process_lock = threading.Lock()
+        self.process_lock = threading.RLock()
         time_method = kwargs.get('time_method', 'timestamp')
         if isinstance(time_method, basestring):
             if not callable(getattr(self, time_method, None)):
@@ -54,19 +55,18 @@ class Scheduler(BaseThread):
                     self.waiting = False
                     next_timeout = None
                 else:
-                    if next_timeout is not None:
-                        process_next_item()
-                    else:
+                    if next_timeout is None:
                         timeout, t = time_to_next_item()
-                        #print '%011.8f, %011.8f' % (timeout, t)
                         if timeout <= 0:
-                            #self.process_item(t)
                             process_next_item()
                             self.waiting = True
                         else:
                             self.waiting = False
                             next_timeout = timeout
-                            #print 'scheduler waiting: t=%010.8f, diff=%010.8f' % (t, timeout)
+                    else:
+                        process_next_item()
+                        next_timeout = None
+                        self.waiting = True
         self._stopped = True
         
     def stop(self, **kwargs):
@@ -170,3 +170,35 @@ class TimeQueue(object):
         
     def __len__(self):
         return len(self.times)
+
+if __name__ == '__main__':
+    dt_fmt_str = '%x %H:%M:%S.%f'
+    increment = datetime.timedelta(seconds=2)
+    count = 0
+    imax = 10
+    def Log(msg, ival, dt):
+        now = datetime.datetime.now()
+        print '%s    %s: i=%s, dt=%s' % (now.strftime(dt_fmt_str), msg, ival, dt.strftime(dt_fmt_str))
+    def add_item(now=None):
+        global count
+        if now is None:
+            now = s.now()
+        dt = now + increment
+        if dt in s.queue.times:
+            return
+        count += 1
+        Log('adding', count, dt)
+        s.add_item(dt, count)
+    def s_callback(item, ts):
+        Log('processing', item, ts)
+        if item < imax:
+            add_item(ts)
+        elif item == imax:
+            s.stop(blocking=False, cancel_events=False)
+    s = Scheduler(time_method='datetime', callback=s_callback)
+    s.start()
+    s.add_item(s.now(), count)
+    Log('joining thread', count, s.now())
+    s.join()
+    Log('thread stopped', count, s.now())
+    print threading.enumerate()
