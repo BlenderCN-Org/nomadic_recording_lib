@@ -196,16 +196,17 @@ class Client(BaseObject):
             return
         if msg.message_type == 'message_receipt':
             return
-        d = self.pending_messages.get(msg.recipient_id)
-        if d is None:
-            d = {}
-            self.pending_messages[msg.recipient_id] = d
-        d[msg.message_id] = {'message':msg, 'attempts':1}
+        ##d = self.pending_messages.get(msg.recipient_id)
+        ##if d is None:
+        ##    d = {}
+        ##    self.pending_messages[msg.recipient_id] = d
+        ##d[msg.message_id] = {'message':msg, 'attempts':1}
     def _update_message_kwargs(self, kwargs):
         d = {'recipient_id':self.id, 
              'recipient_address':(self.hostaddr, self.hostport)}
         kwargs.update(d)
     def _send_message_receipt(self, msg, **kwargs):
+        return
         kwargs = kwargs.copy()
         msg_data = dict(message_type='message_receipt', 
                         data=msg.message_id, 
