@@ -144,10 +144,10 @@ class ServerThread(BaseThread):
         self._running = True
         skwargs = self.build_server_kwargs()
         skwargs['locals'] = self.locals
-        s = self._server = Server(**skwargs)
         #s.interpreter = self.interpreter
         #s.current_handler = None
         try:
+            s = self._server = Server(**skwargs)
             s.serve_forever()
         except:
             self.LOG(traceback.format_exc())
