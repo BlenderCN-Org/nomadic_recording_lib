@@ -180,6 +180,7 @@ class Client(BaseObject):
         self.id = kwargs.get('id')
         self.hostaddr = kwargs.get('hostaddr')
         self.hostport = kwargs.get('hostport', DEFAULT_PORT)
+        self.is_local_client = kwargs.get('is_local_client', False)
         self.queue_parent = kwargs.get('queue_parent')
         self.pending_messages = {}
     def send_message(self, **kwargs):
@@ -250,7 +251,11 @@ class QueueBase(BaseIO):
         self.message_class = kwargs.get('message_class', 'Message')
         self.message_handler = MessageHandler(queue_parent=self)
         self.message_handler.bind(new_message=self.on_handler_new_message)
-        self.local_client = self.add_client(hostaddr=hostaddr, hostport=hostport, id=self.id)
+        self.local_client = self.add_client(hostaddr=hostaddr, 
+                                            hostport=hostport, 
+                                            id=self.id, 
+                                            is_local_client=True)
+        self.local_client.bind(property_changed=self.on_local_client_property_changed)
     @property
     def hostaddr(self):
         return self.local_client.hostaddr
@@ -331,6 +336,21 @@ class QueueBase(BaseIO):
         msg = self.message_handler.create_message(**kwargs)
         return msg
         
+    def send_hostdata_to_clients(self, keys=None):
+        if not keys:
+            keys = ['hostaddr', 'hostport']
+        d = dict(zip(keys, [getattr(self, key) for key in keys]))
+        for c in self.clients.itervalues():
+            if c.is_local_client:
+                continue
+            c.send_message(message_type='hostdata_update', data=d)
+            
+    def on_local_client_property_changed(self, **kwargs):
+        prop = kwargs.get('Property')
+        value = kwargs.get('value')
+        if prop.name in ['hostaddr', 'hostport']:
+            self.send_hostdata_to_clients(keys=[prop.name])
+        
 class QueueServer(QueueBase):
     def __init__(self, **kwargs):
         super(QueueServer, self).__init__(**kwargs)
@@ -339,11 +359,13 @@ class QueueServer(QueueBase):
     def do_connect(self):
         self.do_disconnect(blocking=True)
         t = self.serve_thread = self.build_server()
+        t.bind(hostport=self.on_server_hostport_changed)
         t.start()
         self.connected = True
     def do_disconnect(self, **kwargs):
         t = self.serve_thread
         if t is not None:
+            t.unbind(self)
             t.stop(blocking=True)
             self.serve_thread = None
         self.connected = False
@@ -355,6 +377,10 @@ class QueueServer(QueueBase):
                         hostport=self.hostport, 
                         message_handler=self.message_handler)
         return t
+    def on_server_hostport_changed(self, **kwargs):
+        value = kwargs.get('value')
+        if value != self.hostport:
+            self.hostport = value
     
     
 class QueueClient(QueueBase):
@@ -373,35 +399,43 @@ class _RequestHandler(SocketServer.BaseRequestHandler):
         mh = self.server.message_handler
         mh.incoming_data(data=data, client=client, handler=self)
         
-class ServeThread(threading.Thread):
+class ServeThread(BaseThread):
+    _Properties = {'hostaddr':dict(ignore_type=True), 
+                   'hostport':dict(ignore_type=True)}
     def __init__(self, **kwargs):
-        threading.Thread.__init__(self)
-        self.running = threading.Event()
-        self.stopped = threading.Event()
-        self.stopped.set()
+        super(ServeThread, self).__init__(**kwargs)
         self.hostaddr = kwargs.get('hostaddr')
         self.hostport = kwargs.get('hostport')
         self.message_handler = kwargs.get('message_handler')
         self._server = None
     def build_server(self):
-        host = (self.hostaddr, self.hostport)
-        s = _Server(host, _RequestHandler)
+        addr = self.hostaddr
+        port = int(self.hostport)
+        count = 0
+        maxtries = 100
+        while count < maxtries:
+            try:
+                s = _Server((addr, port), _RequestHandler)
+                break
+            except socket.error:
+                port += 1
+            count += 1
+        self.hostport = port
         s.message_handler = self.message_handler
         return s
     def run(self):
-        self.stopped.clear()
-        self.running.set()
+        self._running = True
         s = self._server = self.build_server()
         self.message_handler.LOG.info('%r STARTING' % (self))
         s.serve_forever()
-        self.running.clear()
-        self.stopped.set()
+        self._running = False
+        self._stopped = True
         self.message_handler.LOG.info('%r STOPPED' % (self))
     def stop(self, **kwargs):
         s = self._server
         if s is not None:
             s.shutdown()
-        self.stopped.wait()
+        self._stopped.wait()
 
 if __name__ == '__main__':
     import argparse
