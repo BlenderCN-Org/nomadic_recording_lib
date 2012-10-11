@@ -25,6 +25,9 @@ from comm.BaseIO import BaseIO
 
 DEFAULT_PORT = 51515
 BUFFER_SIZE = 4096
+SEND_RETIES = 20
+SEND_RETRY_TIMEOUT = 10.
+POLL_INTERVAL = datetime.timedelta(minutes=1)
 
 DATETIME_FMT_STR = '%Y-%m-%d %H:%M:%S.%f'
 def datetime_to_str(dt):
@@ -193,7 +196,11 @@ class Client(BaseObject):
             return
         if msg.message_type == 'message_receipt':
             return
-        #self.pending_messages[msg.message_id] = msg
+        d = self.pending_messages.get(msg.recipient_id)
+        if d is None:
+            d = {}
+            self.pending_messages[msg.recipient_id] = d
+        d[msg.message_id] = {'message':msg, 'attempts':1}
     def _update_message_kwargs(self, kwargs):
         d = {'recipient_id':self.id, 
              'recipient_address':(self.hostaddr, self.hostport)}
@@ -218,19 +225,21 @@ class Client(BaseObject):
     def handle_message(self, **kwargs):
         msg = kwargs.get('message')
         if msg.message_type == 'message_receipt':
+            d = self.pending_messages.get(msg.sender_id)
+            if d is None:
+                return
             msgid = msg.data
             if type(msgid) == list:
                 msgid = tuple(msgid)
-            _txmsg = self.pending_messages.get(msgid)
-            if _txmsg is not None:
-                del self.pending_messages[msgid]
-            return
+            if msgid not in d:
+                return
+            del d[msgid]
         elif msg.message_type == 'hostdata_update':
             if not isinstance(msg.data, dict):
                 return
             self.update_hostdata(msg.data)
             return
-        #self._send_message_receipt(msg, **kwargs)
+        self._send_message_receipt(msg, **kwargs)
         self.update_hostdata(dict(zip(['hostaddr', 'hostport'], msg.sender_address)))
         kwargs['obj'] = self
         self.emit('new_message', **kwargs)
@@ -275,6 +284,8 @@ class QueueBase(BaseIO):
     def add_client(self, **kwargs):
         kwargs['queue_parent'] = self
         c = self.clients.add_child(**kwargs)
+        if not c.is_local_client:
+            self.send_hostdata_to_clients(clients=c)
         return c
     def del_client(self, **kwargs):
         c_id = kwargs.get('id')
@@ -286,6 +297,9 @@ class QueueBase(BaseIO):
         self.clients.del_child(client)
     def on_handler_new_message(self, **kwargs):
         msg = kwargs.get('message')
+        if msg == 'POLL':
+            self.on_poll_interval()
+            return
         c_id = msg.sender_id
         client = self.clients.get(c_id)
         #self.LOG.info('handling message: %s, client=%s' % (msg, client))
@@ -336,9 +350,21 @@ class QueueBase(BaseIO):
         msg = self.message_handler.create_message(**kwargs)
         return msg
         
-    def send_hostdata_to_clients(self, keys=None):
+    def on_poll_interval(self):
+        self.send_hostdata_to_clients()
+        mq = self.message_handler.message_queue
+        nextpoll = mq.now() + POLL_INTERVAL
+        mq.add_item(nextpoll, 'POLL')
+        
+    def send_hostdata_to_clients(self, **kwargs):
+        keys = kwargs.get('keys')
+        clients = kwargs.get('clients')
         if not keys:
             keys = ['hostaddr', 'hostport']
+        if clients is not None and type(clients) not in [list, tuple, set]:
+            clients = [clients]
+        elif clients is None:
+            clients = self.clients
         d = dict(zip(keys, [getattr(self, key) for key in keys]))
         for c in self.clients.itervalues():
             if c.is_local_client:
@@ -362,6 +388,7 @@ class QueueServer(QueueBase):
         t.bind(hostport=self.on_server_hostport_changed)
         t.start()
         self.connected = True
+        self.on_poll_interval()
     def do_disconnect(self, **kwargs):
         t = self.serve_thread
         if t is not None:
