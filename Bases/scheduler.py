@@ -1,6 +1,7 @@
 import time
 import datetime
 import threading
+import traceback
 
 from BaseObject import BaseObject
 from threadbases import BaseThread
@@ -90,7 +91,10 @@ class Scheduler(BaseThread):
             return
         t, item = data
         #print 'scheduler processing: t=%010.8f, now=%010.8f, diff=%010.8f' % (t, now, t - now)
-        self._do_callback(item, t)
+        try:
+            self._do_callback(item, t)
+        except:
+            self.LOG.warning('%s\nUncaught exception in %r' % (traceback.format_exc(), self))
         
     def do_callback(self, *args, **kwargs):
         self.callback(*args, **kwargs)
