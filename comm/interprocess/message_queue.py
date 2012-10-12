@@ -175,8 +175,11 @@ class MessageHandler(BaseObject):
         self.emit('new_message', message=msg, timestamp=ts)
     
 class Client(BaseObject):
+    MAX_TX_FAILURES = 20
     _Properties = {'hostaddr':dict(ignore_type=True), 
-                   'hostport':dict(ignore_type=True)}
+                   'hostport':dict(ignore_type=True), 
+                   'active':dict(default=True), 
+                   'tx_failures':dict(default=0)}
     def __init__(self, **kwargs):
         super(Client, self).__init__(**kwargs)
         self.register_signal('new_message')
@@ -186,7 +189,13 @@ class Client(BaseObject):
         self.is_local_client = kwargs.get('is_local_client', False)
         self.queue_parent = kwargs.get('queue_parent')
         self.pending_messages = {}
+        self.bind(tx_failures=self.on_tx_failures_set)
+    def unlink(self):
+        self.active = False
+        super(Client, self).unlink()
     def send_message(self, **kwargs):
+        if not self.active:
+            return
         kwargs = kwargs.copy()
         self._update_message_kwargs(kwargs)
         msg = self.queue_parent._do_send_message(**kwargs)
@@ -223,6 +232,8 @@ class Client(BaseObject):
             if getattr(self, attr) == val:
                 continue
             setattr(self, attr, val)
+        if self.tx_failures > 0:
+            self.tx_failures = 0
     def handle_message(self, **kwargs):
         msg = kwargs.get('message')
         if msg.message_type == 'message_receipt':
@@ -244,6 +255,18 @@ class Client(BaseObject):
         self.update_hostdata(dict(zip(['hostaddr', 'hostport'], msg.sender_address)))
         kwargs['obj'] = self
         self.emit('new_message', **kwargs)
+    def on_tx_failure(self, msg):
+        if not self.active:
+            return
+        txf = self.tx_failures
+        self.tx_failures = txf + 1
+    def on_tx_success(self, msg):
+        if self.tx_failures == 0:
+            return
+        self.tx_failures = 0
+    def on_tx_failures_set(self, **kwargs):
+        value = kwargs.get('value')
+        self.active = value < self.MAX_TX_FAILURES
     def __repr__(self):
         return '<%s>' % (self)
     def __str__(self):
@@ -321,13 +344,15 @@ class QueueBase(BaseIO):
             if client is None:
                 client = self.clients.get(c_id)
         if isinstance(client, Client):
+            if not client.active:
+                return
             client._update_message_kwargs(kwargs)
         msg = self._do_send_message(**kwargs)
         return msg
     def _do_send_message(self, **kwargs):
         msg = self.create_message(**kwargs)
         client = self.clients.get(msg.recipient_id)
-        if client is not None:
+        if client is not None and client.active:
             client._on_message_built(msg)
         #self.LOG.info('sending message: %s' % (msg))
         s = msg.serialize()
@@ -342,6 +367,12 @@ class QueueBase(BaseIO):
             sock.sendall(s)
             if h is None:
                 sock.close()
+            if client is not None:
+                client.on_tx_success(msg)
+        except socket.error, errmsg:
+            self.LOG.warning('Error sending msg (%s).  Error: %s' % (msg, errmsg))
+            if client is not None:
+                client.on_tx_failure(msg)
         except:
             self.LOG.warning(traceback.format_exc())
         return msg
@@ -367,7 +398,10 @@ class QueueBase(BaseIO):
         elif clients is None:
             clients = self.clients
         d = dict(zip(keys, [getattr(self, key) for key in keys]))
-        for c in self.clients.itervalues():
+        for c_id in self.clients.keys()[:]:
+            c = self.clients.get(c_id)
+            if c is None:
+                continue
             if c.is_local_client:
                 continue
             c.send_message(message_type='hostdata_update', data=d)
