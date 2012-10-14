@@ -369,11 +369,10 @@ class QueueBase(BaseIO):
                 sock.close()
             if client is not None:
                 client.on_tx_success(msg)
-        except socket.error, errmsg:
-            self.LOG.warning('Error sending msg (%s).  Error: %s' % (msg, errmsg))
+        except:
+            self.LOG.warning('Error sending msg (%s)' % (msg))
             if client is not None:
                 client.on_tx_failure(msg)
-        except:
             self.LOG.warning(traceback.format_exc())
         return msg
         
