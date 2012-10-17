@@ -163,7 +163,7 @@ class MessageHandler(BaseObject):
         except:
             self.LOG.warning('message parse error: client = (%s), data = (%s)' % (client, data))
             return
-        #self.LOG.info('incoming message: %s' % (msg))
+        self.LOG.debug('incoming message: %s' % (msg))
         if msg.recipient_address is None:
             msg.recipient_address = client
         ts = msg.timestamp
@@ -354,7 +354,7 @@ class QueueBase(BaseIO):
         client = self.clients.get(msg.recipient_id)
         if client is not None and client.active:
             client._on_message_built(msg)
-        #self.LOG.info('sending message: %s' % (msg))
+        self.LOG.debug('sending message: %s' % (msg))
         s = msg.serialize()
         h = kwargs.get('handler')
         sock = None
