@@ -261,10 +261,12 @@ class Client(BaseObject):
                 del msgdata[ts]
             if not len(msgdata):
                 del pending[c_id]
+            return
         elif msg.message_type == 'hostdata_update':
             if not isinstance(msg.data, dict):
                 return
             self.update_hostdata(msg.data)
+            self._send_message_receipt(msg, **kwargs)
             return
         self._send_message_receipt(msg, **kwargs)
         self.update_hostdata(dict(zip(['hostaddr', 'hostport'], msg.sender_address)))
