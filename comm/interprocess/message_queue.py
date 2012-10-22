@@ -203,6 +203,7 @@ class Client(BaseObject):
         msg = self.queue_parent._do_send_message(**kwargs)
         return msg
     def _on_message_built(self, msg):
+        return
         if msg.recipient_id != self.id:
             return
         if msg.message_type == 'message_receipt':
@@ -222,6 +223,7 @@ class Client(BaseObject):
              'recipient_address':(self.hostaddr, self.hostport)}
         kwargs.update(d)
     def _send_message_receipt(self, msg, **kwargs):
+        return
         kwargs = kwargs.copy()
         msg_data = dict(message_type='message_receipt', 
                         data={'timestamp':msg.timestamp, 'client_id':self.id}, 
