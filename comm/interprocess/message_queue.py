@@ -278,16 +278,16 @@ class Client(BaseObject):
             now = qp.message_handler.message_queue.now()
         dead = set()
         for ts in sorted(by_ts.keys()):
-            c_id = by_ts[ts]
-            msgdata = pending[c_id][ts]
-            if msgdata['last_attempt'] + SEND_RETRY_TIMEDELTA < now:
-                continue
-            if msgdata['attempts'] >= SEND_RETRIES:
-                dead.add(c_id)
-                continue
-            msgdata['last_attempt'] = now
-            msgdata['attempts'] += 1
-            qp._do_send_message(existing_message=msgdata['message'])
+            for c_id in by_ts[ts]:
+                msgdata = pending[c_id][ts]
+                if msgdata['last_attempt'] + SEND_RETRY_TIMEDELTA < now:
+                    continue
+                if msgdata['attempts'] >= SEND_RETRIES:
+                    dead.add(c_id)
+                    continue
+                msgdata['last_attempt'] = now
+                msgdata['attempts'] += 1
+                qp._do_send_message(existing_message=msgdata['message'])
         for c_id in dead:
             msgdata = pending[c_id]
             for ts in msgdata.keys():
