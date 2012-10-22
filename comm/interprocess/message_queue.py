@@ -229,7 +229,8 @@ class Client(BaseObject):
                         timestamp=None, 
                         client_id=msg.sender_id)
         #kwargs.update(msg_data)
-        self.queue_parent.send_message(**msg_data)
+        newmsg = self.queue_parent.send_message(**msg_data)
+        self.LOG.info('sent msg receipt: msg=(%s), newmsg=(%s)' % (msg, newmsg))
     def update_hostdata(self, data):
         for attr in ['hostaddr', 'hostport']:
             if attr not in data:
@@ -245,6 +246,7 @@ class Client(BaseObject):
         if msg.message_type == 'message_receipt':
             c_id = msg.data['client_id']
             ts = msg.data['timestamp']
+            self.LOG.info('got msg receipt. msg=%s' % (msg))
             by_ts = self.pending_msg_timestamps
             pending = self.pending_messages
             s = by_ts.get(ts)
