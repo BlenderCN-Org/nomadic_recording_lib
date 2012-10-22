@@ -269,6 +269,8 @@ class Client(BaseObject):
         kwargs['obj'] = self
         self.emit('new_message', **kwargs)
     def send_pending_messages(self, now=None):
+        if not self.active:
+            return
         by_ts = self.pending_msg_timestamps
         pending = self.pending_messages
         qp = self.queue_parent
@@ -310,6 +312,9 @@ class Client(BaseObject):
     def on_tx_failures_set(self, **kwargs):
         value = kwargs.get('value')
         self.active = value < self.MAX_TX_FAILURES
+        if not self.active:
+            self.pending_messages.clear()
+            self.pending_msg_timestamps.clear()
     def __repr__(self):
         return '<%s>' % (self)
     def __str__(self):
@@ -410,11 +415,13 @@ class QueueBase(BaseIO):
         return msg
     def _do_send_message(self, **kwargs):
         msg = kwargs.get('existing_message')
+        existing = True
         if msg is None:
             msg = self.create_message(**kwargs)
-            client = self.clients.get(msg.recipient_id)
-            if client is not None and client.active:
-                client._on_message_built(msg)
+            existing = False
+        client = self.clients.get(msg.recipient_id)
+        if not existing and client is not None and client.active:
+            client._on_message_built(msg)
         self.LOG.debug('sending message: %s' % (msg))
         s = msg.serialize()
         h = kwargs.get('handler')
