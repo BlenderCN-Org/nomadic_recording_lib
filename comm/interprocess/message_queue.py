@@ -25,8 +25,9 @@ from comm.BaseIO import BaseIO
 
 DEFAULT_PORT = 51515
 BUFFER_SIZE = 4096
-SEND_RETIES = 20
+SEND_RETRIES = 20
 SEND_RETRY_TIMEOUT = 10.
+SEND_RETRY_TIMEDELTA = datetime.timedelta(seconds=SEND_RETRY_TIMEOUT)
 POLL_INTERVAL = datetime.timedelta(minutes=1)
 
 DATETIME_FMT_STR = '%Y-%m-%d %H:%M:%S.%f'
@@ -189,6 +190,7 @@ class Client(BaseObject):
         self.is_local_client = kwargs.get('is_local_client', False)
         self.queue_parent = kwargs.get('queue_parent')
         self.pending_messages = {}
+        self.pending_msg_timestamps = {}
         self.bind(tx_failures=self.on_tx_failures_set)
     def unlink(self):
         self.active = False
@@ -205,20 +207,24 @@ class Client(BaseObject):
             return
         if msg.message_type == 'message_receipt':
             return
-        ##d = self.pending_messages.get(msg.recipient_id)
-        ##if d is None:
-        ##    d = {}
-        ##    self.pending_messages[msg.recipient_id] = d
-        ##d[msg.message_id] = {'message':msg, 'attempts':1}
+        d = self.pending_messages.get(msg.recipient_id)
+        if d is None:
+            d = {}
+            self.pending_messages[msg.recipient_id] = d
+        ts = msg.timestamp
+        d[ts] = {'message':msg, 'attempts':1, 'last_attempt':ts}
+        by_ts = self.pending_msg_timestamps
+        if ts not in by_ts:
+            by_ts[ts] = set()
+        by_ts[ts].add(msg.recipient_id)
     def _update_message_kwargs(self, kwargs):
         d = {'recipient_id':self.id, 
              'recipient_address':(self.hostaddr, self.hostport)}
         kwargs.update(d)
     def _send_message_receipt(self, msg, **kwargs):
-        return
         kwargs = kwargs.copy()
         msg_data = dict(message_type='message_receipt', 
-                        data=msg.message_id, 
+                        data={'timestamp':msg.timestamp, 'client_id':self.id}, 
                         message_id=None, 
                         timestamp=None, 
                         client_id=msg.sender_id)
@@ -237,15 +243,22 @@ class Client(BaseObject):
     def handle_message(self, **kwargs):
         msg = kwargs.get('message')
         if msg.message_type == 'message_receipt':
-            d = self.pending_messages.get(msg.sender_id)
+            c_id = msg.data['client_id']
+            ts = msg.data['timestamp']
+            by_ts = self.pending_msg_timestamps
+            pending = self.pending_messages
+            s = by_ts.get(ts)
+            if s is not None:
+                s.discard(c_id)
+                if not len(s):
+                    del by_ts[ts]
+            d = pending.get(c_id)
             if d is None:
                 return
-            msgid = msg.data
-            if type(msgid) == list:
-                msgid = tuple(msgid)
-            if msgid not in d:
-                return
-            del d[msgid]
+            if ts in msgdata:
+                del msgdata[ts]
+            if not len(msgdata):
+                del pending[c_id]
         elif msg.message_type == 'hostdata_update':
             if not isinstance(msg.data, dict):
                 return
@@ -255,6 +268,36 @@ class Client(BaseObject):
         self.update_hostdata(dict(zip(['hostaddr', 'hostport'], msg.sender_address)))
         kwargs['obj'] = self
         self.emit('new_message', **kwargs)
+    def send_pending_messages(self, now=None):
+        by_ts = self.pending_msg_timestamps
+        pending = self.pending_messages
+        qp = self.queue_parent
+        if not len(by_ts):
+            return
+        if now is None:
+            now = qp.message_handler.message_queue.now()
+        dead = set()
+        for ts in sorted(by_ts.keys()):
+            c_id = by_ts[c_id]
+            msgdata = pending[c_id][ts]
+            if msgdata['last_attempt'] + SEND_RETRY_TIMEDELTA < now:
+                continue
+            if msgdata['attempts'] >= SEND_RETRIES:
+                dead.add(c_id)
+                continue
+            msgdata['last_attempt'] = now
+            msgdata['attempts'] += 1
+            qp._do_send_message(existing_message=msgdata['message'])
+        for c_id in dead:
+            msgdata = pending[c_id]
+            for ts in msgdata.keys():
+                if ts not in by_ts:
+                    continue
+                by_ts[ts].discard(c_id)
+                if not len(by_ts[ts]):
+                    del by_ts[ts]
+            del pending[c_id]
+        
     def on_tx_failure(self, msg):
         if not self.active:
             return
@@ -272,6 +315,19 @@ class Client(BaseObject):
     def __str__(self):
         return 'Client: %s, hostdata=(%s, %s)' % (self.id, self.hostaddr, self.hostport)
         
+class RetryThread(BaseThread):
+    def __init__(self, **kwargs):
+        super(RetryThread, self).__init__(**kwargs)
+        self.queue_parent = kwargs.get('queue_parent')
+        self._threaded_call_ready.wait_timeout = SEND_RETRY_TIMEOUT
+    def _thread_loop_iteration(self):
+        if not self._running:
+            return
+        qp = self.queue_parent
+        now = qp.message_handler.message_queue.now()
+        for c in qp.clients.itervalues():
+            c.send_pending_messages(now)
+    
 class QueueBase(BaseIO):
     _ChildGroups = {'clients':dict(child_class=Client, ignore_index=True)}
     def __init__(self, **kwargs):
@@ -289,6 +345,8 @@ class QueueBase(BaseIO):
                                             id=self.id, 
                                             is_local_client=True)
         self.local_client.bind(property_changed=self.on_local_client_property_changed)
+        self.retry_thread = RetryThread(queue_parent=self)
+        self.retry_thread.start()
     @property
     def hostaddr(self):
         return self.local_client.hostaddr
@@ -302,6 +360,7 @@ class QueueBase(BaseIO):
     def hostport(self, value):
         self.local_client.hostport = value
     def unlink(self):
+        self.retry_thread.stop(blocking=True)
         self.message_handler.unlink()
         #self.clients.clear()
         super(QueueBase, self).unlink()
@@ -350,10 +409,12 @@ class QueueBase(BaseIO):
         msg = self._do_send_message(**kwargs)
         return msg
     def _do_send_message(self, **kwargs):
-        msg = self.create_message(**kwargs)
-        client = self.clients.get(msg.recipient_id)
-        if client is not None and client.active:
-            client._on_message_built(msg)
+        msg = kwargs.get('existing_message')
+        if msg is None:
+            msg = self.create_message(**kwargs)
+            client = self.clients.get(msg.recipient_id)
+            if client is not None and client.active:
+                client._on_message_built(msg)
         self.LOG.debug('sending message: %s' % (msg))
         s = msg.serialize()
         h = kwargs.get('handler')
