@@ -3,6 +3,7 @@ import os.path
 import sys
 import socket
 import select
+import tempfile
 
 if __name__ == '__main__':
     dirname = os.path.dirname(__file__)
@@ -17,6 +18,32 @@ from Bases import BaseObject, BaseThread
 from comm.BaseIO import BaseIO
 
 PORT = 54321
+
+def find_tmp_file():
+    tmpdir = tempfile.gettempdir()
+    l = []
+    for fn in os.listdir(tmpdir):
+        if 'RemoteConsoleConf' not in fn:
+            continue
+        l.append(os.path.join(tmpdir, fn))
+    if len(l) != 1:
+        return False
+    return l[0]
+    
+def parse_tmp_file():
+    global PORT
+    fn = find_tmp_file()
+    if not fn:
+        return
+    f = open(fn, 'r')
+    s = f.read()
+    f.close()
+    for line in s.splitlines():
+        if 'PORT' in line:
+            key, val = [c.strip(' ') for c in line.split('=')]
+            PORT = int(val)
+
+
 
 class RemoteClient(BaseIO):
     pass

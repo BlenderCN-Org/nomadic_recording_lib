@@ -16,7 +16,32 @@ if __name__ == '__main__':
 from Bases import BaseObject, BaseThread
 from comm.BaseIO import BaseIO
 
+
+
 PORT = 54321
+
+PID = os.getpid()
+
+h, TMP_FILENAME = tempfile.mkstemp(suffix='-%s' % (PID), prefix='RemoteConsoleConf-')
+
+def update_tempfile():
+    lines = ['']
+    lines.append('PORT = %s' % (PORT))
+    lines.append('')
+    s = '\n'.join(lines)
+    f = open(TMP_FILENAME, 'w')
+    f.write(s)
+    f.close()
+    
+def delete_tempfile():
+    if not os.path.exists(TMP_FILENAME):
+        return
+    os.remove(TMP_FILENAME)
+    
+def update_port(port):
+    global PORT
+    PORT = port
+    update_tempfile()
 
 class RemoteServer(BaseIO):
     def __init__(self, **kwargs):
@@ -29,12 +54,14 @@ class RemoteServer(BaseIO):
         self.do_disconnect()
         t = self.serve_thread = ServerThread(locals=self.locals)
         t.start()
+        update_port(t.hostport)
         self.connected = True
     def do_disconnect(self, **kwargs):
         t = self.serve_thread
         if t is not None:
             t.stop(blocking=True)
             self.serve_thread = None
+            delete_tempfile()
         self.connected = False
 #    def on_interpreter_write(self, data):
 #        t = self.serve_thread
@@ -134,23 +161,51 @@ class ServerThread(BaseThread):
         self.server_config = kwargs.get('server_config', {})
         self.locals = kwargs.get('locals')
         self._server = None
+    @property
+    def server_address(self):
+        return self.build_server_kwargs()['server_address']
+    @server_address.setter
+    def server_address(self, value):
+        self.server_config['server_address'] = value
+    @property
+    def hostaddr(self):
+        return self.server_address[0]
+    @hostaddr.setter
+    def hostaddr(self, value):
+        port = self.hostport
+        self.server_address = (value, port)
+    @property
+    def hostport(self):
+        return self.server_address[1]
+    @hostport.setter
+    def hostport(self, value):
+        addr = self.hostaddr
+        self.server_address = (addr, value)
     def build_server_kwargs(self, **kwargs):
         skwargs = self.server_config.copy()
         for key, default in self._server_conf_defaults.iteritems():
             val = kwargs.get(key, skwargs.get(key, default))
             skwargs[key] = val
         return skwargs
+    def build_server(self, **kwargs):
+        skwargs = self.build_server_kwargs(**kwargs)
+        skwargs['locals'] = self.locals
+        return Server(**skwargs)
     def run(self):
         self._running = True
-        skwargs = self.build_server_kwargs()
-        skwargs['locals'] = self.locals
+        
         #s.interpreter = self.interpreter
         #s.current_handler = None
-        try:
-            s = self._server = Server(**skwargs)
-            s.serve_forever()
-        except:
-            self.LOG(traceback.format_exc())
+        count = 0
+        maxtries = 100
+        while count <= maxtries:
+            try:
+                s = self._server = self.build_server()
+                s.serve_forever()
+                break
+            except socket.error:
+                self.hostport = self.hostport + 1
+            count += 1
         self._running = False
         self._stopped = True
     def stop(self, **kwargs):
