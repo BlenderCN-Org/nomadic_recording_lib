@@ -3,6 +3,7 @@ import traceback
 import code
 import os.path
 import sys
+import tempfile
 
 if __name__ == '__main__':
     dirname = os.path.dirname(__file__)
