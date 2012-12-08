@@ -179,8 +179,12 @@ class Action(BaseObject):
             interval = 1.
         while True:
             h = self.handler
-            if h is not None and h.completed:
-                break
+            if h is not None:
+                if h.completed:
+                    break
+            else:
+                if not self.working and self.completed:
+                    break
             if timeout is not None:
                 now = time.time()
                 if now - start >= timeout:
