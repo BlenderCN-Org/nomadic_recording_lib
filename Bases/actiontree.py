@@ -1,5 +1,6 @@
 from BaseObject import BaseObject
 from misc import iterbases
+import time
 
 class ActionHandler(BaseObject):
     _Properties = {'completed':dict(default=False), 
@@ -172,6 +173,19 @@ class Action(BaseObject):
         When complete, set "self.completed" to True.
         '''
         self.completed = True
+    def wait(self, timeout=None, interval=None):
+        start = time.time()
+        if interval is None:
+            interval = 1.
+        while True:
+            h = self.handler
+            if h is not None and h.completed:
+                break
+            if timeout is not None:
+                now = time.time()
+                if now - start >= timeout:
+                    break
+            time.sleep(interval)
     def check_completed(self, *args, **kwargs):
         return self.completed
     def build_dependencies(self):
