@@ -1,5 +1,6 @@
 from __future__ import print_function
 import os, os.path
+import datetime
 import logging
 
 from BaseObject import BaseObject
@@ -77,11 +78,14 @@ def format_msg(*args):
     return ', '.join([str(arg) for arg in args])
     
 class StdoutLogger(object):
+    dt_fmt_str = '%Y-%m-%d %H:%M:%S,%f'
     def __init__(self, **kwargs):
         pass
     def log(self, level, *args, **kwargs):
+        now = datetime.datetime.now()
         msg = format_msg(*args)
-        print (': '.join([level, msg]))
+        tstr = now.strftime(self.dt_fmt_str)
+        print ('%s %s: %s' % (tstr, level, msg))
     def debug(self, *args, **kwargs):
         self.log('debug', *args, **kwargs)
     def info(self, *args, **kwargs):

@@ -11,6 +11,7 @@ from scaler import Scaler as _Scaler
 from archive import Archive as _Archive
 from masterclock import MasterClock as _MasterClock
 from scheduler import Scheduler as _Scheduler
+from actiontree import Action as _Action
 from misc import *
 
 BaseObject = _BaseObject
@@ -26,3 +27,4 @@ Scaler = _Scaler
 Archive = _Archive
 MasterClock = _MasterClock
 Scheduler = _Scheduler
+Action = _Action
