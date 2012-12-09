@@ -156,6 +156,7 @@ class Action(BaseObject):
             return
         return h.parent_obj
     def __call__(self, **kwargs):
+        wait = kwargs.get('action_wait', False)
         if self.working:
             return
         self.working = True
@@ -167,7 +168,12 @@ class Action(BaseObject):
                 if dep.working:
                     continue
                 dep(**kwargs)
-        
+        if wait:
+            del kwargs['action_wait']
+            wkwargs = {}
+            for key in ['timeout', 'interval']:
+                wkwargs[key] = kwargs.get('_'.join(['action', 'wait', key]))
+            self.wait(**wkwargs)
     def run(self, **kwargs):
         '''Subclasses will override this method to do their work.
         When complete, set "self.completed" to True.
