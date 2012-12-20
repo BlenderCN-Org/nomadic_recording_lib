@@ -144,6 +144,20 @@ class Action(BaseObject):
         value.bind(completed=self.on_handler_completed)
         self.build_dependencies()
     @property
+    def run_kwargs(self):
+        h = self.handler
+        if not h:
+            return {}
+        return h._run_kwargs
+    @run_kwargs.setter
+    def run_kwargs(self, value):
+        if not isinstance(value, dict):
+            return
+        h = self.handler
+        if not h:
+            return
+        h._run_kwargs.update(value)
+    @property
     def is_root_action(self):
         h = self.handler
         if h is None:
@@ -160,6 +174,9 @@ class Action(BaseObject):
         if self.working:
             return
         self.working = True
+        h = self.handler
+        if self.is_root_action and not self.run_kwargs:
+            self.run_kwargs = kwargs
         if not len(self._dependencies):
             if not self.check_completed():
                 self.run(**kwargs)
@@ -179,11 +196,19 @@ class Action(BaseObject):
         When complete, set "self.completed" to True.
         '''
         self.completed = True
+    def cancel(self, blocking=True):
+        for dep in self._dependencies:
+            dep.cancel(blocking)
+        self.completed = True
+        self.working = False
+        if self.is_root_action():
+            self.unlink()
     def wait(self, timeout=None, interval=None):
         start = time.time()
         if interval is None:
             interval = 1.
         while True:
+            self._wait_loop_iteration()
             h = self.handler
             if h is not None:
                 if h.completed:
@@ -196,6 +221,8 @@ class Action(BaseObject):
                 if now - start >= timeout:
                     break
             time.sleep(interval)
+    def _wait_loop_iteration(self):
+        pass
     def check_completed(self, *args, **kwargs):
         return self.completed
     def build_dependencies(self):
