@@ -210,9 +210,9 @@ class ConfParserINI(ConfParserBase):
             try:
                 d = json.loads(val)
                 val = d
-            except ValueError:
-                d = eval(val)
-                val = d
+            #except ValueError:
+            #    d = eval(val)
+            #    val = d
             except:
                 pass
         elif ',' in val:
