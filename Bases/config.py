@@ -19,6 +19,7 @@ import os
 import os.path
 import threading
 import json
+import traceback
 import StringIO
 from ConfigParser import SafeConfigParser
 from urllib2 import urlopen
@@ -214,6 +215,7 @@ class ConfParserINI(ConfParserBase):
             #    d = eval(val)
             #    val = d
             except:
+                traceback.print_exc()
                 pass
         elif ',' in val:
             val = val.split(',')
