@@ -18,6 +18,7 @@ import sys
 import os
 import os.path
 import threading
+import json
 import StringIO
 from ConfigParser import SafeConfigParser
 from urllib2 import urlopen
@@ -207,6 +208,9 @@ class ConfParserINI(ConfParserBase):
         if False not in [c in val for c in dict_chars]:
             ## a possible dictionary repr
             try:
+                d = json.loads(val)
+                val = d
+            except ValueError:
                 d = eval(val)
                 val = d
             except:
