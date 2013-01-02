@@ -206,16 +206,13 @@ class ConfParserINI(ConfParserBase):
             self._parser.add_section(section)
     def _unformat_item(self, val):
         dict_chars = '{:}'
-        if False not in [c in val for c in dict_chars]:
-            ## a possible dictionary repr
+        if '__JSON_ENCODED__:' in val:
+            val = json.loads(val.split('__JSON_ENCODED__:')[1])
+        elif False not in [c in val for c in dict_chars]:
             try:
-                d = json.loads(val)
+                d = eval(val)
                 val = d
-            #except ValueError:
-            #    d = eval(val)
-            #    val = d
             except:
-                traceback.print_exc()
                 pass
         elif ',' in val:
             val = val.split(',')
@@ -227,6 +224,8 @@ class ConfParserINI(ConfParserBase):
                 s = slist[0] + ','
             else:
                 s = ','.join(slist)
+        elif isinstance(val, dict):
+            s = '__JSON_ENCODED__:%s' % (json.dumps(val))
         else:
             s = str(val)
         return s
