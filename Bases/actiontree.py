@@ -201,7 +201,7 @@ class Action(BaseObject):
             dep.cancel(blocking)
         self.completed = True
         self.working = False
-        if self.is_root_action():
+        if self.is_root_action:
             self.unlink()
     def wait(self, timeout=None, interval=None):
         start = time.time()
