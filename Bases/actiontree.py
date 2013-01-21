@@ -239,13 +239,12 @@ class Action(BaseObject):
         if self.working:
             return
         self.working = True
-        self.start_timestamp = time.time()
         h = self.handler
         if self.is_root_action and not self.run_kwargs:
             self.run_kwargs = kwargs
         if not len(self._dependencies):
             if not self.check_completed():
-                self.run(**kwargs)
+                self._run(**kwargs)
         else:
             for dep in self._dependencies:
                 if dep.working:
@@ -257,6 +256,9 @@ class Action(BaseObject):
             for key in ['timeout', 'interval']:
                 wkwargs[key] = kwargs.get('_'.join(['action', 'wait', key]))
             self.wait(**wkwargs)
+    def _run(self, **kwargs):
+        self.start_timestamp = time.time()
+        self.run(**kwargs)
     def run(self, **kwargs):
         '''Subclasses will override this method to do their work.
         When complete, set "self.completed" to True.
@@ -334,7 +336,7 @@ class Action(BaseObject):
             if not obj.completed:
                 return
         if not self.check_completed():
-            self.run(**self.handler._run_kwargs)
+            self._run(**self.handler._run_kwargs)
     def on_dependant_working_set(self, **kwargs):
         if kwargs.get('value'):
             return
