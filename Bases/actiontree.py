@@ -1,13 +1,30 @@
 from BaseObject import BaseObject
+from threadbases import BaseThread
 from misc import iterbases
 import time
 
+class TimeoutChecker(BaseThread):
+    def __init__(self, **kwargs):
+        super(TimeoutChecker, self).__init__(**kwargs)
+        self.handler = kwargs.get('handler')
+        self._threaded_call_ready.wait_timeout = 1.
+    def _thread_loop_iteration(self):
+        r = False
+        for obj in self.handler.action_obj.itervalues():
+            if obj.is_past_due:
+                r = True
+                break
+        if r:
+            self.handler.cancel()
+            
 class ActionHandler(BaseObject):
     _Properties = {'completed':dict(default=False), 
-                   'working':dict(default=False)}
+                   'working':dict(default=False), 
+                   'cancelled':dict(default=False)}
     def __init__(self, **kwargs):
         super(ActionHandler, self).__init__(**kwargs)
         self.iterating_actions = False
+        self._cancelling = False
         self.parent_obj = kwargs.get('parent_obj')
         self.LOG.info('handler (%r) init. kwargs=%r' % (self, kwargs))
         self.action_cls = {}
@@ -15,6 +32,8 @@ class ActionHandler(BaseObject):
         self.root_actions = []
         self._run_kwargs = {}
         actions = kwargs.get('actions', getattr(self.__class__, 'actions', []))
+        self.bind(working=self.on_own_working_set, 
+                  completed=self.on_own_completed_set)
         for action in actions:
             if isinstance(action, dict):
                 add_kwargs = action
@@ -41,6 +60,21 @@ class ActionHandler(BaseObject):
             action(**kwargs)
         self.iterating_actions = False
         self.check_actions_working()
+    def cancel(self):
+        self._cancelling = True
+        for action in self.root_actions:
+            action.cancel(blocking=True)
+    def start_action_checker(self):
+        if self.action_checker is not None:
+            return
+        t = self.action_checker = TimeoutChecker(handler=self)
+        t.start()
+    def stop_action_checker(self):
+        t = self.action_checker
+        if t is None:
+            return
+        t.stop(blocking=True)
+        self.action_checker = None
     def add_action_cls(self, cls, name=None):
         if name is None:
             name = cls.__name__
@@ -91,6 +125,8 @@ class ActionHandler(BaseObject):
         for action in self.root_actions:
             if action.working:
                 return True
+        if self._cancelling:
+            self.cancelled = True
         self.working = False
         self.completed = True
         return False
@@ -100,12 +136,22 @@ class ActionHandler(BaseObject):
         if kwargs.get('value'):
             return
         self.check_actions_working()
-        
+    def on_own_working_set(self, **kwargs):
+        if not kwargs.get('value'):
+            return
+        self.start_action_checker()
+    def on_own_completed_set(self, **kwargs):
+        if not kwargs.get('value'):
+            return
+        self.stop_action_checker()
 class Action(BaseObject):
     _Properties = {'completed':dict(default=False), 
-                   'working':dict(default=False)}
+                   'working':dict(default=False), 
+                   'cancelled':dict(default=False)}
+    _max_run_time = None
     def __init__(self, **kwargs):
         self._handler = None
+        self.start_timestamp = None
         super(Action, self).__init__(**kwargs)
         self.register_signal('all_complete')
         self.bind(completed=self.on_own_completed_set)
@@ -169,11 +215,31 @@ class Action(BaseObject):
         if not h:
             return
         return h.parent_obj
+    @property
+    def current_runtime(self):
+        if not self.working:
+            return
+        if self.completed:
+            return
+        ts = self.start_timestamp
+        if not ts:
+            return
+        return time.time() - ts
+    @property
+    def is_past_due(self):
+        max_rt = self._max_run_time
+        if not max_rt:
+            return False
+        rt = self.current_runtime
+        if rt is None:
+            return False
+        return rt > max_rt
     def __call__(self, **kwargs):
         wait = kwargs.get('action_wait', False)
         if self.working:
             return
         self.working = True
+        self.start_timestamp = time.time()
         h = self.handler
         if self.is_root_action and not self.run_kwargs:
             self.run_kwargs = kwargs
@@ -203,6 +269,7 @@ class Action(BaseObject):
         self.working = False
         if self.is_root_action:
             self.unlink()
+        self.cancelled = True
     def wait(self, timeout=None, interval=None):
         start = time.time()
         if interval is None:
