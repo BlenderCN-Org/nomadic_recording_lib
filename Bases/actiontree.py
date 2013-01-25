@@ -238,20 +238,20 @@ class Action(BaseObject):
         return time.time() - ts
     @property
     def is_past_due(self):
-        def check_runtime():
-            max_rt = self._max_run_time
-            if not max_rt:
-                return False
-            rt = self.current_runtime
-            if rt is None:
-                return False
-            return rt > max_rt
-        def check_worktime():
-            max_wt = self._max_working_time
-            if not max_wt:
-                return False
-            return self.handler.elapsed_time > max_wt
-        return check_runtime() or check_worktime()
+        return self.check_action_runtime() or self.check_action_worktime()
+    def check_action_runtime(self):
+        max_rt = self._max_run_time
+        if not max_rt:
+            return False
+        rt = self.current_runtime
+        if rt is None:
+            return False
+        return rt > max_rt
+    def check_action_worktime(self):
+        max_wt = self._max_working_time
+        if not max_wt:
+            return False
+        return self.handler.elapsed_time > max_wt
     def __call__(self, **kwargs):
         wait = kwargs.get('action_wait', False)
         if self.working:
@@ -372,7 +372,7 @@ class Action(BaseObject):
             return
         self.emit('all_complete', action=self)
     def __str__(self):
-        return '%s Action (working=%s, completed=%s)' % (self.name, self.working, self.completed)
+        return '%s Action (working=%s, completed=%s, cancelled=%s)' % (self.name, self.working, self.completed, self.cancelled)
     
 def do_test():
     import threading
