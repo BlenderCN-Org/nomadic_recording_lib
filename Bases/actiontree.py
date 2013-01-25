@@ -10,6 +10,11 @@ class TimeoutChecker(BaseThread):
         self._threaded_call_ready.wait_timeout = 1.
     def _thread_loop_iteration(self):
         r = False
+        h = self.handler
+        now = time.time()
+        if h.start_timestamp is None:
+            h.start_timestamp = now
+        h.elapsed_time = now - h.start_timestamp
         for obj in self.handler.action_obj.itervalues():
             if obj.is_past_due:
                 r = True
@@ -23,8 +28,11 @@ class ActionHandler(BaseObject):
                    'cancelled':dict(default=False)}
     def __init__(self, **kwargs):
         super(ActionHandler, self).__init__(**kwargs)
+        self.action_checker = None
         self.iterating_actions = False
         self._cancelling = False
+        self.start_timestamp = None
+        self.elapsed_time = 0
         self.parent_obj = kwargs.get('parent_obj')
         self.LOG.info('handler (%r) init. kwargs=%r' % (self, kwargs))
         self.action_cls = {}
@@ -134,6 +142,8 @@ class ActionHandler(BaseObject):
         pass
     def on_root_action_working_set(self, **kwargs):
         if kwargs.get('value'):
+            if self.start_timestamp is None:
+                self.start_timestamp = time.time()
             return
         self.check_actions_working()
     def on_own_working_set(self, **kwargs):
@@ -149,6 +159,7 @@ class Action(BaseObject):
                    'working':dict(default=False), 
                    'cancelled':dict(default=False)}
     _max_run_time = None
+    _max_working_time = None
     def __init__(self, **kwargs):
         self._handler = None
         self.start_timestamp = None
@@ -227,13 +238,20 @@ class Action(BaseObject):
         return time.time() - ts
     @property
     def is_past_due(self):
-        max_rt = self._max_run_time
-        if not max_rt:
-            return False
-        rt = self.current_runtime
-        if rt is None:
-            return False
-        return rt > max_rt
+        def check_runtime():
+            max_rt = self._max_run_time
+            if not max_rt:
+                return False
+            rt = self.current_runtime
+            if rt is None:
+                return False
+            return rt > max_rt
+        def check_worktime():
+            max_wt = self._max_working_time
+            if not max_wt:
+                return False
+            return self.handler.elapsed_time > max_wt
+        return check_runtime() or check_worktime()
     def __call__(self, **kwargs):
         wait = kwargs.get('action_wait', False)
         if self.working:
