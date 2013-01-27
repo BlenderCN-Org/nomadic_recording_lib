@@ -340,6 +340,7 @@ class RetryThread(BaseThread):
             c.send_pending_messages(now)
     
 class QueueBase(BaseIO):
+    _Events = {'shutting_down':{}}
     _ChildGroups = {'clients':dict(child_class=Client, ignore_index=True)}
     def __init__(self, **kwargs):
         super(QueueBase, self).__init__(**kwargs)
@@ -405,6 +406,8 @@ class QueueBase(BaseIO):
         d = {'sender_id':self.id, 'sender_address':(self.hostaddr, self.hostport)}
         kwargs.update(d)
     def send_message(self, **kwargs):
+        if self.shutting_down:
+            return
         kwargs = kwargs.copy()
         client = kwargs.get('client')
         c_id = kwargs.get('client_id')
@@ -421,6 +424,8 @@ class QueueBase(BaseIO):
         return msg
     def _do_send_message(self, **kwargs):
         msg = kwargs.get('existing_message')
+        if self.shutting_down:
+            return msg
         existing = True
         if msg is None:
             msg = self.create_message(**kwargs)
@@ -505,6 +510,7 @@ class QueueServer(QueueBase):
             self.serve_thread = None
         self.connected = False
     def shutdown(self):
+        self.shutting_down = True
         self.do_disconnect(blocking=True)
         self.unlink()
     def build_server(self):
