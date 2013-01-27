@@ -340,9 +340,9 @@ class RetryThread(BaseThread):
             c.send_pending_messages(now)
     
 class QueueBase(BaseIO):
-    _Events = {'shutting_down':{}}
     _ChildGroups = {'clients':dict(child_class=Client, ignore_index=True)}
     def __init__(self, **kwargs):
+        self.shutting_down = False
         super(QueueBase, self).__init__(**kwargs)
         self.register_signal('new_message')
         self.id = setID(kwargs.get('id'))
