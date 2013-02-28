@@ -138,10 +138,14 @@ class EventValue(int):
         
         
 class Event(ObjProperty):
-    __slots__ = ['wait_timeout', '_event', '_event_set_local']
+    __slots__ = ['_wait_timeout', '_is_waiting', '_done_waiting', 
+                 '_event', '_event_set_local']
     def __init__(self, **kwargs):
         self._event = threading.Event()
-        self.wait_timeout = kwargs.get('wait_timeout')
+        self._is_waiting = threading.Event()
+        self._done_waiting = threading.Event()
+        self._done_waiting.set()
+        self._wait_timeout = kwargs.get('wait_timeout')
         self._event_set_local = False
         value = kwargs.get('value', False)
         if not isinstance(value, EventValue):
@@ -149,6 +153,23 @@ class Event(ObjProperty):
             value.event = self
         kwargs['value'] = value
         super(Event, self).__init__(**kwargs)
+    @property
+    def wait_timeout(self):
+        return self._wait_timeout
+    @wait_timeout.setter
+    def wait_timeout(self, value):
+        old = self._wait_timeout
+        if value == old:
+            return
+        self._wait_timeout = value
+        if None in [value, old]:
+            return
+        if self._is_waiting.isSet():
+            e_initial = self._event.isSet()
+            self._event.set()
+            self._done_waiting.wait()
+            if e_initial is False:
+                self._event.clear()
     def set_value(self, value):
         if not isinstance(value, EventValue):
             value = EventValue(value)
@@ -183,7 +204,11 @@ class Event(ObjProperty):
     def wait(self, timeout=None):
         if timeout is None:
             timeout = self.wait_timeout
+        self._is_waiting.set()
+        self._done_waiting.clear()
         self._event.wait(timeout)
+        self._is_waiting.clear()
+        self._done_waiting.set()
     def __repr__(self):
         return '<EventProperty %s of %s: value=%s, wait_timeout=%s>' % (self.name, self.parent_obj, self.isSet(), self.wait_timeout)
     def __str__(self):
