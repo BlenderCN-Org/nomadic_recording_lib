@@ -121,9 +121,12 @@ class TimeQueue(object):
         self.times = set()
         self.data = {}
         
-    def put(self, time, item):
+    def put(self, time, item, ensure_unique=False):
         self.times.add(time)
         data = self.data.get(time, [])
+        if ensure_unique:
+            if item in data:
+                return
         data.append(item)
         self.data[time] = data
         
