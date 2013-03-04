@@ -163,6 +163,12 @@ class TimeQueue(object):
             self.times.discard(t)
         return (t, item)
         
+    def pop_if_less_than_equal_to(self, t):
+        lt = self.lowest_time()
+        if lt is not None and t <= lt:
+            return self.pop(lt)
+        return None
+        
     def clear(self):
         self.times.clear()
         self.data.clear()
