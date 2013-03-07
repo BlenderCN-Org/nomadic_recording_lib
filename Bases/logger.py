@@ -2,6 +2,7 @@ from __future__ import print_function
 import os, os.path
 import datetime
 import logging
+from logging.handlers import TimedRotatingFileHandler
 
 from BaseObject import BaseObject
 from config import Config
@@ -138,7 +139,7 @@ class DailyRotatingFileLogger(BuiltinLoggingLogger):
         fn = kwargs.get('filename')
         lvl = getattr(logging, kwargs.get('level').upper())
         fmt = kwargs.get('format')
-        logH = logging.TimedRotatingFileHandler(fn, when='midnight')
+        logH = TimedRotatingFileHandler(fn, when='midnight')
         logF = logging.Formatter(fmt)
         logH.setFormatter(logF)
         logger = logging.getLogger()
