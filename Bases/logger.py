@@ -10,7 +10,10 @@ LEVELS = ('debug', 'info', 'warning', 'error', 'critical')
 
 class Logger(BaseObject, Config):
     _confsection = 'LOGGING'
-    _Properties = {'log_mode':dict(default='stdout', entries=['basicConfig', 'null', 'stdout']), 
+    _Properties = {'log_mode':dict(default='stdout', entries=['basicConfig', 
+                                                              'DailyRotatingFile', 
+                                                              'null', 
+                                                              'stdout']), 
                    'log_filename':dict(type=str), 
                    'log_level':dict(default='info', fformat='_format_log_level'), 
                    'log_format':dict(default='%(asctime)-15s %(levelname)-10s %(message)s')}
@@ -130,6 +133,18 @@ class BasicConfigLogger(BuiltinLoggingLogger):
     def __init__(self, **kwargs):
         logging.basicConfig(**kwargs)
         
+class DailyRotatingFileLogger(BuiltinLoggingLogger):
+    def __init__(self, **kwargs):
+        fn = kwargs.get('filename')
+        lvl = getattr(logging, kwargs.get('level').upper())
+        fmt = kwargs.get('format')
+        logH = logging.TimedRotatingFileHandler(fn, when='midnight')
+        logF = logging.Formatter(fmt)
+        logH.setFormatter(logF)
+        logger = logging.getLogger()
+        logger.addHandler(logH)
+        logger.setLevel(lvl)
+        
 class NullLogger(BuiltinLoggingLogger):
     def __init__(self, **kwargs):
         logging._acquireLock()
@@ -145,4 +160,5 @@ class NullLogger(BuiltinLoggingLogger):
     
 LOGGERS = {'stdout':StdoutLogger, 
            'basicConfig':BasicConfigLogger, 
+           'DailyRotatingFile':DailyRotatingFileLogger, 
            'null':NullLogger}
