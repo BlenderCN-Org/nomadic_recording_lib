@@ -165,7 +165,7 @@ class ConfParserBase(object):
                 self.write_source()
             except:
                 pass
-    def remove_conf_items(self, options=None):
+    def remove_conf_options(self, options=None):
         items = self._get_conf_items()
         if options is None:
             options = items.keys()
@@ -248,6 +248,12 @@ class ConfParserINI(ConfParserBase):
         if section is None:
             return
         self._parser.set(section, key, val)
+    def _do_remove_item(self, key):
+        super(ConfParserINI, self)._do_remove_item(key)
+        section = self._conf_data.get('section')
+        if section is None:
+            return
+        self._parser.remove_option(section, key)
     def read_source(self):
         if not self.is_conf_valid:
             return
