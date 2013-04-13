@@ -86,6 +86,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
     def __init__(self, **kwargs):
         self.datetime = None
         self.datetime_utc = None
+        self.tzinfo = None
         super(W3CExtendedLogEntry, self).__init__(**kwargs)
     def parse_datestr(self, dstr):
         ymd = [int(s) for s in dstr.split('-')]
@@ -115,6 +116,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         dt = datetime.datetime.combine(d, t)
         if tz:
             dt = tz.localize(dt, is_dst=None)
+            self.tzinfo = tz
         dt_u = None
         if utc is not None:
             dt_u = dt.astimezone(utc)
