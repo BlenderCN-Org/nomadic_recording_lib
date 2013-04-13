@@ -119,7 +119,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
             self.tzinfo = tz
         dt_u = None
         if utc is not None:
-            dt_u = dt.astimezone(utc)
+            dt_u = utc.normalize(dt)
         self.datetime = dt
         self.datetime_utc = dt_u
     def parse_field(self, field):
