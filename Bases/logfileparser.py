@@ -3,6 +3,30 @@ from curses import ascii
 
 from BaseObject import BaseObject
 
+try:
+    import pytz
+    utc = pytz.timezone('UTC')
+except ImportError:
+    pytz = None
+    utc = None
+
+def get_tzinfo(tzstr):
+    if pytz is None:
+        return False
+    if tzstr in ['PST', 'PDT']:
+        tzstr = 'US/Pacific'
+    elif tzstr in ['CST', 'CDT']:
+        tzstr = 'US/Central'
+    elif tzstr in ['MST', 'MDT']:
+        tzstr = 'US/Mountain'
+    elif tzstr in ['AST', 'ADT']:
+        tzstr = 'US/Alaska'
+    try:
+        tz = pytz.timezone(tzstr)
+    except:
+        tz = False
+    return tz
+
 class LogEntry(object):
     def __init__(self, **kwargs):
         #super(LogEntry, self).__init__(**kwargs)
@@ -59,6 +83,29 @@ class DelimitedLogEntry(LogEntry):
         return field
     
 class W3CExtendedLogEntry(DelimitedLogEntry):
+    def __init__(self, **kwargs):
+        self.datetime = None
+        self.datetime_utc = None
+        super(W3CExtendedLogEntry, self).__init__(**kwargs)
+    def parse(self, **kwargs):
+        super(W3CExtendedLogEntry, self).parse(**kwargs)
+        fields = self.fields
+        tzstr = fields.get('tz')
+        if tzstr:
+            tz = get_tzinfo(tzstr)
+        else:
+            tz = self.parser.current_timezone
+        dtl = [fields.get(key) for key in ['date', 'time']]
+        if None in dtl:
+            return
+        dt = datetime.datetime.combine(dtl[0], dtl[1])
+        if tz:
+            dt = tz.localize(dt, is_dst=None)
+        dt_u = None
+        if utc is not None:
+            dt_u = dt.astimezone(utc)
+        self.datetime = dt
+        self.datetime_utc = dt_u
     def parse_field(self, field):
         field = super(W3CExtendedLogEntry, self).parse_field(field)
         if field == '-':
@@ -295,6 +342,7 @@ class DelimitedFileParser(FileParser):
         return value
 
 class W3CExtendedLogfileParser(DelimitedFileParser):
+    _Properties = {'current_timezone':dict(default=None, ignore_type=True)}
     entry_class = W3CExtendedLogEntry
     def process_header(self, line_number, line):
         if line.startswith('#Fields:'):
@@ -303,6 +351,15 @@ class W3CExtendedLogfileParser(DelimitedFileParser):
             return False, line
         line = line.strip('#')
         key, val = line.split(': ')
+        if key == 'Start-Date':
+            vspl = val.split(' ')
+            if vspl == 3:
+                tzstr = vspl[-1]
+                tz = get_tzinfo(tzstr)
+                if tz != self.current_timezone:
+                    if tz is False:
+                        tz = None
+                    self.current_timezone = tz
         return True, {key:val, 'line_number':line_number}
     def process_field_header(self, line_number, line):
         if len(self.field_names):
