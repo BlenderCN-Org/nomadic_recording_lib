@@ -1,3 +1,6 @@
+import os.path
+import subprocess
+
 class AcquireBase(object):
     def __init__(self, **kwargs):
         self.data = kwargs.get('data', {})
@@ -34,6 +37,7 @@ class AcquireSubprocess(AcquireBase):
     def do_acquire(self, **kwargs):
         data = self.data
         vpath = data.get('virtualenv_path', kwargs.get('virtualenv_path'))
+        dry_run = data.get('dry_run', kwargs.get('dry_run', False))
         cmd_bin = self.cmd_bin
         if vpath:
             if os.path.split(vpath)[1] != 'bin':
@@ -43,6 +47,9 @@ class AcquireSubprocess(AcquireBase):
         cmd_str = ' '.join([cmd_bin, self.cmd_opts % (data)])
         call_type = self.call_type
         m = getattr(self, self.call_type_map.get(call_type))
+        if dry_run:
+            print cmd_str
+            return True
         return m(cmd_str)
         
 class AcquirePIP(AcquireSubprocess):
@@ -81,7 +88,9 @@ def build_acquirer(**kwargs):
     return cls(**kwargs)
     
 def do_acquire(**kwargs):
-    call_kwargs = kwargs.get('call_kwargs', {})
+    call_kwargs = kwargs.get('call_kwargs')
     obj = build_acquirer(**kwargs)
+    if not call_kwargs:
+        call_kwargs = kwargs
     return obj(**call_kwargs)
     

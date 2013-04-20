@@ -1,4 +1,6 @@
-from acquisition import do_acquire
+import os.path
+import json
+from aquisition import do_acquire
 
 def iterbases(obj, lastclass='object'):
     if type(lastclass) == type:
@@ -25,9 +27,9 @@ class Manager(object):
         for pkg in self.Packages.itervalues():
             pkg.acquire(**kwargs)
     def add_package_obj(self, pkg_obj):
-        deps = getattr(obj, Dependencies, None)
+        deps = getattr(pkg_obj, 'Dependencies', None)
         if not deps:
-            self.Packages[obj.name] = obj
+            self.Packages[pkg_obj.name] = pkg_obj
             return True
         def find_and_add_pkg(pkg):
             dep_pkg, dep_path = self.find_package_obj(pkg.name)
@@ -74,9 +76,8 @@ class DependencyPackage(object):
         name = kwargs.get('name')
         if name is not None:
             self.name = name
-        acq_type = kwargs.get('acquire_type')
-        if acq_type is not None:
-            self.acquire_type = acq_type
+        acq_type = kwargs.get('acquire_type', 'pip')
+        self.acquire_type = acq_type
         mgr = kwargs.get('manager')
         if not mgr:
             mgr = MANAGER
@@ -144,12 +145,14 @@ class DependencyPackage(object):
     def __str__(self):
         return repr(self)
 
-def simple_list(*args, **kwargs):
+def build_from_list(*args, **kwargs):
     mgr = None
     for arg in args:
-        if issubclass(arg, DependencyPackage):
+        if type(arg) == type and issubclass(arg, DependencyPackage):
             obj = arg(**kwargs)
         else:
+            if isinstance(arg, basestring):
+                arg = {'name':arg}
             pkwargs = arg.copy()
             pkwargs.update(kwargs)
             obj = DependencyPackage(**pkwargs)
@@ -157,3 +160,33 @@ def simple_list(*args, **kwargs):
             mgr = obj.manager
     return mgr
    
+def parse_csv(s):
+    lines = [line.strip() for line in s.splitlines()]
+    fields = []
+    for line in line:
+        l = [v.strip() for v in line.split(',')]
+        if not len(l):
+            continue
+        fields.extend(l)
+    return [{'name':field} for field in fields]
+def parse_json(s):
+    return json.loads(s)
+def parse_from_string(s, fmt='csv'):
+    if fmt == 'csv':
+        return parse_csv(s)
+    elif fmt == 'json':
+        return parse_json(s)
+def parse_from_file(filename, fmt='csv'):
+    filename = os.path.expanduser(filename)
+    try:
+        f = open(filename, 'r')
+        s = f.read()
+    except:
+        s = None
+    finally:
+        f.close()
+    if s is not None:
+        return parse_from_string(s, fmt=fmt)
+    
+
+    
