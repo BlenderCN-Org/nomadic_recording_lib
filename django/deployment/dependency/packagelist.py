@@ -1,6 +1,6 @@
 import os.path
 import json
-from aquisition import do_acquire
+from acquisition import do_acquire
 
 def iterbases(obj, lastclass='object'):
     if type(lastclass) == type:
