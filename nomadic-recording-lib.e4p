@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2013-04-20, 13:00:22 -->
+<!-- Saved: 2013-04-20, 13:01:14 -->
 <!-- Copyright (C) 2013 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -127,10 +127,10 @@
     <Source>web/cgi/__init__.py</Source>
     <Source>web/cgi/getlog.py</Source>
     <Source>django/__init__.py</Source>
-    <Source>django/dependency/__init__.py</Source>
-    <Source>django/dependency/packagelist.py</Source>
-    <Source>django/dependency/aquisition.py</Source>
     <Source>django/deployment/__init__.py</Source>
+    <Source>django/deployment/dependency/__init__.py</Source>
+    <Source>django/deployment/dependency/packagelist.py</Source>
+    <Source>django/deployment/dependency/aquisition.py</Source>
   </Sources>
   <Forms>
   </Forms>
