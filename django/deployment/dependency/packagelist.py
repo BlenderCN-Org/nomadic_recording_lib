@@ -163,7 +163,7 @@ def build_from_list(*args, **kwargs):
 def parse_csv(s):
     lines = [line.strip() for line in s.splitlines()]
     fields = []
-    for line in line:
+    for line in lines:
         l = [v.strip() for v in line.split(',')]
         if not len(l):
             continue

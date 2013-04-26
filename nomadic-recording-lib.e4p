@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2013-04-20, 13:56:46 -->
+<!-- Saved: 2013-04-26, 08:54:42 -->
 <!-- Copyright (C) 2013 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -130,7 +130,6 @@
     <Source>django/deployment/__init__.py</Source>
     <Source>django/deployment/dependency/__init__.py</Source>
     <Source>django/deployment/dependency/packagelist.py</Source>
-    <Source>django/deployment/dependency/aquisition.py</Source>
     <Source>django/deployment/virtualenvhandlers.py</Source>
     <Source>django/deployment/do_setup.py</Source>
   </Sources>
