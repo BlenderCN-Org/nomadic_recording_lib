@@ -1,4 +1,5 @@
 from __future__ import print_function
+import sys
 import os, os.path
 import datetime
 import logging
@@ -89,7 +90,8 @@ class StdoutLogger(object):
         now = datetime.datetime.now()
         msg = format_msg(*args)
         tstr = now.strftime(self.dt_fmt_str)
-        print ('%s %s: %s' % (tstr, level, msg))
+        print ('%s %s: %s' % (tstr, level, msg), file=sys.stdout)
+        sys.stdout.flush()
     def debug(self, *args, **kwargs):
         self.log('debug', *args, **kwargs)
     def info(self, *args, **kwargs):
