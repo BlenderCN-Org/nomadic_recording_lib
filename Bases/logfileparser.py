@@ -6,16 +6,16 @@ from BaseObject import BaseObject
 
 try:
     import pytz
-    utc = pytz.timezone('UTC')
+    UTC = pytz.timezone('UTC')
 except ImportError:
     pytz = None
-    utc = None
+    UTC = None
 
 def get_tzinfo(tzstr):
     if pytz is None:
         return False
     if tzstr in ['UTC', 'utc']:
-        return pytz.UTC
+        return UTC
     if tzstr in ['PST', 'PDT']:
         tzstr = 'US/Pacific'
     elif tzstr in ['CST', 'CDT']:
@@ -117,12 +117,16 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         d = self.parse_datestr(d)
         t = self.parse_timestr(t)
         dt = datetime.datetime.combine(d, t)
-        if tz:
+        if tz and tz == UTC:
+            dt = dt.replace(tzinfo=UTC)
+        elif tz:
             dt = tz.localize(dt, is_dst=None)
-            self.tzinfo = tz
+        self.tzinfo = tz
         dt_u = None
-        if utc is not None:
-            dt_u = utc.normalize(dt)
+        if UTC is not None:
+            if tz == UTC:
+                dt_u = dt
+            dt_u = UTC.normalize(dt)
         self.datetime = dt
         self.datetime_utc = dt_u
     def parse_field(self, field):
