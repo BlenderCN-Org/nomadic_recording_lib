@@ -14,6 +14,8 @@ except ImportError:
 def get_tzinfo(tzstr):
     if pytz is None:
         return False
+    if tzstr in ['UTC', 'utc']:
+        return pytz.UTC
     if tzstr in ['PST', 'PDT']:
         tzstr = 'US/Pacific'
     elif tzstr in ['CST', 'CDT']:
