@@ -89,6 +89,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
     def __init__(self, **kwargs):
         self.datetime = None
         self.datetime_utc = None
+        self.is_utc = None
         self.tzinfo = None
         super(W3CExtendedLogEntry, self).__init__(**kwargs)
     def parse_datestr(self, dstr):
@@ -117,16 +118,20 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         d = self.parse_datestr(d)
         t = self.parse_timestr(t)
         dt = datetime.datetime.combine(d, t)
+        is_utc = False
         if tz and tz == UTC:
             dt = dt.replace(tzinfo=UTC)
+            is_utc = True
         elif tz:
             dt = tz.localize(dt, is_dst=None)
+        self.is_utc = is_utc
         self.tzinfo = tz
         dt_u = None
         if UTC is not None:
-            if tz == UTC:
+            if is_utc:
                 dt_u = dt
-            dt_u = UTC.normalize(dt)
+            else:
+                dt_u = UTC.normalize(dt)
         self.datetime = dt
         self.datetime_utc = dt_u
     def parse_field(self, field):
