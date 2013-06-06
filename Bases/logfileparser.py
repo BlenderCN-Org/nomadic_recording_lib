@@ -49,7 +49,7 @@ class ExclusionFilter(object):
         excluded = self.excluded_values
         for fn in field_names:
             val = fields.get(fn)
-            if val == field_names[fn]:
+            if val == excluded[fn]:
                 return False
         return True
         
