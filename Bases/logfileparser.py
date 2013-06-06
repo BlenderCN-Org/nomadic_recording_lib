@@ -30,6 +30,29 @@ def get_tzinfo(tzstr):
         tz = False
     return tz
 
+class ExclusionFilter(object):
+    __slots__ = ('field_names', 'excluded_values')
+    def __init__(self, data):
+        keys = set(data.keys())
+        self.field_names = keys
+        self.excluded_values = {}
+        for key in keys:
+            val = data[key]
+            if type(val) in [list, tuple, set]:
+                val = set(val)
+            else:
+                val = set([val])
+            self.excluded_values[key] = val
+    def validate(self, entry):
+        fields = entry.fields
+        field_names = self.field_names
+        excluded = self.excluded_values
+        for fn in field_names:
+            val = fields.get(fn)
+            if val == field_names[fn]:
+                return False
+        return True
+        
 class LogEntry(object):
     def __init__(self, **kwargs):
         #super(LogEntry, self).__init__(**kwargs)
@@ -150,11 +173,18 @@ class BaseParser(BaseObject):
             self.entry_class = cls
         self.parsed = {}
         self.sorted = {}
+        self.exclusion_filters = []
+        exclusion_filters = kwargs.get('exclusion_filters', [])
+        for fdata in exclusion_filters:
+            self.add_exclusion_filter(fdata)
         self.bind(field_names=self.on_field_names_set)
         field_names = kwargs.get('field_names')
         if field_names is not None:
             self.field_names.extend(field_names)
         self.key_field = kwargs.get('key_field')
+        
+    def add_exclusion_filter(self, data):
+        self.exclusion_filters.append(ExclusionFilter(data))
         
     def do_sort(self, parsed):
         return {}
@@ -162,9 +192,19 @@ class BaseParser(BaseObject):
     def on_field_names_set(self, **kwargs):
         pass
         
-    def build_entry(self, **kwargs):
+    def build_entry(self, validate=False, **kwargs):
         kwargs['parser'] = self
-        return self.entry_class(**kwargs)
+        e = self.entry_class(**kwargs)
+        if validate:
+            if not self.validate_entry(e):
+                return False
+        return e
+        
+    def validate_entry(self, entry):
+        for f in self.exclusion_filters:
+            if not f.validate(entry):
+                return False
+        return True
         
     def get_dict(self):
         entries = self.parsed['entries']
@@ -341,7 +381,8 @@ class DelimitedFileParser(FileParser):
                 i += 1
                 last_line += line
                 continue
-            entry = self.build_entry(data=line, id=line_num, field_names=current_field_names)
+            entry = self.build_entry(validate=True, data=line, id=line_num, field_names=current_field_names)
+            
             d['entries'][entry.id] = entry
             #d['fields_by_line'][line_num] = {}
             #field_index = 0
