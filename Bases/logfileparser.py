@@ -114,6 +114,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         self.datetime_utc = None
         self.is_utc = None
         self.tzinfo = None
+        self.dt_index = kwargs.get('dt_index')
         super(W3CExtendedLogEntry, self).__init__(**kwargs)
     def parse_datestr(self, dstr):
         ymd = [int(s) for s in dstr.split('-')]
@@ -346,10 +347,12 @@ class DelimitedFileParser(FileParser):
         parse_line = self.parse_line
         process_header = self.process_header
         process_field_header = self.process_field_header
-        d = {'header_data':{}, 'entries':{}}
+        d = {'header_data':{}, 'entries':{}, 'entries_by_dt':{}}
         i = 0
         line_num = 0
         last_line = ''
+        last_dt = None
+        dt_index = 0
         for line in f:
             line = last_line + line
             last_line = ''
@@ -381,9 +384,23 @@ class DelimitedFileParser(FileParser):
                 i += 1
                 last_line += line
                 continue
-            entry = self.build_entry(validate=True, data=line, id=line_num, field_names=current_field_names)
-            
-            d['entries'][entry.id] = entry
+            entry = self.build_entry(validate=True, dt_index=dt_index, data=line, id=line_num, field_names=current_field_names)
+            if entry:
+                d['entries'][entry.id] = entry
+                dtutc = entry.datetime_utc
+                if dtutc is not None:
+                    if last_dt == dtutc:
+                        dt_index += 1
+                    elif last_dt is None:
+                        last_dt = dtutc
+                        dt_index += 1
+                    else:
+                        dt_index = 0
+                        last_dt = dtutc
+                        entry.dt_index = 0
+                    if not d['entries_by_dt'].get(dtutc):
+                        d['entries_by_dt'][dtutc] = {}
+                    d['entries_by_dt'][dtutc][entry.dt_index] = entry
             #d['fields_by_line'][line_num] = {}
             #field_index = 0
             #for field_val in parse_line(line):
