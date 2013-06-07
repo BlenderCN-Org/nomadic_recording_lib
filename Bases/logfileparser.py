@@ -308,9 +308,6 @@ def iter_dict_sorted(d):
         yield k, d[k]
 
 class EntryResultDict(UserDict):
-    def __init__(self, *args, **kwargs):
-        super(EntryResultDict, self).__init__(*args, **kwargs)
-        #self.flat_entries = {}
     def add_entry(self, entry):
         dt = entry.datetime_utc
         if dt not in self:
@@ -321,8 +318,8 @@ class EntryResultDict(UserDict):
         for dt, entries in iter_dict_sorted(self):
             yield dt, iter_dict_sorted(entries)
     def iter_flat(self):
-        for dt, entries in self.iter_indexed():
-            for i, e in entries:
+        for dt, entries in iter_dict_sorted(self):
+            for i, e in iter_dict_sorted(entries):
                 yield e
 
 class DelimitedFileParser(FileParser):
