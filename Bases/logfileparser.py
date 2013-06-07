@@ -304,7 +304,7 @@ class FileParser(BaseParser):
 NON_CTRL_DELIMITERS = dict(comma=',', semicolon=';', colon=':', space=' ')
 
 def iter_dict_sorted(d):
-    for k in sorted(d.keys():
+    for k in sorted(d.keys()):
         yield k, d[k]
 
 class EntryResultDict(UserDict):
