@@ -1,5 +1,6 @@
 import os.path
 import datetime
+from UserDict import UserDict
 from curses import ascii
 
 from BaseObject import BaseObject
@@ -110,12 +111,36 @@ class DelimitedLogEntry(LogEntry):
     
 class W3CExtendedLogEntry(DelimitedLogEntry):
     def __init__(self, **kwargs):
+        self._indexed_datetime = None
+        self._dt_index = None
         self.datetime = None
         self.datetime_utc = None
         self.is_utc = None
         self.tzinfo = None
-        self.dt_index = kwargs.get('dt_index')
         super(W3CExtendedLogEntry, self).__init__(**kwargs)
+        self.dt_index = kwargs.get('dt_index')
+    @property
+    def indexed_datetime(self):
+        dt = self._indexed_datetime
+        if dt is not None:
+            return dt
+        dt = self._indexed_datetime = self._calc_indexed_datetime()
+        return dt
+    @property
+    def dt_index(self):
+        return self._dt_index
+    @dt_index.setter
+    def dt_index(self, value):
+        if value == self._dt_index:
+            return
+        self._dt_index = value
+        self._indexed_datetime = None
+    def _calc_indexed_datetime(self):
+        dt = self.datetime_utc
+        i = self.dt_index
+        if i is None or i == 0:
+            return dt
+        return dt + datetime.timedelta(microseconds=i)
     def parse_datestr(self, dstr):
         ymd = [int(s) for s in dstr.split('-')]
         return datetime.date(*ymd)
@@ -278,6 +303,28 @@ class FileParser(BaseParser):
 
 NON_CTRL_DELIMITERS = dict(comma=',', semicolon=';', colon=':', space=' ')
 
+def iter_dict_sorted(d):
+    for k in sorted(d.keys():
+        yield k, d[k]
+
+class EntryResultDict(UserDict):
+    def __init__(self, *args, **kwargs):
+        super(EntryResultDict, self).__init__(*args, **kwargs)
+        #self.flat_entries = {}
+    def add_entry(self, entry):
+        dt = entry.datetime_utc
+        if dt not in self:
+            self[dt] = {}
+        self[dt][entry.dt_index] = entry
+        #self.flat_entries[entry.indexed_datetime] = entry
+    def iter_indexed(self):
+        for dt, entries in iter_dict_sorted(self):
+            yield dt, iter_dict_sorted(entries)
+    def iter_flat(self):
+        for dt, entries in self.iter_indexed():
+            for i, e in entries:
+                yield e
+
 class DelimitedFileParser(FileParser):
     _Properties = {'field_names_in_header':dict(default=True), 
                    'header_line_num':dict(default=0), 
@@ -347,7 +394,8 @@ class DelimitedFileParser(FileParser):
         parse_line = self.parse_line
         process_header = self.process_header
         process_field_header = self.process_field_header
-        d = {'header_data':{}, 'entries':{}, 'entries_by_dt':{}}
+        d = {'header_data':{}, 'entries':{}}
+        d['entries_by_dt'] = EntryResultDict()
         i = 0
         line_num = 0
         last_line = ''
@@ -398,9 +446,7 @@ class DelimitedFileParser(FileParser):
                         dt_index = 0
                         last_dt = dtutc
                         entry.dt_index = 0
-                    if not d['entries_by_dt'].get(dtutc):
-                        d['entries_by_dt'][dtutc] = {}
-                    d['entries_by_dt'][dtutc][entry.dt_index] = entry
+                    d['entries_by_dt'].add_entry(entry)
             #d['fields_by_line'][line_num] = {}
             #field_index = 0
             #for field_val in parse_line(line):
