@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2013-05-07, 12:23:49 -->
+<!-- Saved: 2013-09-02, 19:16:02 -->
 <!-- Copyright (C) 2013 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -138,6 +138,13 @@
     <Source>Bases/humanbyte.py</Source>
     <Source>comm/osc/osc_node.py</Source>
     <Source>comm/osc/messages.py</Source>
+    <Source>web/django_apps/ticket_tracker/models.py</Source>
+    <Source>web/django_apps/ticket_tracker/urls.py</Source>
+    <Source>web/django_apps/ticket_tracker/admin.py</Source>
+    <Source>web/django_apps/ticket_tracker/__init__.py</Source>
+    <Source>web/django_apps/ticket_tracker/ticket.py</Source>
+    <Source>web/django_apps/ticket_tracker/tracker.py</Source>
+    <Source>web/django_apps/ticket_tracker/staff_user.py</Source>
   </Sources>
   <Forms>
   </Forms>
