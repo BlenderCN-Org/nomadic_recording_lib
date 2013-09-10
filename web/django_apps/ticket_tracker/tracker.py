@@ -1,17 +1,14 @@
 from django.db import models
-from models_default_builder import build_defaults
+from models_default_builder.models import build_defaults
     
 class Tracker(models.Model):
     name = models.CharField(max_length=100)
     message_handler = models.ForeignKey('ticket_tracker.EmailHandler', blank=True, null=True)
     
 class TrackerPermissionItem(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True)
     description = models.TextField(null=True, blank=True)
     inherited = models.ManyToManyField('self', blank=True, null=True)
-    models_default_builder_init_data = tracker_item_defaults
-    class Meta:
-        unique = ('name', )
     @classmethod
     def default_builder_create(cls, **kwargs):
         ckwargs = kwargs.copy()
@@ -22,7 +19,8 @@ class TrackerPermissionItem(models.Model):
         obj.save()
         if inherited is not None:
             for other in inherited:
-                obj.inherited.add(cls.get(name=other))
+                other_obj = cls.objects.get(name=other)
+                obj.inherited.add(other_obj)
             obj.save()
     def default_builder_update(self, **kwargs):
         for fname, fval in kwargs.iteritems():

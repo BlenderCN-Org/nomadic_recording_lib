@@ -1,5 +1,8 @@
 import json
-import logging
+try:
+    import logging
+except:
+    logging = None
 import traceback
 from django.db import models
     
@@ -7,8 +10,8 @@ class ModelDefault(models.Model):
     app_name = models.CharField(max_length=100)
     model_name = models.CharField(max_length=100)
     defaults_built = models.BooleanField(default=False)
-    class Meta:
-        unique_together = ('app_name', 'model_name')
+    #class Meta:
+    #    unique_together = ('app_name', 'model_name')
     def get_model_kwargs(self, get_all=False):
         mkwargs = {}
         q = self.default_data.all()
@@ -17,6 +20,8 @@ class ModelDefault(models.Model):
         for data in self.default_data.filter(model_needs_update=True):
             mkwargs[data.field_name] = data.get_field_value()
         return mkwargs
+    def __unicode__(self):
+        return u'.'.join([self.app_name, self.model_name])
     def save(self, *args, **kwargs):
         def do_save():
             super(ModelDefault, self).save(*args, **kwargs)
@@ -41,12 +46,15 @@ class ModelDefaultData(models.Model):
     def set_field_value(self, value):
         if isinstance(value, basestring):
             self.value_is_string = True
-            return value
+            self.field_value = value
+            return
         self.value_is_string = False
         self.field_value = json.dumps(value, ensure_ascii=False, separators=(',', ';'))
+    def __unicode__(self):
+        return u': '.join([self.field_name, self.field_value])
     
 def build_defaults(*args):
-    for arg in arg:
+    for arg in args:
         if not isinstance(arg, dict):
             continue
         model = arg.get('model')
@@ -60,25 +68,39 @@ def build_defaults(*args):
         mdefault_kwargs = {'app_name':model._meta.app_label, 
                            'model_name':model._meta.object_name}
         try:
-            mdefault = ModelDefault.objects.get(**mdefault_kwargs)
-        except ModelDefault.DoesNotExist:
-            mdefault = ModelDefault(**mdefault_kwargs)
-            mdefault.save()
+            count = mgr.all().count()
         except:
-            logger = logging.getLogger(__name__)
-            logger.error(traceback.format_exc())
+#            exc_str = traceback.format_exc()
+#            try:
+#                logger = logging.getLogger()
+#                logger.error(exc_str)
+#            except:
+#                print exc_str
+            traceback.print_exc()
             return False
-        try:
-            count = mgr.objects.all().count()
-        except:
-            return False
-        try:
-            obj = mgr.objects.get(**{unique_field:data[unique_field]})
-            needs_create = False
-        except model.DoesNotExist:
-            obj = None
-            needs_create = True
         for data in dlist:
+            try:
+                q = ModelDefault.objects.filter(**mdefault_kwargs)
+                q = q.filter(default_data__field_name=unique_field)
+                mdefault = q.get(default_data__field_value=data[unique_field])
+            except ModelDefault.DoesNotExist:
+                mdefault = ModelDefault(**mdefault_kwargs)
+                mdefault.save()
+            except:
+    #            exc_str = traceback.format_exc()
+    #            try:
+    #                logger = logging.getLogger()
+    #                logger.error(exc_str)
+    #            except:
+    #                print exc_str
+                traceback.print_exc()
+                return False
+            try:
+                obj = mgr.get(**{unique_field:data[unique_field]})
+                needs_create = False
+            except model.DoesNotExist:
+                obj = None
+                needs_create = True
             needs_update = False
             for fname, fval in data.iteritems():
                 try:
@@ -93,21 +115,21 @@ def build_defaults(*args):
                     default_data.set_field_value(fval)
                     default_data.save()
                     needs_update = True
-        if needs_create:
-            mkwargs = mdefault.get_model_kwargs(get_all=True)
-            if hasattr(model, 'default_builder_create'):
-                model.default_builder_create(**mkwargs)
-            else:
-                obj = model(**mkwargs)
-                obj.save()
-        elif needs_update:
-            mkwargs = mdefault.get_model_kwargs()
-            if hasattr(obj, 'default_builder_update'):
-                obj.default_builder_update(**mkwargs)
-            else:
-                for fname, fval in mkwargs.iteritems():
-                    setattr(obj, fname, fval)
-                obj.save()
-        if needs_create or needs_update:
-            mdefault.defaults_built = True
-            mdefault.save()
+            if needs_create:
+                mkwargs = mdefault.get_model_kwargs(get_all=True)
+                if hasattr(model, 'default_builder_create'):
+                    model.default_builder_create(**mkwargs)
+                else:
+                    obj = model(**mkwargs)
+                    obj.save()
+            elif needs_update:
+                mkwargs = mdefault.get_model_kwargs()
+                if hasattr(obj, 'default_builder_update'):
+                    obj.default_builder_update(**mkwargs)
+                else:
+                    for fname, fval in mkwargs.iteritems():
+                        setattr(obj, fname, fval)
+                    obj.save()
+            if needs_create or needs_update:
+                mdefault.defaults_built = True
+                mdefault.save()

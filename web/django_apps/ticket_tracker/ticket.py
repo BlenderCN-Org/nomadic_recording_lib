@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class Contact(models.Model):
     first_name = models.CharField(max_length=100)
@@ -14,7 +15,7 @@ class TicketStatus(models.Model):
 class Ticket(models.Model):
     tracker = models.ForeignKey('ticket_tracker.Tracker')
     contact = models.ForeignKey(Contact)
-    description = models.OneToOneField('ticket_tracker.InitialMessage')
+    description = models.OneToOneField('ticket_tracker.InitialMessage', related_name='initial_message_parent_ticket')
     status = models.ForeignKey(TicketStatus, blank=True)
     active = models.BooleanField(default=True)
     created = models.DateTimeField(default=timezone.now())
