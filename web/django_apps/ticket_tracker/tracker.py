@@ -40,7 +40,13 @@ tracker_item_defaults = ({'name':'read', 'description':'Can Read Posts'},
                          {'name':'modify', 'description':'Can Modify Posts', 'inherited':['write']}, 
                          {'name':'take', 'description':'Can Take Ticket as Assignment', 'inherited':['write']}, 
                          {'name':'assign', 'description':'Can Assign Tickets to Staff', 'inherited':['take']}, 
-                         {'name':'status_change', 'description':'Can Change Ticket Status', 'inherited':['write']})
+                         {'name':'status_change', 'description':'Can Change Ticket Status', 'inherited':['write']}, 
+                         {'name':'all', 'description':'All Permissions (SuperUser)', 'inherited':['read', 
+                                                                                                  'write', 
+                                                                                                  'modify', 
+                                                                                                  'take', 
+                                                                                                  'assign', 
+                                                                                                  'status_change']})
 
 build_defaults({'model':TrackerPermissionItem, 'unique':'name', 'defaults':tracker_item_defaults})
     
