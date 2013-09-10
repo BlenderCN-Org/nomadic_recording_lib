@@ -3,6 +3,7 @@ from models_default_builder import build_defaults
     
 class Tracker(models.Model):
     name = models.CharField(max_length=100)
+    message_handler = models.ForeignKey('ticket_tracker.EmailHandler', blank=True, null=True)
     
 class TrackerPermissionItem(models.Model):
     name = models.CharField(max_length=100)

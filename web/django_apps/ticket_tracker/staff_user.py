@@ -3,7 +3,14 @@ from django.contrib.auth.models import User, Group
 
 class StaffGroup(models.Model):
     group = models.OneToOneField(Group)
+    def __unicode__(self):
+        return unicode(self.group)
     
 class StaffUser(models.Model):
     user = models.OneToOneField(User)
-    trackers_
+    @property
+    def groups(self):
+        return self.user.groups
+    def __unicode__(self):
+        return unicode(self.user)
+    
