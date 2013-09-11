@@ -39,16 +39,17 @@ class EmailHandler(models.Model):
     email_address = models.EmailField(help_text='All outgoing emails will use this address')
     incoming_mail_configuration = models.ForeignKey(IncomingMailConfig, blank=True, null=True)
     outgoing_mail_configuration = models.ForeignKey(OutgoingMailConfig, blank=True, null=True)
-    email_message_templates = models.ManyToManyField('ticket_tracker.EmailMessageTemplate', blank=True, null=True)
     def save(self, *args, **kwargs):
         def do_save():
             super(EmailHandler, self).save(*args, **kwargs)
         if self.pk is None:
             do_save()
-        msg_tmpl = self.email_message_templates
-        if not msg_tmpl.count():
+        if not self.email_message_templates.count():
             for dtmp in DefaultEmailMessageTemplate.objects.all():
-                msg_tmpl.create(name=dtmp.name, subject=dtmp.subject, body=dtmp.body)
+                tmpl = EmailMessageTemplate.objects.create(name=dtmp.name, 
+                                                           subject=dtmp.subject, 
+                                                           body=dtmp.body, 
+                                                           handler=self)
         do_save()
         
 class EmailMessageTemplateBase(models.Model):
@@ -58,6 +59,10 @@ class EmailMessageTemplateBase(models.Model):
                             help_text='Message body contents (can contain template tags)')
     class Meta:
         abstract = True
+    def __unicode__(self):
+        if hasattr(self, 'name'):
+            return self.name
+        return super(EmailMessageTemplateBase, self).__unicode__()
         
 class DefaultEmailMessageTemplate(EmailMessageTemplateBase):
     name = models.CharField(max_length=100, unique=True, 
@@ -65,6 +70,7 @@ class DefaultEmailMessageTemplate(EmailMessageTemplateBase):
 class EmailMessageTemplate(EmailMessageTemplateBase):
     name = models.CharField(max_length=100, 
                             help_text='Template name (not used as part of the generated message)')
+    handler = models.ForeignKey(EmailHandler, related_name='email_message_templates')
     
 
 build_defaults({'model':DefaultEmailMessageTemplate, 

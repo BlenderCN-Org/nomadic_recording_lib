@@ -12,7 +12,8 @@ from ticket import (
     
 from messaging import (
     MailUserConf, IncomingMailConfig, 
-    OutgoingMailConfig, EmailHandler)
+    OutgoingMailConfig, EmailHandler, 
+    DefaultEmailMessageTemplate, EmailMessageTemplate)
     
 from django.contrib import admin
 
@@ -50,3 +51,5 @@ admin.site.register(EmailHandler)
 admin.site.register(IncomingMailConfig)
 admin.site.register(OutgoingMailConfig)
 admin.site.register(MailUserConf)
+admin.site.register(DefaultEmailMessageTemplate)
+admin.site.register(EmailMessageTemplate)
