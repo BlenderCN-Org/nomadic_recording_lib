@@ -39,18 +39,34 @@ class EmailHandler(models.Model):
     email_address = models.EmailField(help_text='All outgoing emails will use this address')
     incoming_mail_configuration = models.ForeignKey(IncomingMailConfig, blank=True, null=True)
     outgoing_mail_configuration = models.ForeignKey(OutgoingMailConfig, blank=True, null=True)
-    auto_response_template = models.ForeignKey('ticket_tracker.EmailMessageTemplate', blank=True, null=True)
-    staff_response_template = models.ForeignKey('ticket_tracker.EmailMessageTemplate', blank=True, null=True)
-    contact_response_template = models.ForeignKey('ticket_tracker.EmailMessageTemplate', blank=True, null=True)
-    
-class EmailMessageTemplate(models.Model):
-    name = models.CharField(max_length=100, unique=True, 
-                            help_text='Template name (not used as part of the generated message)')
+    email_message_templates = models.ManyToManyField('ticket_tracker.EmailMessageTemplate', blank=True, null=True)
+    def save(self, *args, **kwargs):
+        def do_save():
+            super(EmailHandler, self).save(*args, **kwargs)
+        if self.pk is None:
+            do_save()
+        msg_tmpl = self.email_message_templates
+        if not msg_tmpl.count():
+            for dtmp in DefaultEmailMessageTemplate.objects.all():
+                msg_tmpl.create(name=dtmp.name, subject=dtmp.subject, body=dtmp.body)
+        do_save()
+        
+class EmailMessageTemplateBase(models.Model):
     subject = models.CharField(max_length=300, blank=True, null=True, 
                                help_text='Message subject contents (can contain template tags)')
     body = models.TextField(blank=True, null=True, 
                             help_text='Message body contents (can contain template tags)')
+    class Meta:
+        abstract = True
+        
+class DefaultEmailMessageTemplate(EmailMessageTemplateBase):
+    name = models.CharField(max_length=100, unique=True, 
+                            help_text='Template name (not used as part of the generated message)')
+class EmailMessageTemplate(EmailMessageTemplateBase):
+    name = models.CharField(max_length=100, 
+                            help_text='Template name (not used as part of the generated message)')
+    
 
-build_defaults({'model':EmailMessageTemplate, 
+build_defaults({'model':DefaultEmailMessageTemplate, 
                 'unique':'name', 
                 'defaults':email_template_defaults.defaults})
