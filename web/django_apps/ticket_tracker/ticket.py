@@ -32,6 +32,7 @@ class Ticket(models.Model):
 class MessageBase(models.Model):
     ticket = models.ForeignKey(Ticket)
     date = models.DateTimeField(default=timezone.now())
+    subject = models.CharField(null=True, blank=True)
     text = models.TextField()
     hidden_data = models.TextField(blank=True, null=True)
     class Meta:
