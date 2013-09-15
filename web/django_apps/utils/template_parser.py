@@ -22,6 +22,11 @@ class ParsedVar(object):
         if self.child_var is not None:
             return {self.name:self.child_var.get_parsed()}
         return self.name
+    def get_parsed_query_str(self):
+        s = self.name
+        if self.child_var is not None:
+            s = '__'.join([s, self.child_var.get_parsed_query_str()])
+        return s
         
 class ParsedObject(object):
     def __init__(self, **kwargs):
@@ -117,8 +122,114 @@ class Template(object):
                 d['complex'].append(vdata)
         return d
 
+class ValueObject(object):
+    def __init__(self, **kwargs):
+        self.start_index = None
+        self.end_index = None
+        self.parser = kwargs.get('parser')
+        self.parsed_object = kwargs.get('parsed_object')
+    @classmethod
+    def new(cls, **kwargs):
+        obj = kwargs.get('parsed_object')
+        new_cls = UnTaggedValueObject
+        if isinstance(obj, TaggedObject):
+            new_cls = TaggedValueObject
+        return new_cls(**kwargs)
+    def get_chunk(self):
+        s = self.parser.string_to_parse
+        start = self.start_index
+        end = self.end_index
+        if end is None:
+            end = len(s) - 1
+        return s[start:end+1]
+    def get_parsed_value(self):
+        return self.parsed_object.parsed_var, self.get_chunk()
+    def calc_indecies(self):
+        last_key, next_key = self.get_neighbor_keys()
+        start = self.start_index = self.calc_start_index(last_key, next_key)
+        end = self.end_index = self.calc_end_index(last_key, next_key)
+        if last_key is not None and start is None:
+            return False
+        if next_key is not None and end is None:
+            return False
+        return True
+    def calc_start_index(self, last_key, next_key):
+        if last_key is None:
+            return 0
+        last_obj = self.parser.value_objects[last_key]
+        return last_obj.end_index + 1
+    def get_neighbor_keys(self):
+        start = self.parsed_object.start_index
+        all_keys = sorted(self.parser.value_objects.keys())
+        i = all_keys.index(start)
+        if i == 0:
+            last_key = None
+        else:
+            last_key = all_keys[i-1]
+        if i >= len(all_keys):
+            next_key = None
+        else:
+            next_key = all_keys[i+1]
+        return last_key, next_key
+        
+class UnTaggedValueObject(ValueObject):
+    def calc_end_index(self, last_key, next_key):
+        if next_key is None:
+            return None
+        pobj = self.parsed_object
+        return self.start_index + (pobj.end_index - pobj.start_index)
+class TaggedValueObject(ValueObject):
+    def calc_end_index(self, last_key, next_key):
+        if next_key is None:
+            return None
+        next_obj = self.parser.value_objects[next_key]
+        if next_obj.start_index is None:
+            return None
+        return next_obj.start_index - 1
+    
+        
 class TemplatedStringParser(object):
     def __init__(self, **kwargs):
+        self.value_objects = {}
         self.template = kwargs.get('template')
         self.string_to_parse = kwargs.get('string_to_parse')
-        ## then do magic stuff with all the things above
+        self.build_value_obj()
+        r = self.calc_value_obj_indecies()
+        self.success = r
+    def build_value_obj(self):
+        parsed_objects = self.template.parsed_objects
+        value_objects = self.value_objects
+        last_vobj = None
+        for i in sorted(parsed_objects.keys()):
+            pobj = parsed_objects[i]
+            vobj = ValueObject.new(parser=self, parsed_object=pobj)
+            value_objects[i] = vobj
+    def calc_value_obj_indecies(self):
+        value_objects = self.value_objects
+        keys = sorted(value_objects.keys())
+        loop_max = 10
+        i = 0
+        while i <= loop_max:
+            calc_complete = True
+            for key in keys:
+                r = value_objects[key].calc_indecies()
+                if r is False:
+                    calc_complete = False
+            if calc_complete:
+                break
+            i += 1
+        return calc_complete
+    def get_parsed_values(self):
+        d = {}
+        for i, vobj in self.value_objects.iteritems():
+            if isinstance(vobj, UnTaggedValueObject):
+                continue
+            pvar, pval = vobj.get_parsed_value()
+            qstr = pvar.get_parsed_query_str()
+            if qstr in d:
+                if d[qstr] == pval:
+                    continue
+                raise ParseError('unmatched values for %s: [%s, %s]' % (qstr, d[qstr], pval))
+            d[qstr] = pval
+        return d
+        
