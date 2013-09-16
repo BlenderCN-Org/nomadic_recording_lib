@@ -29,10 +29,11 @@ class ParsedVar(object):
             new_cvar = cvar.parse_child(child_str)
             print '%s built: %s' % (cvar, new_cvar)
             return new_cvar
-        ## TODO:  THIS IS WHERE THE PROBLEM IS. IT IS BUILDING THE OBJECT AND NOT RETURNING THE CHILD
-        cvar = ParsedVar(name, child_str=child_str, parent_var=self)
+        cvar = ParsedVar(name, parent_var=self)
         print 'built own child: %s' % (cvar)
         self.child_vars[cvar.name] = cvar
+        if child_str:
+            return cvar.parse_child(child_str)
         return cvar
     @classmethod
     def parse(cls, parse_str, **kwargs):
