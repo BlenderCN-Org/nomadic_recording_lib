@@ -26,8 +26,9 @@ class MailConfigBase(models.Model):
 class IncomingMailConfig(MailConfigBase):
     protocol = models.CharField(max_length=10, 
                                 choices=(('pop3', 'POP 3'), 
-                                         ('imap', 'IMAP')), 
-                                default='imap')
+                                         ('imap', 'IMAP'), 
+                                         ('gmail', 'GMail')), 
+                                default='gmail')
     check_interval = models.IntegerField(default=5, 
                                          help_text='Interval in minutes to check for new messages')
     last_check = models.DateTimeField(blank=True, null=True, editable=False)
@@ -39,6 +40,10 @@ class EmailHandler(models.Model):
     email_address = models.EmailField(help_text='All outgoing emails will use this address')
     incoming_mail_configuration = models.ForeignKey(IncomingMailConfig, blank=True, null=True)
     outgoing_mail_configuration = models.ForeignKey(OutgoingMailConfig, blank=True, null=True)
+    timezone_name = models.CharField(max_length=100)
+    def add_message(self, message):
+        ## TODO: make this actually do something
+        print message.get_data()
     def save(self, *args, **kwargs):
         def do_save():
             super(EmailHandler, self).save(*args, **kwargs)
@@ -76,3 +81,20 @@ class EmailMessageTemplate(EmailMessageTemplateBase):
 build_defaults({'model':DefaultEmailMessageTemplate, 
                 'unique':'name', 
                 'defaults':email_template_defaults.defaults})
+
+def get_messages(handler_id=None):
+    from email_backends import build_backend
+    q = EmailHandler.objects.all()
+    if type(handler_id) in [list, tuple, set]:
+        q = q.filter(id__in=handler_id)
+    elif handler_id is not None:
+        q = q.filter(id__exact=handler_id)
+    for h in q:
+        conf = h.incoming_mail_configuration
+        if conf.protocol == 'gmail':
+            bkwargs = dict(username=conf.login.username, 
+                           password=conf.login.password, 
+                           inbox_timezone=h.timezone_name)
+            b = build_backend('gmail', **bkwargs)
+            for msg in b.get_new_messages():
+                h.add_message(msg)
