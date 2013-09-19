@@ -2,19 +2,26 @@ import datetime
 import pytz
 
 class EmailMessage(object):
-    attr_list = ['messasge_id', 'thread_id', 'sender', 'recipients', 
+    attr_list = ['message_id', 'thread_id', 'sender', 'recipients', 
                  'subject', 'body', 'datetime_utc']
     def __init__(self, **kwargs):
         self.backend = kwargs.get('backend')
+        self._message = kwargs.get('_message')
         for attr in self.attr_list:
+            if attr not in kwargs:
+                continue
             val = kwargs.get(attr)
             if attr == 'datetime_utc':
                 if not isinstance(val, datetime.datetime) or getattr(val, 'tzinfo', None) is None:
                     val = self.build_datetime_utc(val, is_utc=True)
             setattr(self, attr, val)
-        if not self.datetime_utc:
+        if not getattr(self, 'datetime_utc', None):
             dt = kwargs.get('datetime')
             self.datetime_utc = self.build_datetime_utc(dt, is_utc=False)
+    def __getattr__(self, attr):
+        return self._get_message_attr(attr)
+    def _get_message_attr(self, attr):
+        return getattr(self._message, attr)
     def build_datetime_utc(self, value, is_utc=True):
         tz = self.backend.inbox_timezone
         dt = None
@@ -34,13 +41,13 @@ class EmailMessage(object):
         if dt and not dt_u:
             dt_u = pytz.utc.normalize(dt)
         return dt_u
-    def get_data(self, attrs=None):
+    def get_data(self):
+        attrs = self.attr_list
         d = {}
-        if not attrs:
-            attrs = self.attr_list
         for attr in attrs:
             d[attr] = getattr(self, attr)
         return d
+        
 class BaseEmailBackend(object):
     def __init__(self, **kwargs):
         if not hasattr(self, '_connection'):
@@ -85,6 +92,13 @@ class BaseEmailBackend(object):
     def get_new_messages(self, **kwargs):
         raise NotImplementedError()
     def send_message(self, **kwargs):
+        '''
+        params:
+            sender:
+            recipients: 
+            subject:
+            body: 
+        '''
         raise NotImplementedError()
     def _do_login(self):
         raise NotImplementedError()

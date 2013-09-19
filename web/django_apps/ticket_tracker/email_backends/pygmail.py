@@ -1,7 +1,7 @@
 import gmail
-from .base import BaseEmailBackend
+from .smtp import SmtpBackend
 
-class PyGMailBackend(BaseEmailBackend):
+class PyGMailBackend(SmtpBackend):
     def _do_login(self):
         c = self.connection
         if c is None:
@@ -27,11 +27,14 @@ class PyGMailBackend(BaseEmailBackend):
         for msg in msgs:
             msg.fetch()
             msgkwargs = {}
-            for attr in ['message_id', 'thread_id', 'subject', 'body']:
-                msgkwargs[attr] = getattr(msg, attr)
+            #for attr in ['message_id', 'thread_id', 'subject', 'body']:
+            #    if attr == 'message_id':
+            #        print (msg.message_id, getattr(msg, attr))
+            #    msgkwargs[attr] = getattr(msg, attr)
             msgkwargs['sender'] = msg.fr
             msgkwargs['recipients'] = msg.to.split(', ')
             msgkwargs['datetime'] = msg.sent_at
+            msgkwargs['_message'] = msg
             message = self._build_message(**msgkwargs)
             if mark_as_read:
                 msg.read()

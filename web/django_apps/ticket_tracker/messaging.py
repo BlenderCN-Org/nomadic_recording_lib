@@ -8,6 +8,8 @@ from models_default_builder.models import build_defaults
 
 import email_template_defaults
 
+from email_backends import build_backend
+
 
 class MailUserConf(models.Model):
     username = models.CharField(max_length=200)
@@ -43,7 +45,21 @@ class EmailHandler(models.Model):
     timezone_name = models.CharField(max_length=100)
     def add_message(self, message):
         ## TODO: make this actually do something
-        print message.get_data()
+        d = message.get_data()
+        #print 'subject: %(subject)s, message_id: %(message_id)s' % d
+        print d
+    def send_message(self, **kwargs):
+        conf = self.outgoing_mail_configuration
+        bkwargs = dict(username=conf.login.username, 
+                       password=conf.login.password, 
+                       hostname=conf.hostname, 
+                       port=conf.port, 
+                       use_ssl=conf.use_ssl, 
+                       inbox_timezone=self.timezone_name, 
+                       email_address=self.email_address)
+        b = build_backend('smtp', **bkwargs)
+        msg = b.send_message(**kwargs)
+        return msg
     def save(self, *args, **kwargs):
         def do_save():
             super(EmailHandler, self).save(*args, **kwargs)
@@ -83,13 +99,14 @@ build_defaults({'model':DefaultEmailMessageTemplate,
                 'defaults':email_template_defaults.defaults})
 
 def get_messages(handler_id=None):
-    from email_backends import build_backend
     q = EmailHandler.objects.all()
     if type(handler_id) in [list, tuple, set]:
         q = q.filter(id__in=handler_id)
     elif handler_id is not None:
         q = q.filter(id__exact=handler_id)
+    d = {}
     for h in q:
+        d[h.id] = []
         conf = h.incoming_mail_configuration
         if conf.protocol == 'gmail':
             bkwargs = dict(username=conf.login.username, 
@@ -97,4 +114,6 @@ def get_messages(handler_id=None):
                            inbox_timezone=h.timezone_name)
             b = build_backend('gmail', **bkwargs)
             for msg in b.get_new_messages():
-                h.add_message(msg)
+                #h.add_message(msg)
+                d[h.id].append(msg)
+    return d
