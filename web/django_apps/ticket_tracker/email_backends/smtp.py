@@ -1,4 +1,13 @@
 import traceback
+import smtplib
+import socket
+smtplib.SMTPBroken = smtplib.SMTP
+class SMTPFixed(smtplib.SMTPBroken):
+    def _get_socket(self, host, port, timeout):
+        if self.debuglevel > 0:
+            print>>smtplib.stderr, 'connect:', (host, port)
+        return socket.create_connection((host, port), timeout)
+smtplib.SMTP = SMTPFixed
 from django.core.mail import get_connection, send_mail
 from django.core.mail import EmailMessage as DjangoEmailMessage
 from .base import BaseEmailBackend

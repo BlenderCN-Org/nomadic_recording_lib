@@ -57,6 +57,9 @@ class EmailHandler(models.Model):
                        use_ssl=conf.use_ssl, 
                        inbox_timezone=self.timezone_name, 
                        email_address=self.email_address)
+        for key in bkwargs.keys():
+            if type(bkwargs[key]) == unicode:
+                bkwargs[key] = str(bkwargs[key])
         b = build_backend('smtp', **bkwargs)
         msg = b.send_message(**kwargs)
         return msg
