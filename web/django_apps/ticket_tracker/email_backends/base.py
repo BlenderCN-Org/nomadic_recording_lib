@@ -1,3 +1,4 @@
+import email
 import datetime
 import pytz
 
@@ -38,6 +39,10 @@ class EmailMessage(object):
                 dt_u = pytz.utc.localize(value)
             else:
                 dt = tz.localize(value)
+        elif isinstance(value, basestring):
+            tt = email.utils.parsedate_tz(value)
+            ts = email.utils.mktime_tz(tt)
+            dt_u = datetime.datetime.fromtimestamp(ts).replace(tzinfo=pytz.utc)
         if dt and not dt_u:
             dt_u = pytz.utc.normalize(dt)
         return dt_u

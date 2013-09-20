@@ -11,6 +11,7 @@ from ticket import (
     InitialMessage, StaffMessage, StaffOnlyNote)
     
 from messaging import (
+    MessageContact, Message, 
     MailUserConf, IncomingMailConfig, 
     OutgoingMailConfig, EmailHandler, 
     DefaultEmailMessageTemplate, EmailMessageTemplate)
@@ -53,3 +54,5 @@ admin.site.register(OutgoingMailConfig)
 admin.site.register(MailUserConf)
 admin.site.register(DefaultEmailMessageTemplate)
 admin.site.register(EmailMessageTemplate)
+admin.site.register(MessageContact)
+admin.site.register(Message)
