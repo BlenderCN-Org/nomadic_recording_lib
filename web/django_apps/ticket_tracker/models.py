@@ -1,16 +1,13 @@
 from django.db import models
 
-from tracker import (
-    Tracker, TrackerPermissionItem, 
-    TrackerGlobalPermission, TrackerPermission)
-    
-from staff_user import StaffGroup, StaffUser
+if False:    
+    from . import tracker, staff_user, messaging, ticket
 
-from ticket import (
-    Contact, TicketStatus, Ticket, 
-    MessageBase,
-    ContactMessage, StaffMessage)
-    
-from messaging import (
-    MailUserConf, IncomingMailConfig, 
-    OutgoingMailConfig, EmailHandler)
+    for key in ['tracker', 'staff_user', 'messaging', 'ticket']:
+        md = globals()[key]
+        md_models = getattr(md, 'MODELS')
+        for md_model in md_models:
+            mname = md_model.__class__.__name__
+            mname = '.'.join(['ticket_tracker',key, mname])
+            globals()[mname] = md_model
+

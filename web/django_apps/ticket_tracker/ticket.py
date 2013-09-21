@@ -3,6 +3,8 @@ import datetime
 from django.db import models
 from django.utils import timezone
 
+from ticket_tracker.messaging import Message
+
 MESSAGE_DATE_INCREMENT = datetime.timedelta(microseconds=1)
 
 class Contact(models.Model):
@@ -96,8 +98,8 @@ class Ticket(models.Model):
     
 class MessageBase(models.Model):
     date = models.DateTimeField(blank=True, null=True)
-    email_message = models.OneToOneField('ticket_tracker.messaging.Message', 
-                                         related_name='ticket_message', 
+    email_message = models.OneToOneField(Message, 
+                                         related_name='ticket_message_reference', 
                                          blank=True, null=True)
     subject = models.CharField(max_length=300, null=True, blank=True)
     text = models.TextField()
@@ -170,3 +172,6 @@ class StaffMessage(MessageBase):
     user = models.ForeignKey('ticket_tracker.StaffUser')
     for_staff_only = models.BooleanField(default=False, 
                                          help_text='Visible by staff only.  Not sent via email.')
+
+MODELS = (Contact, TicketStatus, Ticket, MessageBase,
+          ContactMessage, StaffMessage)

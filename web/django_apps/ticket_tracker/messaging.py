@@ -245,3 +245,8 @@ def get_messages(handler_id=None, msg_type='unread', **kwargs):
                     return msg
                 d[h.id].append(msg)
     return d
+
+MODELS = (MessageContact, Message, MailUserConf, MailConfigBase, 
+          IncomingMailConfig, OutgoingMailConfig, EmailHandler,
+          EmailMessageTemplateBase, DefaultEmailMessageTemplate,
+          EmailMessageTemplate)

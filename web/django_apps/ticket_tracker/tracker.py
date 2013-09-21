@@ -2,7 +2,7 @@ import json
 from django.db import models
 from models_default_builder.models import build_defaults
 
-from staff_user import StaffGroup, StaffUser
+from ticket_tracker.staff_user import StaffGroup, StaffUser
     
 class Tracker(models.Model):
     name = models.CharField(max_length=100)
@@ -140,3 +140,5 @@ class TrackerPermission(models.Model):
         return StaffUser.objects.filter(id__in=user_ids)
     def __unicode__(self):
         return unicode(self.permission_item)
+
+MODELS = (Tracker, TrackerPermissionItem, TrackerGlobalPermission, TrackerPermission)

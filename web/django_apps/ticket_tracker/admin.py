@@ -1,17 +1,17 @@
 from django.contrib.auth.models import User, Group
 
-from tracker import (
+from ticket_tracker.tracker import (
     Tracker, TrackerPermissionItem, 
     TrackerGlobalPermission, TrackerPermission)
     
-from staff_user import StaffGroup, StaffUser
+from ticket_tracker.staff_user import StaffGroup, StaffUser
 
-from ticket import (
+from ticket_tracker.ticket import (
     Contact, TicketStatus, Ticket, 
     MessageBase,
     ContactMessage, StaffMessage)
     
-from messaging import (
+from ticket_tracker.messaging import (
     MessageContact, Message, 
     MailUserConf, IncomingMailConfig, 
     OutgoingMailConfig, EmailHandler, 

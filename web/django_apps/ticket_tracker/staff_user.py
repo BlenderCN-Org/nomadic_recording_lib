@@ -33,3 +33,4 @@ class StaffUser(models.Model):
     def __unicode__(self):
         return unicode(self.user)
     
+MODELS = (StaffGroup, StaffUser)
