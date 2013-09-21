@@ -8,7 +8,8 @@ from staff_user import StaffGroup, StaffUser
 
 from ticket import (
     Contact, TicketStatus, Ticket, 
-    InitialMessage, StaffMessage, StaffOnlyNote)
+    MessageBase,
+    ContactMessage, StaffMessage)
     
 from messaging import (
     MessageContact, Message, 
