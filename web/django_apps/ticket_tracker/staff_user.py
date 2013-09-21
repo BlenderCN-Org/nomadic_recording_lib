@@ -3,7 +3,7 @@ from django.contrib.auth.models import User, Group
 
 class StaffGroup(models.Model):
     group = models.OneToOneField(Group)
-    @propery
+    @property
     def users(self):
         ids = set()
         for u in User.groups.all():
