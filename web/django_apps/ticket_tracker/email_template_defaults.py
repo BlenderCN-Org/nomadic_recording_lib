@@ -15,8 +15,8 @@ defaults = [dict(name='auto_response',
                                  '', 
                                  'Thank you.'])), 
             dict(name='staff_response', 
-                 subject='{{ email_message.subject }} - [ Ticket ID: {{ ticket.id }} ]', 
-                 body='{{ email_message.body }}'), 
+                 subject='{{ message.subject }} - [ {{ tracker.name }} Ticket ID: {{ ticket.id }} ]', 
+                 body='{{ message.body }}'), 
             dict(name='contact_response', 
-                 subject='{{ email_message.subject }} - [ Ticket ID: {{ ticket.id }} ]', 
-                 body='{{ email_message.body }}')]
+                 subject='{{ message.subject }} - [ {{ tracker.name }} Ticket ID: {{ ticket.id }} ]', 
+                 body='{{ message.body }}')]

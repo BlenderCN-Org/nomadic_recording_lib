@@ -3,7 +3,25 @@ from models_default_builder.models import build_defaults
     
 class Tracker(models.Model):
     name = models.CharField(max_length=100)
-    message_handler = models.ForeignKey('ticket_tracker.EmailHandler', blank=True, null=True)
+    message_handler = models.ForeignKey('ticket_tracker.EmailHandler', 
+                                        related_name='trackers', 
+                                        blank=True, 
+                                        null=True)
+    hidden_data_delimiter = models.CharField(max_length=100, 
+                                             default='_STAFF_ONLY_DATA_\n')
+    def match_message(self, **kwargs):
+        msg = kwargs.get('message')
+        parsed_templates = kwargs.get('parsed_templates')
+        q = self.tickets.all()
+        for tname, tdata in parsed_templates.iteritems():
+            for qstr, val in tdata['subject'].iteritems():
+                if 'ticket' in qstr:
+                    q = q.filter(**{qstr:val})
+        count = q.count()
+        if count == 1:
+            ticket = q[0]
+            return ticket.add_message(**kwargs)
+        return False
     
 class TrackerPermissionItem(models.Model):
     name = models.CharField(max_length=100, unique=True)

@@ -13,7 +13,7 @@ class TicketStatus(models.Model):
     ticket_active = models.BooleanField()
     
 class Ticket(models.Model):
-    tracker = models.ForeignKey('ticket_tracker.Tracker')
+    tracker = models.ForeignKey('ticket_tracker.Tracker', related_name='tickets')
     contact = models.ForeignKey(Contact)
     description = models.OneToOneField('ticket_tracker.InitialMessage', related_name='initial_message_parent_ticket')
     status = models.ForeignKey(TicketStatus, blank=True)
@@ -23,6 +23,11 @@ class Ticket(models.Model):
     class Meta:
         get_latest_by = 'created'
         ordering = ['created']
+    def add_message(self, **kwargs):
+        msg = kwargs.get('message')
+        parsed_templates = kwargs.get('parsed_templates')
+        tracker = self.tracker
+        ## TODO: 
     def save(self, *args, **kwargs):
         def do_save():
             super(Ticket, self).save(*args, **kwargs)
@@ -31,7 +36,7 @@ class Ticket(models.Model):
     
 class MessageBase(models.Model):
     ticket = models.ForeignKey(Ticket)
-    date = models.DateTimeField(default=timezone.now())
+    email_message = models.OneToOneField('ticket_tracker.messaging.Message', related_name='ticket_message')
     subject = models.CharField(max_length=300, null=True, blank=True)
     text = models.TextField()
     hidden_data = models.TextField(blank=True, null=True)
@@ -39,6 +44,10 @@ class MessageBase(models.Model):
         abstract = True
         get_latest_by = 'date'
         ordering = ['date']
+    @classmethod
+    def create(cls, **kwargs):
+        msg = kwargs.get('email_message')
+        ## TODO: 
     
 class InitialMessage(MessageBase):
     pass

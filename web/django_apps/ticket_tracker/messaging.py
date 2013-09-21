@@ -5,6 +5,7 @@ from django.core.mail import get_connection, EmailMessage
 from django.db import models
 
 from models_default_builder.models import build_defaults
+from utils import template_parser
 
 import email_template_defaults
 
@@ -127,14 +128,30 @@ class EmailHandler(models.Model):
     outgoing_mail_configuration = models.ForeignKey(OutgoingMailConfig, blank=True, null=True)
     timezone_name = models.CharField(max_length=100)
     all_messages = models.ManyToManyField(Message, blank=True, null=True)
+    def parse_message_templates(self, msg):
+        d = {}
+        for tmpl in self.email_message_templates.exclude(name='auto_response'):
+            d[tmpl.name] = tmpl.parse_message(msg)
+        return d
     def add_message(self, message):
         q = Message.objects.filter(message_id=message.message_id)
         if q.exists():
             return
-        ##TODO: determine if msg belongs to this handler before adding it
-        dbmsg = Message.create_from_backend(message)
-        self.all_messages.add(dbmsg)
-        self.save()
+        need_save = False
+        parsed_templates = self.parse_message_templates(message)
+        q = self.trackers.all()
+        for tname, tdata in parsed_templates.iteritems():
+            for qstr, val in tdata['subject'].iteritems():
+                if 'tracker' in qstr:
+                    q = q.filter(**{qstr:val})
+        for tracker in q:
+            r = tracker.match_message(message=message, parsed_templates=parsed_templates)
+            if r:
+                need_save = True
+                dbmsg = Message.create_from_backend(message)
+                self.all_messages.add(dbmsg)
+        if need_save:
+            self.save()
     def send_message(self, **kwargs):
         conf = self.outgoing_mail_configuration
         bkwargs = dict(username=conf.login.username, 
@@ -182,6 +199,13 @@ class EmailMessageTemplate(EmailMessageTemplateBase):
     name = models.CharField(max_length=100, 
                             help_text='Template name (not used as part of the generated message)')
     handler = models.ForeignKey(EmailHandler, related_name='email_message_templates')
+    def parse_message(self, msg):
+        d = {}
+        for msgattr in ['subject', 'body']:
+            parser = template_parser.TemplatedStringParser(template=getattr(self, msgattr))
+            parser.string_to_parse = getattr(msg, msgattr)
+            d[msgattr] = parser.get_parsed_values()
+        return d
     
 
 build_defaults({'model':DefaultEmailMessageTemplate, 
