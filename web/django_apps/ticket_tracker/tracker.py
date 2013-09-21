@@ -1,5 +1,8 @@
+import json
 from django.db import models
 from models_default_builder.models import build_defaults
+
+from staff_user import StaffGroup, StaffUser
     
 class Tracker(models.Model):
     name = models.CharField(max_length=100)
@@ -8,7 +11,33 @@ class Tracker(models.Model):
                                         blank=True, 
                                         null=True)
     hidden_data_delimiter = models.CharField(max_length=100, 
-                                             default='_STAFF_ONLY_DATA_\n')
+                                             default='\n_STAFF_ONLY_DATA_\n')
+    def get_staff_users(self, permission_type=None):
+        if not permission_type:
+            q = self.permissions.all()
+        else:
+            q = self.permissions.filter(permission_item__name=permission_type)
+        all_ids = set()
+        for p in q:
+            u_q = p.get_all_users()
+            l = u_q.values('id')
+            all_ids |= set([d['id'] for d in l])
+        return StaffUser.objects.filter(id__in=all_ids)
+    def parse_hidden_data(self, text):
+        delim = self.hidden_data_delimiter
+        d = {'body':None, 'data':None, 'extra':[]}
+        if delim not in text:
+            d['body'] = text
+        d['body'], d['data'], extra = s.split(delim, 2)
+        while delim in extra:
+            s, data, extra = s.split(delim, 2)
+            d['extra'].append({'text':s, 'data':data})
+        return d
+    def build_hidden_data(self, text, data):
+        delim = self.hidden_data_delimiter
+        if not isinstance(data, basestring):
+            data = json.dumps(data)
+        return delim.join([text, data, ''])
     def match_message(self, **kwargs):
         msg = kwargs.get('message')
         parsed_templates = kwargs.get('parsed_templates')
@@ -20,7 +49,7 @@ class Tracker(models.Model):
         count = q.count()
         if count == 1:
             ticket = q[0]
-            return ticket.add_message(**kwargs)
+            return ticket.add_message_from_email(**kwargs)
         return False
     
 class TrackerPermissionItem(models.Model):
@@ -47,6 +76,11 @@ class TrackerPermissionItem(models.Model):
                     self.inherited.add(TrackerPermissionItem.get(name=othername))
             else:
                 setattr(self, fname, fval)
+    def get_inherited(self):
+        l = self.inherited.all().values('id')
+        ids = set([d['id'] for d in l])
+        ids.add(self.id)
+        return TrackerPermissionItem.objects.filter(id__in=ids)
     def __unicode__(self):
         desc = self.description
         if desc:
@@ -71,16 +105,38 @@ build_defaults({'model':TrackerPermissionItem, 'unique':'name', 'defaults':track
 
     
 class TrackerGlobalPermission(models.Model):
-    permission = models.ForeignKey(TrackerPermissionItem)
-    users = models.ManyToManyField('ticket_tracker.StaffUser', null=True, blank=True)
-    groups = models.ManyToManyField('ticket_tracker.StaffGroup', null=True, blank=True)
+    permission_item = models.ForeignKey(TrackerPermissionItem, related_name='global_permissions')
+    users = models.ManyToManyField(StaffUser, null=True, blank=True)
+    groups = models.ManyToManyField(StaffGroup, null=True, blank=True)
+    def get_inherited(self):
+        q = self.permission_item.get_inherited()
+        l = q.values('id')
+        ids = set([d['id'] for d in l])
+        ids.add(self.id)
+        return TrackerGlobalPermission.objects.filter(id__in=ids)
     def __unicode__(self):
         return unicode(self.permission)
         
 class TrackerPermission(models.Model):
-    permission = models.ForeignKey(TrackerPermissionItem)
-    users = models.ManyToManyField('ticket_tracker.StaffUser', null=True, blank=True)
-    groups = models.ManyToManyField('ticket_tracker.StaffGroup', null=True, blank=True)
-    tracker = models.ForeignKey(Tracker)
+    permission_item = models.ForeignKey(TrackerPermissionItem, related_name='permissions')
+    users = models.ManyToManyField(StaffUser, null=True, blank=True)
+    groups = models.ManyToManyField(StaffGroup, null=True, blank=True)
+    tracker = models.ForeignKey(Tracker, related_name='permissions')
+    def get_inherited(self):
+        q = self.permission_item.get_inherited()
+        l = q.values('id')
+        ids = set([d['id'] for d in l])
+        ids.add(self.id)
+        return TrackerPermission.objects.filter(id__in=ids, tracker=self.tracker)
+    def get_all_users(self):
+        q = self.get_inherited()
+        user_ids = set()
+        for p in q:
+            for user in p.users.all():
+                user_ids.add(user.id)
+            for group in p.groups.all():
+                for user in group.users:
+                    user_ids.add(user.id)
+        return StaffUser.objects.filter(id__in=user_ids)
     def __unicode__(self):
-        return unicode(self.permission)
+        return unicode(self.permission_item)

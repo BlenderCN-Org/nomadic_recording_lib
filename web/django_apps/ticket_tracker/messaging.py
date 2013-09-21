@@ -137,7 +137,10 @@ class EmailHandler(models.Model):
         q = Message.objects.filter(message_id=message.message_id)
         if q.exists():
             return
-        need_save = False
+        dbmsg = Message.create_from_backend(message)
+        self.all_messages.add(dbmsg)
+        self.save()
+        matched = False
         parsed_templates = self.parse_message_templates(message)
         q = self.trackers.all()
         for tname, tdata in parsed_templates.iteritems():
@@ -145,13 +148,11 @@ class EmailHandler(models.Model):
                 if 'tracker' in qstr:
                     q = q.filter(**{qstr:val})
         for tracker in q:
-            r = tracker.match_message(message=message, parsed_templates=parsed_templates)
+            r = tracker.match_message(message=dbmsg, parsed_templates=parsed_templates)
             if r:
-                need_save = True
-                dbmsg = Message.create_from_backend(message)
-                self.all_messages.add(dbmsg)
-        if need_save:
-            self.save()
+                matched = True
+        if not_matched:
+            pass
     def send_message(self, **kwargs):
         conf = self.outgoing_mail_configuration
         bkwargs = dict(username=conf.login.username, 
