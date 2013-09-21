@@ -95,7 +95,7 @@ class Ticket(models.Model):
         do_save()
     
 class MessageBase(models.Model):
-    date = models.DateTimeFiled(blank=True, null=True)
+    date = models.DateTimeField(blank=True, null=True)
     email_message = models.OneToOneField('ticket_tracker.messaging.Message', 
                                          related_name='ticket_message', 
                                          blank=True, null=True)
