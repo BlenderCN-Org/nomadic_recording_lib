@@ -184,7 +184,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
                 dt_u = UTC.normalize(dt)
         self.datetime = dt
         if tz or is_utc:
-            self.tzname = tz.tzname(dt)
+            self.tzname = tz.zone
         self.datetime_utc = dt_u
     def parse_field(self, field):
         field = super(W3CExtendedLogEntry, self).parse_field(field)
