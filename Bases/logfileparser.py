@@ -12,24 +12,35 @@ except ImportError:
     pytz = None
     UTC = None
 
+TZINFO_STR = {'zone':{
+                'US/Pacific': ('PST', 'PDT'), 
+                'US/Central': ('CST', 'CDT'), 
+                'US/Mountain':('MST', 'MDT'), 
+                'US/Alaska':  ('AST', 'ADT'), 
+            }}
+TZINFO_STR['tzname'] = {}
+for zone in TZINFO_STR['zone'].keys():
+    st, dst = TZINFO_STR['zone'][zone]
+    TZINFO_STR['tzname'][st] = (zone, False)
+    TZINFO_STR['tzname'][dst] = (zone, True)
+del zone
+del st
+del dst
+
 def get_tzinfo(tzstr):
     if pytz is None:
-        return False
+        return None, False
     if tzstr in ['UTC', 'utc']:
-        return UTC
-    if tzstr in ['PST', 'PDT']:
-        tzstr = 'US/Pacific'
-    elif tzstr in ['CST', 'CDT']:
-        tzstr = 'US/Central'
-    elif tzstr in ['MST', 'MDT']:
-        tzstr = 'US/Mountain'
-    elif tzstr in ['AST', 'ADT']:
-        tzstr = 'US/Alaska'
+        return UTC, False
+    t = TZINFO_STR['tzname'].get(tzstr)
+    if t is None:
+        return None, False
+    tzname, is_dst = t
     try:
-        tz = pytz.timezone(tzstr)
+        tz = pytz.timezone(tzname)
     except:
-        tz = False
-    return tz
+        tz = None
+    return tz, is_dst
 
 class ExclusionFilter(object):
     __slots__ = ('field_names', 'excluded_values')
@@ -118,6 +129,7 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         self.is_utc = None
         self.tzname = None
         self.tzinfo = None
+        self.is_dst = None
         super(W3CExtendedLogEntry, self).__init__(**kwargs)
         self.dt_index = kwargs.get('dt_index')
     @property
@@ -158,9 +170,10 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         fields = self.fields
         tzstr = fields.get('tz')
         if tzstr:
-            tz = get_tzinfo(tzstr)
+            tz, is_dst = get_tzinfo(tzstr)
         else:
             tz = self.parser.current_timezone
+            is_dst = self.parser.current_dst
         dtl = [fields.get(key) for key in ['date', 'time']]
         if None in dtl:
             return
@@ -169,13 +182,13 @@ class W3CExtendedLogEntry(DelimitedLogEntry):
         t = self.parse_timestr(t)
         dt = datetime.datetime.combine(d, t)
         is_utc = False
-        if tz and tz == UTC:
-            dt = dt.replace(tzinfo=UTC)
+        if tz is not None:
+            dt = tz.localize(dt, is_dst=is_dst)
+        if tz == UTC:
             is_utc = True
-        elif tz:
-            dt = tz.localize(dt, is_dst=None)
         self.is_utc = is_utc
         self.tzinfo = tz
+        self.is_dst = is_dst
         dt_u = None
         if UTC is not None:
             if is_utc:
@@ -474,7 +487,8 @@ class DelimitedFileParser(FileParser):
         return value
 
 class W3CExtendedLogfileParser(DelimitedFileParser):
-    _Properties = {'current_timezone':dict(default=None, ignore_type=True)}
+    _Properties = {'current_timezone':dict(default=None, ignore_type=True), 
+                   'current_dst':dict(default=None, ignore_type=True)}
     entry_class = W3CExtendedLogEntry
     def process_header(self, line_number, line):
         if line.startswith('#Fields:'):
@@ -487,11 +501,11 @@ class W3CExtendedLogfileParser(DelimitedFileParser):
             vspl = val.split(' ')
             if vspl == 3:
                 tzstr = vspl[-1]
-                tz = get_tzinfo(tzstr)
+                tz, is_dst = get_tzinfo(tzstr)
                 if tz != self.current_timezone:
-                    if tz is False:
-                        tz = None
                     self.current_timezone = tz
+                if is_dst != self.current_dst:
+                    self.current_dst = is_dst
         return True, {key:val, 'line_number':line_number}
     def process_field_header(self, line_number, line):
         if len(self.field_names):
