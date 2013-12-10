@@ -43,8 +43,11 @@ def get_tzinfo(tzstr):
     return tz, is_dst
 
 class ExclusionFilter(object):
-    __slots__ = ('field_names', 'excluded_values')
+    __slots__ = ('field_names', 'excluded_values', 'search_type')
     def __init__(self, data):
+        self.search_type = data.get('__SEARCH_TYPE__', 'exact')
+        if '__SEARCH_TYPE__' in data:
+            del data['__SEARCH_TYPE__']
         keys = set(data.keys())
         self.field_names = keys
         self.excluded_values = {}
@@ -59,11 +62,41 @@ class ExclusionFilter(object):
         fields = entry.fields
         field_names = self.field_names
         excluded = self.excluded_values
+        search_func = getattr(self, 'search_%s' % (self.search_type))
         for fn in field_names:
-            val = fields.get(fn)
-            if val == excluded[fn]:
-                return False
+            if fn == '__ANY__':
+                for field in fields.itervalues():
+                    if not isinstance(field, basestring):
+                        continue
+                    for excl_v in excluded[fn]:
+                        r = search_func(field, excl_v)
+                        if r:
+                            return False
+            else:
+                val = fields.get(fn)
+                if val is None:
+                    _search_func = self.search_exact
+                else:
+                    _search_func = search_func
+                for excl_v in excluded[fn]:
+                    r = _search_func(val, excl_v)
+                    if r:
+                        return False
         return True
+    @staticmethod
+    def search_exact(value, search_str):
+        return value == search_str
+    @staticmethod
+    def search_iexact(value, search_str):
+        return value.lower() == search_str.lower()
+    @staticmethod
+    def search_contains(value, search_str):
+        return search_str in value
+    @staticmethod
+    def search_icontains(value, search_str):
+        return search_str.lower() in value.lower()
+    def __str__(self):
+        return ', '.join(['%s = %s' % (attr, getattr(self, attr)) for attr in ['field_names', 'excluded_values']])
         
 class LogEntry(object):
     def __init__(self, **kwargs):
