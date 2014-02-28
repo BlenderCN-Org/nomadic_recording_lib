@@ -256,6 +256,8 @@ class Action(BaseObject):
         wait = kwargs.get('action_wait', False)
         if self.working:
             return
+        if self._cancelling or self.canceled:
+            return
         self.working = True
         h = self.handler
         if self.is_root_action and not self.run_kwargs:
@@ -283,6 +285,9 @@ class Action(BaseObject):
         '''
         self.completed = True
     def cancel(self, blocking=True):
+        if self._cancelling:
+            return
+        self._cancelling = True
         for dep in self._dependencies:
             dep.cancel(blocking)
         self.completed = True
@@ -290,6 +295,7 @@ class Action(BaseObject):
         if self.is_root_action:
             self.unlink()
         self.cancelled = True
+        self._cancelling = False
     def wait(self, timeout=None, interval=None):
         start = time.time()
         if interval is None:
@@ -357,7 +363,7 @@ class Action(BaseObject):
             if not obj.completed:
                 return
         if cancelled:
-            if not self.cancelled:
+            if not self.cancelled and not self._cancelling:
                 self.cancel(blocking=True)
             return
         if not self.check_completed():
