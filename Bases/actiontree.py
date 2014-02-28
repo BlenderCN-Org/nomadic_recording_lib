@@ -257,7 +257,7 @@ class Action(BaseObject):
         wait = kwargs.get('action_wait', False)
         if self.working:
             return
-        if self._cancelling or self.canceled:
+        if self._cancelling or self.cancelled:
             return
         self.working = True
         h = self.handler
