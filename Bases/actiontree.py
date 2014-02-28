@@ -71,7 +71,7 @@ class ActionHandler(BaseObject):
     def cancel(self, blocking=True):
         self._cancelling = True
         for action in self.root_actions:
-            action.cancel(blocking)
+            action._cancel(blocking)
     def start_action_checker(self):
         if self.action_checker is not None:
             return
@@ -286,16 +286,18 @@ class Action(BaseObject):
         '''
         self.completed = True
     def cancel(self, blocking=True):
+        self.handler.cancel(blocking)
+    def _cancel(self, blocking=True):
         if self._cancelling:
             return
         self._cancelling = True
         for dep in self._dependencies:
-            dep.cancel(blocking)
+            dep._cancel(blocking)
+        self.cancelled = True
         self.completed = True
         self.working = False
         if self.is_root_action:
             self.unlink()
-        self.cancelled = True
         self._cancelling = False
     def wait(self, timeout=None, interval=None):
         start = time.time()
