@@ -68,10 +68,10 @@ class ActionHandler(BaseObject):
             action(**kwargs)
         self.iterating_actions = False
         self.check_actions_working()
-    def cancel(self):
+    def cancel(self, blocking=True):
         self._cancelling = True
         for action in self.root_actions:
-            action.cancel(blocking=True)
+            action.cancel(blocking)
     def start_action_checker(self):
         if self.action_checker is not None:
             return
