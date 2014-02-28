@@ -350,9 +350,16 @@ class Action(BaseObject):
     def on_dependancy_completed_set(self, **kwargs):
         if not kwargs.get('value'):
             return
+        cancelled = False
         for obj in self._dependencies:
+            if obj.cancelled:
+                cancelled = True
             if not obj.completed:
                 return
+        if cancelled:
+            if not self.cancelled:
+                self.cancel(blocking=True)
+            return
         if not self.check_completed():
             self._run(**self.handler._run_kwargs)
     def on_dependant_working_set(self, **kwargs):
