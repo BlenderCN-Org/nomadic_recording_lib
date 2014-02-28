@@ -162,6 +162,7 @@ class Action(BaseObject):
     _max_working_time = None
     def __init__(self, **kwargs):
         self._handler = None
+        self._cancelling = False
         self.start_timestamp = None
         super(Action, self).__init__(**kwargs)
         self.register_signal('all_complete')
