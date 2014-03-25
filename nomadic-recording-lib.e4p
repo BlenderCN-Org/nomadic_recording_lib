@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2014-02-17, 10:04:46 -->
+<!-- Saved: 2014-03-25, 15:10:19 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -161,6 +161,10 @@
     <Source>web/django_apps/setup_wizard/models.py</Source>
     <Source>web/django_apps/setup_wizard/views.py</Source>
     <Source>web/django_apps/setup_wizard/urls.py</Source>
+    <Source>comm/osc/osc_terminal.py</Source>
+    <Source>comm/remote_console/__init__.py</Source>
+    <Source>comm/remote_console/client.py</Source>
+    <Source>comm/remote_console/server.py</Source>
   </Sources>
   <Forms>
   </Forms>
