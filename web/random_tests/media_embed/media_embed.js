@@ -1,18 +1,25 @@
 var media_embed = {
     embed_type_map: {
-        "rtmp": ["rtmp", "jwplayer.rss"],
+        "rtmp": ["http", "jwplayer.rss"],
         "hls": ["http", "playlist.m3u8"],
         "vidtag": ["http", "playlist.m3u8"],
     },
+    initialized: false,
     player_size: ["640", "360"],
     initialize: function(){
         var self = this;
+        if (self.initialized){
+            return;
+        }
         self.data = {"base_url": "",
                      "app_name": "",
                      "stream_name": "",
                      "embed_type": "rtmp",
                      "stream_url": ""};
         $("input", $("#stream_input_fieldset")).change(function(){
+            var $this = $(this);
+            var key = $this.attr("id").split("_input")[0];
+            self.data[key] = $this.val();
             self.buildUrl();
         });
         $("input", $("#embedtype_fieldset")).change(function(){
@@ -48,6 +55,7 @@ var media_embed = {
             self.clearForm();
         });
         self.loadJWScript();
+        self.initialized = true;
     },
     loadJWScript: function(){
         var jsUrl = "http://jwpsrv.com/library/TOKEN.js";
@@ -65,8 +73,8 @@ var media_embed = {
             url = self.embed_type_map[self.data.embed_type][0] + "://";
             url += [self.data.base_url,
                     self.data.app_name, "_definst_",
-                    self.data.stream_name,
-                    self.embed_type_map[self.data.embed_type][1]].join("/");
+                    self.data.stream_name].join("/");
+                    //self.embed_type_map[self.data.embed_type][1]].join("/");
             self.data.stream_url = url;
             $("#stream_url_input").val(url);
         }
@@ -97,19 +105,30 @@ var media_embed = {
         container.append(player);
         if (self.data.embed_type != "vidtag"){
             jwplayer("player").setup({
-                file: self.data.stream_url,
                 width: self.player_size[0],
                 height: self.player_size[1],
+                sources: [{
+                    file: [self.data.stream_url, "jwplayer.smil"].join("/"),
+                }, {
+                    file: [self.data.stream_url, "playlist.m3u8"].join("/"),
+                }],
+                fallback: false,
             });
         } else {
             container.append('<video src="URL"></video>'.replace("URL", self.data.stream_url));
         }
     },
     doStop: function(){
-        $("#player-container").empty();
+        if ($("div", $("#player-container")).length){
+            $("#player-container").empty();
+        }
     },
 };
 
 $("[data-role=page]").on("pagecreate", function(){
     media_embed.initialize();
+});
+
+$("form").submit(function(e){
+    e.preventDefault();
 });
