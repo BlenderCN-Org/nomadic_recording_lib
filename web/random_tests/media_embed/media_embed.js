@@ -46,7 +46,11 @@ var media_embed = {
             }
         });
         $("#start-btn").on("click", function(){
-            self.doEmbed();
+            try{
+                self.doEmbed();
+            } catch (e){
+                showDebug([e.fileName, e.lineNumber, e.message]);
+            }
         });
         $("#stop-btn").on("click", function(){
             self.doStop();
@@ -100,6 +104,18 @@ var media_embed = {
         self.doStop();
         if (!self.data.stream_url){
             return;
+        }
+        if (MobileDetector.os == "android"){
+            if (MobileDetector.browser == "Chrome"){
+                var bversion = MobileDetetor.browserVersion.split(".")[0]
+                bversion = parseInt(bversion);
+                if (bversion >= 34){
+                    self.data.embed_type = "hls";
+                    self.buildUrl();
+                    container.append('<a href="URL">Click to Play</a>'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
+                }
+                return;
+            }
         }
         var player = $('<div id="player"></div>');
         container.append(player);

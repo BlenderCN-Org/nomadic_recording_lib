@@ -43,8 +43,22 @@
                     <div class="ui-block-c"><button class="ui-btn" id="clear-btn">Clear Input</button></div>
                 </div>
             </form>
+            <div id="debug-div"></div>
             <div id="player-container" class="player-container"></div>
         </div>
     </div>
+    <script type="text/javascript">
+        function showDebug(s){
+            if (typeof(s) != "string"){
+                s = JSON.stringify(s);
+            }
+            $("#debug-div").append('<p>S</p>'.replace('S', s));
+        }
+        $("[data-role=page]").on("pagecreate", function(){
+            showDebug(MobileDetector.getData());
+        });
+    </script>
+    <script src="mobile-detect.js"></script>
     <script src="media_embed.js"></script>
+
 </body>
