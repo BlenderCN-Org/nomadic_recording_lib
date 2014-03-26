@@ -156,6 +156,9 @@ var media_embed = {
         }
     },
     calcPlayerSize: function(container){
+        if (typeof(container) == "undefined"){
+            container = $("#player-container");
+        }
         var self = this;
         var complete = null;
         var x = container.innerWidth();
