@@ -17,7 +17,7 @@ var media_embed = {
                      "stream_name": "",
                      "embed_type": "rtmp",
                      "stream_url": ""};
-        $("input", $("#stream_input_fieldset")).change(function(){
+        $("input", $("#stream_input_fieldset")).keyup(function(){
             var $this = $(this);
             var key = $this.attr("id").split("_input")[0];
             self.data[key] = $this.val();
@@ -28,7 +28,7 @@ var media_embed = {
             self.data.embed_type = $this.val();
             self.buildUrl();
         });
-        $("#stream_url_input").change(function(){
+        $("#stream_url_input").keyup(function(){
             var $this = $(this);
             var value = $this.val();
             if (value == ""){
@@ -93,8 +93,26 @@ var media_embed = {
                     self.data.stream_name].join("/");
                     //self.embed_type_map[self.data.embed_type][1]].join("/");
             self.data.stream_url = url;
-            $("#stream_url_input").val(url);
+            //$("#stream_url_input").val(url);
         }
+        self.updateFormFields();
+    },
+    updateFormFields: function(){
+        var self = this;
+        $.each(self.data, function(key, val){
+            var $elem = $("[name=KEY]".replace('KEY', key));
+            if (key == 'embed_type'){
+                $("[value=VAL]".replace('VAL', val), $elem).trigger('click');
+                $elem.checkboxradio('refresh');
+            }
+            if (!$elem.length){
+                return;
+            }
+            if ($elem.val() == val){
+                return;
+            }
+            $elem.val(val);
+        });
     },
     clearForm: function(){
         var self = this;
