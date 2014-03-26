@@ -178,7 +178,7 @@ var media_embed = {
         while (!complete){
             x -= 1;
             y = x / ratio;
-            complete = integersFound(_x, _y);
+            complete = integersFound(x, y);
             if (!complete && x <=xMin){
                 x = container.innerWidth();
                 y = x / ratio;
