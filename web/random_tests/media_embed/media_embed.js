@@ -107,7 +107,7 @@ var media_embed = {
         }
         if (MobileDetector.os == "android"){
             if (MobileDetector.browser == "Chrome"){
-                var bversion = MobileDetetor.browserVersion.split(".")[0]
+                var bversion = MobileDetector.browserVersion.split(".")[0]
                 bversion = parseInt(bversion);
                 if (bversion >= 34){
                     self.data.embed_type = "hls";
