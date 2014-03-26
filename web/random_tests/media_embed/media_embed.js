@@ -110,11 +110,9 @@ var media_embed = {
                 var bversion = MobileDetector.browserVersion.split(".")[0]
                 bversion = parseInt(bversion);
                 if (bversion >= 34){
-                    self.data.embed_type = "hls";
-                    self.buildUrl();
-                    container.append('<a href="URL">Click to Play</a>'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
+                    self.data.embed_type = "vidtag";
+                    //container.append('<a href="URL">Click to Play</a>'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
                 }
-                return;
             }
         }
         var player = $('<div id="player"></div>');
@@ -131,7 +129,9 @@ var media_embed = {
                 fallback: false,
             });
         } else {
-            container.append('<video src="URL"></video>'.replace("URL", self.data.stream_url));
+            var vidtag = $('<video control="" autoplay="" name="player" id="player"></video>');
+            vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
+            container.append(vidtag);
         }
     },
     doStop: function(){
