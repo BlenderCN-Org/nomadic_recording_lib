@@ -5,7 +5,8 @@ var media_embed = {
         "vidtag": ["http", "playlist.m3u8"],
     },
     initialized: false,
-    player_size: ["640", "360"],
+    player_size: [640, 360],
+    aspect_ratio: [16, 9],
     initialize: function(){
         var self = this;
         if (self.initialized){
@@ -57,6 +58,18 @@ var media_embed = {
         });
         $("#clear-btn").on("click", function(){
             self.clearForm();
+        });
+        $(window).on("orientationchange", function(){
+            var player = null;
+            self.player_size = self.calcPlayerSize();
+            if (!$("#player").length){
+                return;
+            }
+            if ($("video").length){
+                player = $("video");
+                player.width(self.player_size[0].toString() + 'px');
+                player.height(self.player_size[1].toString() + 'px');
+            }
         });
         self.loadJWScript();
         self.initialized = true;
@@ -117,10 +130,11 @@ var media_embed = {
         }
         var player = $('<div id="player"></div>');
         container.append(player);
+        self.player_size = self.calcPlayerSize();
         if (self.data.embed_type != "vidtag"){
             jwplayer("player").setup({
-                width: self.player_size[0],
-                height: self.player_size[1],
+                width: self.player_size[0].toString(),
+                height: self.player_size[1].toString(),
                 sources: [{
                     file: [self.data.stream_url, "jwplayer.smil"].join("/"),
                 }, {
@@ -129,15 +143,47 @@ var media_embed = {
                 fallback: false,
             });
         } else {
-            var vidtag = $('<video control="" autoplay="" name="player" id="player"></video>');
+            var vidtag = $('<video controls="true" autoplay="true"></video>');
             vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
             container.append(vidtag);
+            vidtag.width(self.player_size[0].toString() + 'px');
+            vidtag.height(self.player_size[1].toString() + 'px');
         }
     },
     doStop: function(){
         if ($("div", $("#player-container")).length){
             $("#player-container").empty();
         }
+    },
+    calcPlayerSize: function(container){
+        var self = this;
+        var complete = null;
+        var x = container.innerWidth();
+        var xMin = x * 0.5;
+        var y = null;
+        var ratio = self.aspect_ratio[0] / self.aspect_ratio[1];
+        function integersFound(_x, _y){
+            if (Math.floor(_x) != _x){
+                return false;
+            }
+            if (Math.floor(_y) != _y){
+                return false;
+            }
+        }
+        y = x / ratio;
+        complete = integersFound(x, y);
+        while (!complete){
+            x -= 1;
+            y = x / ratio;
+            complete = integersFound(_x, _y);
+            if (!complete && x <=xMin){
+                x = container.innerWidth();
+                y = x / ratio;
+                y = Math.floor(y);
+                break;
+            }
+        }
+        return [x, y];
     },
 };
 
