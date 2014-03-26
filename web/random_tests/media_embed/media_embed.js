@@ -148,6 +148,7 @@ var media_embed = {
             container.append(vidtag);
             vidtag.width(self.player_size[0].toString() + 'px');
             vidtag.height(self.player_size[1].toString() + 'px');
+            vidtag[0].load();
         }
     },
     doStop: function(){
