@@ -17,7 +17,7 @@ var media_embed = {
                      "stream_name": "",
                      "embed_type": "rtmp",
                      "stream_url": ""};
-        $("input", $("#stream_input_fieldset")).keyup(function(){
+        $("input", $("#stream_input_fieldset")).on('keyup focusout', (function(){
             var $this = $(this);
             var key = $this.attr("id").split("_input")[0];
             self.data[key] = $this.val();
@@ -28,7 +28,7 @@ var media_embed = {
             self.data.embed_type = $this.val();
             self.buildUrl();
         });
-        $("#stream_url_input").keyup(function(){
+        $("#stream_url_input").on('keyup focusout', (function(){
             var $this = $(this);
             var value = $this.val();
             if (value == ""){
