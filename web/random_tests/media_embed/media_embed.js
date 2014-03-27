@@ -164,7 +164,7 @@ var media_embed = {
                 }, {
                     file: [self.data.stream_url, "playlist.m3u8"].join("/"),
                 }],
-                fallback: false,
+                primary: "flash",
             });
         } else {
             var vidtag = $('<video controls="true" autoplay="true"></video>');
