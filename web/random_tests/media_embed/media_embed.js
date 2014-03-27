@@ -6,6 +6,7 @@ var media_embed = {
     },
     initialized: false,
     player_size: [640, 360],
+    player_max_width: 1280,
     aspect_ratio: [16, 9],
     initialize: function(){
         var self = this;
@@ -75,6 +76,7 @@ var media_embed = {
         self.initialized = true;
     },
     loadJWScript: function(){
+        // jwtoken.js must declare the var "JWP_TOKEN" as is required by jwplayer6
         var jsUrl = "http://jwpsrv.com/library/TOKEN.js";
         var tkUrl = "jwtoken.js"
         $.getScript(tkUrl, function(){
@@ -164,7 +166,7 @@ var media_embed = {
                 }, {
                     file: [self.data.stream_url, "playlist.m3u8"].join("/"),
                 }],
-                primary: "flash",
+                fallback: false,
             });
         } else {
             var vidtag = $('<video controls="true" autoplay="true"></video>');
