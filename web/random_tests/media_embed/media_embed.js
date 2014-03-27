@@ -137,13 +137,19 @@ var media_embed = {
             return;
         }
         if (MobileDetector.os == "android"){
+            var androidMethodSet = false;
             if (MobileDetector.browser == "Chrome"){
                 var bversion = MobileDetector.browserVersion.split(".")[0]
                 bversion = parseInt(bversion);
                 if (bversion >= 34){
                     self.data.embed_type = "vidtag";
+                    self.updateFormFields();
+                    androidMethodSet = true;
                     //container.append('<a href="URL">Click to Play</a>'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
                 }
+            }
+            if (!androidMethodSet){
+                self.insertAndroidFallbacks(container);
             }
         }
         var player = $('<div id="player"></div>');
@@ -206,6 +212,14 @@ var media_embed = {
             }
         }
         return [x, y];
+    },
+    insertAndroidFallbacks: function(container){
+        var self = this;
+        var rtspUrl = self.data.stream_url;
+        var hlsUrl = [self.data.stream_url, 'playlist.m3u8'].join('/');
+        rtspUrl = ['rtsp', rtspUrl.split('://')[1]].join('://');
+        container.append('<p><a href="RTSPURL">Click to watch using RTSP</a></p>'.replace('RTSPURL', rtspUrl));
+        container.append('<p><a href="HLSURL">Click to watch using HLS</a></p>'.replace('HLSURL', hlsUrl));
     },
 };
 
