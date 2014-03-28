@@ -250,7 +250,7 @@ var media_embed = {
             var rowDiv = $('<div class="ui-grid-a"></div>');
             var supportStr = vidElem[0].canPlayType(mType);
             rowDiv.append('<div class="ui-block-a">M</div>'.replace('M', mType));
-            rowDiv.append('<div class="ui-block-b">R</div>'.replace('R', supportStr);
+            rowDiv.append('<div class="ui-block-b">R</div>'.replace('R', supportStr));
             tableDiv.append(rowDiv);
             data[mType] = supportStr;
         });
