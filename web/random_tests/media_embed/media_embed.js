@@ -240,17 +240,17 @@ var media_embed = {
         data = {};
         vidElem = $('<video id="video-test-element"></video>');
         container.append(vidElem);
-        tableDiv = $('<div id="media-support-table"></div>');
+        tableDiv = $('<div id="media-support-table" style="text-align:center;"></div>');
         tableDiv.data('support', data);
         tblHead = $('<div class="ui-grid-a"></div>');
         tableDiv.append(tblHead);
-        tblHead.append('<div class="ui-block-a">MIME Type</div>');
-        tblHead.append('<div class="ui-block-b">Support</div>');
+        tblHead.append('<div class="ui-block-a"><div class="ui-bar ui-bar-a">MIME Type</div></div>');
+        tblHead.append('<div class="ui-block-b"><div class="ui-bar ui-bar-a">Support</div></div>');
         $.each(mimeTypes, function(i, mType){
             var rowDiv = $('<div class="ui-grid-a"></div>');
             var supportStr = vidElem[0].canPlayType(mType);
-            rowDiv.append('<div class="ui-block-a">M</div>'.replace('M', mType));
-            rowDiv.append('<div class="ui-block-b">R</div>'.replace('R', supportStr));
+            rowDiv.append('<div class="ui-block-a"><div class="ui-bar ui-bar-a">M</div></div>'.replace('M', mType));
+            rowDiv.append('<div class="ui-block-b"><div class="ui-bar ui-bar-a">R</div></div>'.replace('R', supportStr));
             tableDiv.append(rowDiv);
             data[mType] = supportStr;
         });
