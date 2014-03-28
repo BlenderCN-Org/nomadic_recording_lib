@@ -225,24 +225,31 @@ var media_embed = {
         container.append('<p><a href="HLSURL">Click to watch using HLS</a></p>'.replace('HLSURL', hlsUrl));
     },
     displayMediaSupport: function(container){
-        var vidElem, mimeTypes, tableDiv, tblHead, tblBody;
-        mimeTypes = ['application/x-mpegurl', 'application/vnd.apple.mpegurl'];
+        var vidElem, mimeTypes, data, tableDiv, tblHead, tblBody;
+        mimeTypes = ['application/x-mpegurl',
+                     'application/vnd.apple.mpegurl',
+                     'video/mp4',
+                     'video/webm',
+                     'video/ogg',
+                     'audio/ogg',
+                     'audio/mpeg',
+                     'application/ogg'];
         if (typeof(container) == "undefined"){
             container = $("[data-role=content]");
         }
+        data = {};
         vidElem = $('<video id="video-test-element"></video>');
         container.append(vidElem);
         tableDiv = $('<table data-role="table" id="media-support-table"><thead></thead><tbody></tbody></table>');
         container.append(tableDiv);
+        tableDiv.data('support', data);
         tblHead = $("thead", tableDiv);
         tblBody = $("tbody", tableDiv);
         tblHead.append('<tr><th>MIME Type</th><th>Support</th></tr>');
         $.each(mimeTypes, function(i, mType){
-            var row = $('<tr></tr>');
             var supportStr = vidElem[0].canPlayType(mType);
-            row.append('<td>M</td>'.replace('M', mType));
-            row.append('<td>R</td>'.replace('R', supportStr));
-            tblBody.append(row);
+            data[mType] = supportStr;
+            tblBody.append('<tr><th>M</th><td>R</td></tr>'.replace('M', mType).replace('R', supportStr));
         });
         vidElem.remove();
         tableDiv.table();
