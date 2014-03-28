@@ -73,6 +73,7 @@ var media_embed = {
             }
         });
         self.loadJWScript();
+        self.displayMediaSupport();
         self.initialized = true;
     },
     loadJWScript: function(){
@@ -222,6 +223,29 @@ var media_embed = {
         rtspUrl = ['rtsp', rtspUrl.split('://')[1]].join('://');
         container.append('<p><a href="RTSPURL">Click to watch using RTSP</a></p>'.replace('RTSPURL', rtspUrl));
         container.append('<p><a href="HLSURL">Click to watch using HLS</a></p>'.replace('HLSURL', hlsUrl));
+    },
+    displayMediaSupport: function(container){
+        var vidElem, mimeTypes, tableDiv, tblHead, tblBody;
+        mimeTypes = ['application/x-mpegurl', 'application/vnd.apple.mpegurl'];
+        if (typeof(container) == "undefined"){
+            container = $("[data-role=content]");
+        }
+        vidElem = $('<video id="video-test-element"></video>');
+        container.append(vidElem);
+        tableDiv = $('<table data-role="table" id="media-support-table"><thead></thead><tbody></tbody></table>');
+        container.append(tableDiv);
+        tblHead = $("thead", tableDiv);
+        tblBody = $("tbody", tableDiv);
+        tblHead.append('<tr><th>MIME Type</th><th>Support</th></tr>');
+        $.each(mimeTypes, function(i, mType){
+            var row = $('<tr></tr>');
+            var supportStr = vidElem[0].canPlayType(mType);
+            row.append('<td>M</td>'.replace('M', mType));
+            row.append('<td>R</td>'.replace('R', supportStr));
+            tblBody.append(row);
+        });
+        vidElem.remove();
+        tableDiv.table();
     },
 };
 
