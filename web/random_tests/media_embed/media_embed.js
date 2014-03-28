@@ -240,7 +240,7 @@ var media_embed = {
         data = {};
         vidElem = $('<video id="video-test-element"></video>');
         container.append(vidElem);
-        tableDiv = $('<div id="media-support-table" style="text-align:center;"></div>');
+        tableDiv = $('<div id="media-support-table" class="ui-mini" style="text-align:center;width:50%"></div>');
         tableDiv.data('support', data);
         tblHead = $('<div class="ui-grid-a"></div>');
         tableDiv.append(tblHead);
@@ -249,6 +249,9 @@ var media_embed = {
         $.each(mimeTypes, function(i, mType){
             var rowDiv = $('<div class="ui-grid-a"></div>');
             var supportStr = vidElem[0].canPlayType(mType);
+            if (supportStr == ""){
+                supportStr = "null";
+            }
             rowDiv.append('<div class="ui-block-a"><div class="ui-bar ui-bar-a">M</div></div>'.replace('M', mType));
             rowDiv.append('<div class="ui-block-b"><div class="ui-bar ui-bar-a">R</div></div>'.replace('R', supportStr));
             tableDiv.append(rowDiv);
