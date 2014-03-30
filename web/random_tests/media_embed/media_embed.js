@@ -162,18 +162,7 @@ var media_embed = {
         var player = $('<div id="player"></div>');
         container.append(player);
         self.player_size = self.calcPlayerSize();
-        if (self.data.embed_type != "vidtag"){
-            jwplayer("player").setup({
-                width: self.player_size[0].toString(),
-                height: self.player_size[1].toString(),
-                sources: [{
-                    file: [self.data.stream_url, "jwplayer.smil"].join("/"),
-                }, {
-                    file: [self.data.stream_url, "playlist.m3u8"].join("/"),
-                }],
-                fallback: false,
-            });
-        } else if (self.data.embed_type == 'videojs'){
+        if (self.data.embed_type == 'videojs'){
             var vidtag = $('<video id="vidjs" class="video-js vjs-default-skin"></video');
             var vidjsOpts = {'techOrder':['html5', 'flash'],
                              'controls':true,
@@ -187,6 +176,17 @@ var media_embed = {
             videojs('vidjs', vidjsOpts, function(){
                 var $this = $(this);
                 console.log('vidjs load: ', $this);
+            });
+        } else if (self.data.embed_type != "vidtag"){
+            jwplayer("player").setup({
+                width: self.player_size[0].toString(),
+                height: self.player_size[1].toString(),
+                sources: [{
+                    file: [self.data.stream_url, "jwplayer.smil"].join("/"),
+                }, {
+                    file: [self.data.stream_url, "playlist.m3u8"].join("/"),
+                }],
+                fallback: false,
             });
         } else {
             var vidtag = $('<video controls="true" autoplay="true"></video>');
