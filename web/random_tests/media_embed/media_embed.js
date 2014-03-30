@@ -62,6 +62,9 @@ var media_embed = {
         });
         $(window).on("orientationchange", function(){
             var player = null;
+            if (self.data.embed_type != 'vidtag'){
+                return;
+            }
             self.player_size = self.calcPlayerSize();
             if (!$("#player").length){
                 return;
@@ -139,7 +142,7 @@ var media_embed = {
         if (!self.data.stream_url){
             return;
         }
-        if (MobileDetector.os == "android"){
+        if (self.data.embed_type != 'videojs' && MobileDetector.os == "android"){
             var androidMethodSet = false;
             if (MobileDetector.browser == "Chrome"){
                 var bversion = MobileDetector.browserVersion.split(".")[0]
@@ -168,6 +171,21 @@ var media_embed = {
                     file: [self.data.stream_url, "playlist.m3u8"].join("/"),
                 }],
                 fallback: false,
+            });
+        } else if (self.data.embed_type == 'videojs'){
+            var vidtag = $('<video id="vidjs" class="video-js vjs-default-skin"></video');
+            var vidjsOpts = {'techOrder':['html5', 'flash'],
+                             'controls':true,
+                             'autoplay':true};
+            self.data.player_size = self.calcPlayerSize();
+            vidjsOpts['width'] = self.data.player_size[0].toString();
+            vidjsOpts['height'] = self.data.player_size[1].toString();
+            vidtag.append('<source src="URL" type="rtmp/mp4">'.replace('URL', [self.data.stream_url, 'jwplayer.smil'].join('/')));
+            vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
+            container.append(vidtag);
+            videojs('vidjs', vidjsOpts, function(){
+                var $this = $(this);
+                console.log('vidjs load: ', $this);
             });
         } else {
             var vidtag = $('<video controls="true" autoplay="true"></video>');
