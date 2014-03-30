@@ -3,6 +3,7 @@ var media_embed = {
         "rtmp": ["http", "jwplayer.rss"],
         "hls": ["http", "playlist.m3u8"],
         "vidtag": ["http", "playlist.m3u8"],
+        "videojs":["http", "playlist.m3u8"],
     },
     initialized: false,
     player_size: [640, 360],
