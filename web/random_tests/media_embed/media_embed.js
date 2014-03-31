@@ -164,13 +164,11 @@ var media_embed = {
         self.player_size = self.calcPlayerSize();
         if (self.data.embed_type == 'videojs'){
             var vidtag = $('<video id="vidjs" class="video-js vjs-default-skin"></video');
-            var vidjsOpts = {'techOrder':['html5', 'flash'],
-                             'controls':true,
+            var vidjsOpts = {'controls':true,
                              'autoplay':true};
             self.data.player_size = self.calcPlayerSize();
             vidjsOpts['width'] = self.data.player_size[0].toString();
             vidjsOpts['height'] = self.data.player_size[1].toString();
-            vidtag.append('<source src="URL" type="rtmp/mp4">'.replace('URL', [self.data.stream_url, 'jwplayer.smil'].join('/')));
             vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', [self.data.stream_url, 'playlist.m3u8'].join('/')));
             container.append(vidtag);
             videojs('vidjs', vidjsOpts, function(){
