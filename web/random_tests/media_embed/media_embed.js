@@ -4,6 +4,7 @@ var media_embed = {
         "hls": ["http", "playlist.m3u8"],
         "vidtag": ["http", "playlist.m3u8"],
         "videojs":["http", "playlist.m3u8"],
+        "strobe":["http", "manifest.f4m"],
     },
     initialized: false,
     player_size: [640, 360],
@@ -175,6 +176,17 @@ var media_embed = {
                 var $this = $(this);
                 console.log('vidjs load: ', $this);
             });
+        } else if (self.data.embed_type == 'strobe'){
+            var strobeOpts = {
+                'width':self.player_size[0],
+                'height':self.player_size[1],
+                'src':[self.data.stream_url, 'manifest.f4m'].join('/'),
+                'swf':'strobe-media/StrobeMediaPlayback.swf',
+                'expressInstallSwfUrl': 'strobe-media/expressInstall.swf',
+            };
+            strobeOpts = $.fn.adaptiveexperienceconfigurator.adapt(strobeOpts);
+            player.strobemediaplayback(strobeOpts);
+        }
         } else if (self.data.embed_type != "vidtag"){
             jwplayer("player").setup({
                 width: self.player_size[0].toString(),

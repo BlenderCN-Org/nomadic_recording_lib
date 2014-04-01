@@ -6,10 +6,13 @@
     <link rel="stylesheet" href="media_embed.css" />
     <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.2/jquery.mobile-1.4.2.min.css" />
     <link href="//vjs.zencdn.net/4.5/video-js.css" rel="stylesheet">
+    <link type="text/css" href="strobe-media/jquery.strobemediaplayback.css" rel="stylesheet" />
     <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
     <script src="http://code.jquery.com/mobile/1.4.2/jquery.mobile-1.4.2.min.js"></script>
     <script src="//vjs.zencdn.net/4.5/video.js"></script>
     <script src="videojs.hls.min.js"></script>
+    <script src="strobe-media/lib/swfobject.js"></script>
+    <script src="strobe-media/jquery.strobemediaplayback.js"></script>
 </head>
 <body>
     <div data-role="page">
@@ -40,6 +43,8 @@
                     <label for="embed_method_vidtag">HTML5 video tag</label>
                     <input type="radio" name="embed_method" id="embed_method_videojs" value="videojs">
                     <label for="embed_method_videojs">VideoJS</label>
+                    <input type="radio" name="embed_method" id="embed_method_strobe" value="strobe">
+                    <label for="embed_method_strobe">OSMF Strobe</label>
                 </fieldset>
                 <label for="stream_url_input">Full URL:</label>
                 <input type="text" name="stream_url" id="stream_url_input">
