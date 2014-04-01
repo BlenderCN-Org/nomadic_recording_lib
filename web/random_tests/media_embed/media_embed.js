@@ -186,7 +186,6 @@ var media_embed = {
             };
             strobeOpts = $.fn.adaptiveexperienceconfigurator.adapt(strobeOpts);
             player.strobemediaplayback(strobeOpts);
-        }
         } else if (self.data.embed_type != "vidtag"){
             jwplayer("player").setup({
                 width: self.player_size[0].toString(),
