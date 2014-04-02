@@ -70,7 +70,7 @@ var media_embed = {
             $("#player-container").css(key, size);
         });
         $.each(['width', 'height'], function(i, key){
-            var $elem = $("#" + ['player', key, 'input'].join('-'));
+            var $elem = $("#" + ['player', key, 'input'].join('_'));
             $elem.val(self.player_size[i].toString());
             $elem.data('value_initialized', true);
         });
