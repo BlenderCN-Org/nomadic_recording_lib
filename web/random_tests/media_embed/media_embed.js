@@ -70,7 +70,7 @@ var media_embed = {
             self.player_size[i] = size;
             //$("#player-container").css(key, size);
         });
-        self.calcPlayerSize();
+        self.player_size = self.calcPlayerSize();
         $.each(['width', 'height'], function(i, key){
             var $elem = $("#" + ['player', key, 'input'].join('_'));
             $elem.val(self.player_size[i].toString());
