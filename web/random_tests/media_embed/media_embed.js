@@ -239,13 +239,13 @@ var media_embed = {
         }
     },
     calcPlayerSize: function(container){
+        var self = this;
         if ("#player_size_fieldset").data('hasChanged'){
             return self.player_size;
         }
         if (typeof(container) == "undefined"){
             container = $("#player-container");
         }
-        var self = this;
         var complete = null;
         var x = container.innerWidth();
         var xMin = x * 0.5;
