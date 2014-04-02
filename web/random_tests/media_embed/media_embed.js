@@ -68,7 +68,7 @@ var media_embed = {
             }
             $("#player_size_fieldset").data('hasChanged', true);
             self.player_size[i] = size;
-            $("#player-container").css(key, size);
+            //$("#player-container").css(key, size);
         });
         self.calcPlayerSize();
         $.each(['width', 'height'], function(i, key){
@@ -240,7 +240,7 @@ var media_embed = {
     },
     calcPlayerSize: function(container){
         var self = this;
-        if ($("#player_size_fieldset").data('hasChanged')){
+        if ($("#player_size_fieldset").data('hasChanged') == true){
             return self.player_size;
         }
         if (typeof(container) == "undefined"){
