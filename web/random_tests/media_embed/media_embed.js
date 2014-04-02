@@ -190,6 +190,8 @@ var media_embed = {
         var player = $('<div id="player"></div>');
         container.append(player);
         self.player_size = self.calcPlayerSize();
+        container.width(self.player_size[0]);
+        container.height(self.player_size[1]);
         if (self.data.embed_type == 'videojs'){
             var vidtag = $('<video id="vidjs" class="video-js vjs-default-skin"></video');
             var vidjsOpts = {'controls':true,
