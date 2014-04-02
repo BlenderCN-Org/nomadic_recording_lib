@@ -240,7 +240,7 @@ var media_embed = {
     },
     calcPlayerSize: function(container){
         var self = this;
-        if ("#player_size_fieldset").data('hasChanged'){
+        if ($("#player_size_fieldset").data('hasChanged')){
             return self.player_size;
         }
         if (typeof(container) == "undefined"){
