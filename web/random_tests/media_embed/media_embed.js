@@ -49,6 +49,31 @@ var media_embed = {
                 $this.val(value);
             }
         });
+        $("input", $("#player_size_fieldset")).on('change focusout', function(){
+            var $this = $(this);
+            var key = $this.attr('id').split('_')[1];
+            var size = null;
+            var i = null;
+            if (!$this.data('value_initialized')){
+                return;
+            }
+            if (key == 'width'){
+                i = 0;
+            } else {
+                i = 1;
+            }
+            size = parseInt($this.val());
+            if (size == self.player_size[i]){
+                return;
+            }
+            self.player_size[i] = size;
+            $("#player-container").css(key, size);
+        });
+        $.each(['width', 'height'], function(i, key){
+            var $elem = $("#" + ['player', key, 'input'].join('-'));
+            $elem.val(self.player_size[i].toString());
+            $elem.data('value_initialized', true);
+        });
         $("#start-btn").on("click", function(){
             try{
                 self.doEmbed();
