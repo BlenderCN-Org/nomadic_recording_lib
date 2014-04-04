@@ -21,6 +21,8 @@ class IPAddress(object):
                 if 0 in [q, otherq]:
                     return 0
         return 0
+    def __str__(self):
+        return self.address_str
         
 class NetworkBase(object):
     def __init__(self, **kwargs):
@@ -103,7 +105,9 @@ def build_networks(conf_networks):
     global NETWORKS
     for cnet in conf_networks:
         NETWORKS.append(Network(conf_object=cnet))
+    return NETWORKS
 def build_leases(conf_leases):
     global LEASES
     for clease in conf_leases:
         LEASES.append(Lease.from_conf(clease))
+    return LEASES

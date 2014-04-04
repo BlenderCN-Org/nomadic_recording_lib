@@ -1,5 +1,8 @@
 import datetime
 
+PARSED_NETWORKS = []
+PARSED_LEASES = []
+
 class ParsedSection(object):
     def __init__(self, **kwargs):
         self.parent_section = kwargs.get('parent_section')
@@ -52,7 +55,7 @@ class ParsedSection(object):
         end_line = self.end_line_num
         if end_line is None:
             end_line = len(lines) - 1
-        for i in range(start_line, end_line):
+        for i in range(start_line, end_line+1):
             yield i, lines[i]
     def serialize(self):
         d = {'line':self.start_line.strip(), 'line_num':self.start_line_num}
@@ -122,13 +125,19 @@ class NetworkConf(ParseBase):
     def parse_start_line(self, line):
         line = line.split(' ')
         self.name = line[1]
+    def get_ranges(self):
+        for subnet in self.subnets.itervalues():
+            for r in subnet.get_ranges():
+                yield r
     def serialize(self):
         d = {'name':self.name, 'subnets':{}}
         for k, v in self.subnets.iteritems():
             d['subnets'][k] = v.serialize()
         return d
+    def __repr__(self):
+        return 'NetworkConf: %s' % (self)
     def __str__(self):
-        return 'network: %s' % self.name
+        return self.name
     
 class SubnetConf(ParseBase):
     conf_keyword = 'subnet'
@@ -140,7 +149,6 @@ class SubnetConf(ParseBase):
             self.parent = NetworkConf(name='unknown')
             self.parent.subnets[self.address] = self
         self.pools = []
-        print str(self)
         #print self.parsed_section.serialize()
         for p in self.parse_children(PoolConf):
             self.pools.append(p)
@@ -148,20 +156,29 @@ class SubnetConf(ParseBase):
         line = line.split(' ')
         self.address = line[1]
         self.netmask = line[3]
+    def get_ranges(self):
+        for p in self.pools:
+            for r in p.ranges:
+                yield r
     def serialize(self):
         d = {'address':self.address, 'netmask':self.netmask, 'pools':[]}
         for v in self.pools:
             d['pools'].append(v.serialize())
         return d
+    def __repr__(self):
+        return 'SubnetConf: %s' % (self)
     def __str__(self):
-        return 'subnet: %s' % (self.address)
+        return self.address
     
 class PoolConf(ParseBase):
     conf_keyword = 'pool'
     def __init__(self, **kwargs):
         self.ranges = []
         super(PoolConf, self).__init__(**kwargs)
+        #print '---------------'
+        #print '\n'.join([t[1] for t in self.parsed_section.iter_lines()])
     def parse_start_line(self, line):
+        ## TODO: find out why multiple pools aren't being parsed
         for i, line in self.parsed_section.iter_lines():
             #print '%02d - %s' % (i, line)
             if 'range' not in line:
@@ -183,15 +200,17 @@ class RangeConf(ParseBase):
         super(RangeConf, self).__init__(**kwargs)
     def parse_start_line(self, line):
         line = line.strip().strip(';').split(' ')
-        print 'rangeline - %s' % (line)
         self.start = line[1]
         self.end = line[2]
     def serialize(self):
         return {'start':self.start, 'end':self.end}
+    def __repr__(self):
+        return 'RangeConf: %s' % (self)
     def __str__(self):
-        return 'range: %s - %s' % (self.start, self.end)
+        return '%s - %s' % (self.start, self.end)
         
 def parse_conf(**kwargs):
+    global PARSED_NETWORKS
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
     if to_parse is None:
@@ -210,7 +229,6 @@ def parse_conf(**kwargs):
             break
         parsed_sects.append(parsed_sect)
         line_num = parsed_sect.end_line_num + 1
-    networks = []
     for parsed_sect in parsed_sects:
         if 'shared-network' in parsed_sect.start_line:
             nobj = NetworkConf._parse(parsed_section=parsed_sect)
@@ -220,8 +238,8 @@ def parse_conf(**kwargs):
         else:
             nobj = None
         if nobj is not None:
-            networks.append(nobj)
-    return networks
+            PARSED_NETWORKS.append(nobj)
+    return PARSED_NETWORKS
     
 def parse_dt(dtstr):
     fmt_str = '%w %Y/%m/%d %H:%M:%S'
@@ -253,8 +271,13 @@ class LeaseConf(object):
         new_kwargs['mac_address'] = parse_dict.get('hardware', [None, None])[1]
         new_kwargs['uid'] = parse_dict.get('uid', [None])[0]
         return cls(**new_kwargs)
+    def __repr__(self):
+        return '%s: %s' % (self.__class__.__name__, self)
+    def __str__(self):
+        return str(self.address)
     
 def parse_leases(**kwargs):
+    global PARSED_LEASES
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
     if to_parse is None:
@@ -279,8 +302,7 @@ def parse_leases(**kwargs):
                 lease_lines = None
             elif lease_lines is not None:
                 lease_lines.append(line)
-    leases = []
     for lines in find_lease_lines():
         obj = LeaseConf._parse(lines)
-        leases.append(obj)
-    return leases
+        PARSED_LEASES.append(obj)
+    return PARSED_LEASES
