@@ -42,7 +42,9 @@ class ParsedSection(object):
                         self.start_line_num = i
                         my_line_found = True
                     continue
-                add_child(i)
+                elif open_brackets == 2:
+                    ## only add the first child
+                    add_child(i)
             elif '}' in line:
                 open_brackets -= 1
                 if open_brackets == 0:
@@ -197,6 +199,7 @@ class RangeConf(ParseBase):
     def __init__(self, **kwargs):
         self.start = kwargs.get('start')
         self.end = kwargs.get('end')
+        self.id = str(self)
         super(RangeConf, self).__init__(**kwargs)
     def parse_start_line(self, line):
         line = line.strip().strip(';').split(' ')
@@ -213,6 +216,7 @@ def parse_conf(**kwargs):
     global PARSED_NETWORKS
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
+    return_parsed = kwargs.get('return_parsed')
     if to_parse is None:
         with open(filename, 'r') as f:
             to_parse = f.read()
@@ -239,6 +243,8 @@ def parse_conf(**kwargs):
             nobj = None
         if nobj is not None:
             PARSED_NETWORKS.append(nobj)
+    if return_parsed:
+        return PARSED_NETWORKS, parsed_sects
     return PARSED_NETWORKS
     
 def parse_dt(dtstr):
