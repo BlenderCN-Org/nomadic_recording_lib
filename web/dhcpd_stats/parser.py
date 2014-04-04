@@ -19,6 +19,9 @@ class ParsedSection(object):
     @property
     def start_line(self):
         return self.conf_lines[self.start_line_num]
+    @property
+    def all_text(self):
+        return '\n'.join([line for i, line in self.iter_lines()])
     def iter_children(self):
         for i in sorted(self.child_sections.keys()):
             yield self.child_sections[i]
