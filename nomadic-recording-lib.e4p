@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2014-03-25, 15:10:19 -->
+<!-- Saved: 2014-04-04, 13:44:44 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -165,6 +165,12 @@
     <Source>comm/remote_console/__init__.py</Source>
     <Source>comm/remote_console/client.py</Source>
     <Source>comm/remote_console/server.py</Source>
+    <Source>web/random_tests/__init__.py</Source>
+    <Source>web/random_tests/media_embed/__init__.py</Source>
+    <Source>web/dhcpd_stats/__init__.py</Source>
+    <Source>web/dhcpd_stats/parser.py</Source>
+    <Source>web/dhcpd_stats/config.py</Source>
+    <Source>web/dhcpd_stats/network_objects.py</Source>
   </Sources>
   <Forms>
   </Forms>
