@@ -3,7 +3,6 @@ import datetime
 PARSED_NETWORKS = []
 PARSED_LEASES = []
 
-
 class BracketLocation(object):
     def __init__(self, line, col):
         self.line = line
@@ -28,20 +27,43 @@ class OpenBracket(BracketLocation):
 class CloseBracket(BracketLocation):
     def __repr__(self):
         return '%s }' % (self)
-
+class Text(str):
+    @property
+    def lines(self):
+        v = getattr(self, '_lines', None)
+        if v is None:
+            v = self._lines = self.splitlines()
+        return v
+    def iter_bracket_content(self, start, end=None):
+        lines = self.lines
+        if end is None:
+            end = CloseBracket(len(lines)-1, len(lines[-1])-1)
+        start_line = start.line
+        if isinstance(start, CloseBracket):
+            start_line += 1
+        end_line = end.line
+        if isinstance(end, OpenBracket):
+            end_line -= 1
+        for i in range(start_line, end_line+1):
+            yield i, lines[i]
+            
 class BracketedEnclosure(object):
     def __init__(self, **kwargs):
         self.parent = kwargs.get('parent')
         self._text = kwargs.get('text')
         start = kwargs.get('start')
-        if not isinstance(start, OpenBracket):
+        if not isinstance(start, OpenBracket) and start is not None:
             start = OpenBracket(*start)
         self.start = start
         end = kwargs.get('end')
-        if not isinstance(end, CloseBracket):
+        if not isinstance(end, CloseBracket) and end is not None:
             end = CloseBracket(*end)
         self.end = end
         self.children = []
+        if self.start is None:
+            self.find_start()
+        if self.end is None:
+            self.find_end()
         self.find_children()
     @property
     def text(self):
@@ -49,8 +71,25 @@ class BracketedEnclosure(object):
         if t is None:
             t = self.parent.text
         return t
+    def find_start(self):
+        if self.parent is not None:
+            pstart = self.parent.end
+        else:
+            pstart = BracketLocation(0, 0)
+        for i, line in self.text.iter_bracket_content(pstart):
+            if '{' not in line:
+                continue
+            self.start = OpenBracket(i, line.index('{'))
+            break
+    def find_end(self):
+        if self.parent is not None:
+            pend = self.parent.end
+        else:
+            pend = None
+        #for i, line in self.text.iter_bracket_content(self.start, pend):
+        #    if '}' in line:
     def find_children(self):
-        t = self.text.splitlines()
+        pass
         
         
 class ParsedSection(object):
