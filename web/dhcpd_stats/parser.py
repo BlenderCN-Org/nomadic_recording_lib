@@ -7,6 +7,7 @@ class BracketLocation(object):
     def __init__(self, line, col):
         self.line = line
         self.col = col
+        self.id = (line, col)
     def __cmp__(self, other):
         if not isinstance(other, BracketLocation):
             other = BracketLocation(*other)
@@ -38,9 +39,12 @@ class Text(str):
         lines = self.lines
         if end is None:
             end = CloseBracket(len(lines)-1, len(lines[-1])-1)
-        start_line = start.line
-        if isinstance(start, CloseBracket):
-            start_line += 1
+        if start is None:
+            start_line = 0
+        else:
+            start_line = start.line
+            if isinstance(start, CloseBracket):
+                start_line += 1
         end_line = end.line
         if isinstance(end, OpenBracket):
             end_line -= 1
@@ -52,27 +56,33 @@ class BracketedEnclosure(object):
         self.parent = kwargs.get('parent')
         self._text = kwargs.get('text')
         start = kwargs.get('start')
-        if not isinstance(start, OpenBracket) and start is not None:
+        if not isinstance(start, BracketLocation) and start is not None:
             start = OpenBracket(*start)
         self.start = start
-        end = kwargs.get('end')
-        if not isinstance(end, CloseBracket) and end is not None:
-            end = CloseBracket(*end)
-        self.end = end
-        self.children = []
-        if self.start is None:
+        self.end = None
+        self.children = {}
+        if self.start is None or not isinstance(self.start, OpenBracket):
             self.find_start()
-        if self.end is None:
-            self.find_end()
-        self.find_children()
+        self.find_end()
     @property
     def text(self):
         t = self._text
         if t is None:
             t = self.parent.text
+        elif not isinstance(t, Text):
+            t = self._text = Text(t)
         return t
+    @property
+    def id(self):
+        return self.start.id
+    @property
+    def contents(self):
+        t = self.text
+        return '\n'.join(['%03d - %s' % (i, line) for i, line in t.iter_bracket_content(self.start, self.end)])
     def find_start(self):
-        if self.parent is not None:
+        if not isinstance(self.start, OpenBracket):
+            pstart = self.start
+        elif self.parent is not None:
             pstart = self.parent.end
         else:
             pstart = BracketLocation(0, 0)
@@ -86,10 +96,24 @@ class BracketedEnclosure(object):
             pend = self.parent.end
         else:
             pend = None
-        #for i, line in self.text.iter_bracket_content(self.start, pend):
-        #    if '}' in line:
-    def find_children(self):
-        pass
+        num_brackets = 0
+        for i, line in self.text.iter_bracket_content(self.start, pend):
+            if '{' in line and num_brackets <= 1:
+                bracket = OpenBracket(i, line.index('{'))
+                if bracket > self.start:
+                    self.add_child(bracket)
+                    num_brackets += 1
+            elif '}' in line:
+                num_brackets -= 1
+                if num_brackets == 0:
+                    bracket = CloseBracket(i, line.index('}'))
+                    self.end = bracket
+                    break
+    def add_child(self, start):
+        child = BracketedEnclosure(parent=self, start=start)
+        if child.end is None:
+            return
+        self.children[child.start.id] = child
         
         
 class ParsedSection(object):
@@ -312,13 +336,25 @@ def parse_conf(**kwargs):
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
     return_parsed = kwargs.get('return_parsed')
+    return_enclosures = kwargs.get('return_enclosures')
     if to_parse is None:
         with open(filename, 'r') as f:
             to_parse = f.read()
+    enclosures = {}
+    t = Text(to_parse)
+    complete = False
+    last_bracket = None
+    while not complete:
+        encl = BracketedEnclosure(text=t, start=last_bracket)
+        if encl.start is None or encl.end is None:
+            break
+        enclosures[encl.id] = encl
+        last_bracket = encl.end
     if isinstance(to_parse, basestring):
         to_parse = to_parse.splitlines()
     line_num = 0
     parsed_sects = []
+    
     while line_num < len(to_parse):
         pkwargs = {'conf_lines':to_parse}
         if line_num != 0:
@@ -338,6 +374,8 @@ def parse_conf(**kwargs):
             nobj = None
         if nobj is not None:
             PARSED_NETWORKS.append(nobj)
+    if return_enclosures:
+        return enclosures
     if return_parsed:
         return PARSED_NETWORKS, parsed_sects
     return PARSED_NETWORKS
