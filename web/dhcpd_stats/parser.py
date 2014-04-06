@@ -3,6 +3,56 @@ import datetime
 PARSED_NETWORKS = []
 PARSED_LEASES = []
 
+
+class BracketLocation(object):
+    def __init__(self, line, col):
+        self.line = line
+        self.col = col
+    def __cmp__(self, other):
+        if not isinstance(other, BracketLocation):
+            other = BracketLocation(*other)
+        if self.line < other.line:
+            return -1
+        if self.line > other.line:
+            return 1
+        if self.col < other.col:
+            return -1
+        if self.col > other.col:
+            return 1
+        return 0
+    def __str__(self):
+        return 'line %02d, col %02d' % (self.line, self.col)
+class OpenBracket(BracketLocation):
+    def __repr__(self):
+        return '%s {' % (self)
+class CloseBracket(BracketLocation):
+    def __repr__(self):
+        return '%s }' % (self)
+
+class BracketedEnclosure(object):
+    def __init__(self, **kwargs):
+        self.parent = kwargs.get('parent')
+        self._text = kwargs.get('text')
+        start = kwargs.get('start')
+        if not isinstance(start, OpenBracket):
+            start = OpenBracket(*start)
+        self.start = start
+        end = kwargs.get('end')
+        if not isinstance(end, CloseBracket):
+            end = CloseBracket(*end)
+        self.end = end
+        self.children = []
+        self.find_children()
+    @property
+    def text(self):
+        t = self._text
+        if t is None:
+            t = self.parent.text
+        return t
+    def find_children(self):
+        t = self.text.splitlines()
+        
+        
 class ParsedSection(object):
     def __init__(self, **kwargs):
         self.parent_section = kwargs.get('parent_section')
@@ -22,6 +72,9 @@ class ParsedSection(object):
     @property
     def all_text(self):
         return '\n'.join([line for i, line in self.iter_lines()])
+    @property
+    def text_with_line_num(self):
+        return '\n'.join(['%03d - %s' % (i, line) for i, line in self.iter_lines()])
     def iter_children(self):
         for i in sorted(self.child_sections.keys()):
             yield self.child_sections[i]
@@ -29,6 +82,8 @@ class ParsedSection(object):
         open_brackets = 0
         bracket_found = False
         def add_child(line_num):
+            if line_num in self.child_sections.keys():
+                return
             child = ParsedSection(parent_section=self, start_line_num=line_num)
             self.child_sections[line_num] = child
         start_line = self.start_line_num
@@ -45,9 +100,7 @@ class ParsedSection(object):
                         self.start_line_num = i
                         my_line_found = True
                     continue
-                elif open_brackets == 2:
-                    ## only add the first child
-                    add_child(i)
+                add_child(i)
             elif '}' in line:
                 open_brackets -= 1
                 if open_brackets == 0:
