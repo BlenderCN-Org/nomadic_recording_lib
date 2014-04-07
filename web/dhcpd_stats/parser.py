@@ -3,31 +3,6 @@ import datetime
 PARSED_NETWORKS = []
 PARSED_LEASES = []
 
-class BracketLocation(object):
-    def __init__(self, line, col):
-        self.line = line
-        self.col = col
-        self.id = (line, col)
-    def __cmp__(self, other):
-        if not isinstance(other, BracketLocation):
-            other = BracketLocation(*other)
-        if self.line < other.line:
-            return -1
-        if self.line > other.line:
-            return 1
-        if self.col < other.col:
-            return -1
-        if self.col > other.col:
-            return 1
-        return 0
-    def __str__(self):
-        return 'line %02d, col %02d' % (self.line, self.col)
-class OpenBracket(BracketLocation):
-    def __repr__(self):
-        return '%s {' % (self)
-class CloseBracket(BracketLocation):
-    def __repr__(self):
-        return '%s }' % (self)
 class Text(str):
     @property
     def lines(self):
@@ -35,35 +10,39 @@ class Text(str):
         if v is None:
             v = self._lines = self.splitlines()
         return v
-    def iter_bracket_content(self, start, end=None):
-        lines = self.lines
-        if end is None:
-            end = CloseBracket(len(lines)-1, len(lines[-1])-1)
-        if start is None:
-            start_line = 0
-        else:
-            start_line = start.line
-            if isinstance(start, CloseBracket):
-                start_line += 1
-        end_line = end.line
-        if isinstance(end, OpenBracket):
-            end_line -= 1
-        for i in range(start_line, end_line+1):
-            yield i, lines[i]
+    def walk_brackets(self):
+        level = 0
+        for i, line in enumerate(self.lines):
+            if '{' in line:
+                level += 1
+            if '}' in line:
+                level -= 1
+            yield level, i, line
             
-class BracketedEnclosure(object):
+class NestedBracket(object):
     def __init__(self, **kwargs):
         self.parent = kwargs.get('parent')
+        start_line = kwargs.get('start_line')
+        self.start_line_num = kwargs.get('start_line_num', 0)
+        self.end_line_num = None
+        self.recursion_level = kwargs.get('recursion_level', 0)
+        self._parse_iter = kwargs.get('parse_iter')
         self._text = kwargs.get('text')
-        start = kwargs.get('start')
-        if not isinstance(start, BracketLocation) and start is not None:
-            start = OpenBracket(*start)
-        self.start = start
-        self.end = None
-        self.children = {}
-        if self.start is None or not isinstance(self.start, OpenBracket):
-            self.find_start()
-        self.find_end()
+        self.children = []
+        self.lines = []
+        if start_line is not None:
+            self.lines.append(start_line)
+        self.do_parse()
+    @property
+    def parse_iter(self):
+        i = self._parse_iter
+        if i is None:
+            if self.parent is None:
+                i = self.text.walk_brackets()
+            else:
+                i = self.parent.parse_iter
+            self._parse_iter = i
+        return i
     @property
     def text(self):
         t = self._text
@@ -73,141 +52,56 @@ class BracketedEnclosure(object):
             t = self._text = Text(t)
         return t
     @property
-    def id(self):
-        return self.start.id
-    @property
     def contents(self):
-        t = self.text
-        return '\n'.join(['%03d - %s' % (i, line) for i, line in t.iter_bracket_content(self.start, self.end)])
-    def find_start(self):
-        if not isinstance(self.start, OpenBracket):
-            pstart = self.start
-        elif self.parent is not None:
-            pstart = self.parent.end
-        else:
-            pstart = BracketLocation(0, 0)
-        for i, line in self.text.iter_bracket_content(pstart):
-            if '{' not in line:
-                continue
-            self.start = OpenBracket(i, line.index('{'))
-            break
-    def find_end(self):
-        if self.parent is not None:
-            pend = self.parent.end
-        else:
-            pend = None
-        num_brackets = 0
-        for i, line in self.text.iter_bracket_content(self.start, pend):
-            if '{' in line and num_brackets <= 1:
-                bracket = OpenBracket(i, line.index('{'))
-                if bracket > self.start:
-                    self.add_child(bracket)
-                    num_brackets += 1
-            elif '}' in line:
-                num_brackets -= 1
-                if num_brackets == 0:
-                    bracket = CloseBracket(i, line.index('}'))
-                    self.end = bracket
-                    break
-    def add_child(self, start):
-        child = BracketedEnclosure(parent=self, start=start)
-        if child.end is None:
-            return
-        self.children[child.start.id] = child
-        
-        
-class ParsedSection(object):
-    def __init__(self, **kwargs):
-        self.parent_section = kwargs.get('parent_section')
-        self.start_line_num = kwargs.get('start_line_num')
-        self.end_line_num = None
-        conf_lines = kwargs.get('conf_lines')
-        if isinstance(conf_lines, basestring):
-            conf_lines = conf_lines.splitlines()
-        elif conf_lines is None:
-            conf_lines = self.parent_section.conf_lines
-        self.conf_lines = conf_lines
-        self.child_sections = {}
-        self.search_brackets()
-    @property
-    def start_line(self):
-        return self.conf_lines[self.start_line_num]
-    @property
-    def all_text(self):
-        return '\n'.join([line for i, line in self.iter_lines()])
-    @property
-    def text_with_line_num(self):
-        return '\n'.join(['%03d - %s' % (i, line) for i, line in self.iter_lines()])
-    def iter_children(self):
-        for i in sorted(self.child_sections.keys()):
-            yield self.child_sections[i]
-    def search_brackets(self):
-        open_brackets = 0
-        bracket_found = False
-        def add_child(line_num):
-            if line_num in self.child_sections.keys():
-                return
-            child = ParsedSection(parent_section=self, start_line_num=line_num)
-            self.child_sections[line_num] = child
-        start_line = self.start_line_num
-        if start_line is None:
-            start_line = 0
-        my_line_found = False
-        for i, line in self.iter_lines(start_line):
-            if '{' in line:
-                open_brackets += 1
-                bracket_found = True
-                if open_brackets == 1:
-                    ## this line belongs to me
-                    if not my_line_found:
-                        self.start_line_num = i
-                        my_line_found = True
-                    continue
-                add_child(i)
-            elif '}' in line:
-                open_brackets -= 1
-                if open_brackets == 0:
-                    self.end_line_num = i
-                    break
-    def iter_lines(self, start_line=None):
-        lines = self.conf_lines
-        if start_line is None:
-            start_line = self.start_line_num
-        end_line = self.end_line_num
-        if end_line is None:
-            end_line = len(lines) - 1
-        for i in range(start_line, end_line+1):
-            yield i, lines[i]
-    def serialize(self):
-        d = {'line':self.start_line.strip(), 'line_num':self.start_line_num}
-        children = []
-        for c in self.iter_children():
-            children.append(c.serialize())
-        if len(children):
-            d['children'] = children
-        return d
+        return '\n'.join(self.lines)
+    def do_parse(self):
+        parse_iter = self.parse_iter
+        level_increased = False
+        my_level = self.recursion_level
+        while True:
+            try:
+                level, i, line = parse_iter.next()
+            except StopIteration:
+                self.end_line_num = i
+                break
+            if level > my_level:
+                child = NestedBracket(parent=self, 
+                                      start_line=line, 
+                                      start_line_num=i, 
+                                      recursion_level=level, 
+                                      parse_iter = parse_iter)
+                self.children.append(child)
+                level_increased = True
+            elif level < my_level:
+                self.lines.append(line)
+                self.end_line_num = i
+                break
+            else:
+                self.lines.append(line)
+    def __repr__(self):
+        return 'RecursionBracket: %s' % (self)
     def __str__(self):
-        return '(%03d-%03d) - %s' % (self.start_line_num, self.end_line_num, self.start_line.strip())
+        return 'line %03d, level %03d' % (self.start_line_num, self.recursion_level)
         
 class ParseBase(object):
     def __init__(self, **kwargs):
         self.parent = kwargs.get('parent')
-        self.parsed_section = kwargs.get('parsed_section')
+        self.bracket = kwargs.get('bracket')
         from_parse = kwargs.get('from_parse')
         if from_parse:
             self.parse_start_line(self.start_line)
     @property
     def start_line(self):
-        return self.parsed_section.start_line.strip()
+        return self.bracket.lines[0].strip()
     def parse_children(self, cls):
         ckwargs = {'parent':self}
-        def walk_children(section):
+        def walk_children(bracket):
             is_first = True
-            for schild in section.iter_children():
+            for schild in bracket.children:
                 if is_first:
                     to_yield = schild
                     is_first = False
-                elif len(schild.child_sections):
+                elif len(schild.children):
                     for gchild in walk_children(schild):
                         to_yield = gchild
                 else:
@@ -215,23 +109,23 @@ class ParseBase(object):
                 if to_yield is None:
                     break
                 yield to_yield
-        for pchild in walk_children(self.parsed_section):
-            ckwargs['parsed_section'] = pchild
+        for pchild in walk_children(self.bracket):
+            ckwargs['bracket'] = pchild
             chobj = cls._parse(**ckwargs)
             if chobj is False:
                 continue
             yield chobj
     @classmethod
     def _parse(cls, **kwargs):
-        psect = kwargs.get('parsed_section')
-        start_line = psect.start_line.strip()
+        bracket = kwargs.get('bracket')
+        start_line = bracket.lines[0].strip()
         if cls.conf_keyword not in start_line:
             return False
         objkwargs = kwargs.copy()
         objkwargs['start_line'] = start_line
         objkwargs['from_parse'] = True
         return cls(**objkwargs)
-    def parse_start_line(self):
+    def parse_start_line(self, line):
         pass
         
 class NetworkConf(ParseBase):
@@ -240,7 +134,7 @@ class NetworkConf(ParseBase):
         self.name = kwargs.get('name')   
         super(NetworkConf, self).__init__(**kwargs)
         self.subnets = {}
-        if self.parsed_section is not None:
+        if self.bracket is not None:
             for subnet in self.parse_children(SubnetConf):
                 self.subnets[subnet.address] = subnet
     def parse_start_line(self, line):
@@ -270,7 +164,6 @@ class SubnetConf(ParseBase):
             self.parent = NetworkConf(name='unknown')
             self.parent.subnets[self.address] = self
         self.pools = []
-        #print self.parsed_section.serialize()
         for p in self.parse_children(PoolConf):
             self.pools.append(p)
     def parse_start_line(self, line):
@@ -296,17 +189,9 @@ class PoolConf(ParseBase):
     def __init__(self, **kwargs):
         self.ranges = []
         super(PoolConf, self).__init__(**kwargs)
-        #print '---------------'
-        #print '\n'.join([t[1] for t in self.parsed_section.iter_lines()])
-    def parse_start_line(self, line):
-        ## TODO: find out why multiple pools aren't being parsed
-        for i, line in self.parsed_section.iter_lines():
-            #print '%02d - %s' % (i, line)
-            if 'range' not in line:
-                continue
-            r = RangeConf(parent=self)
-            r.parse_start_line(line)
-            self.ranges.append(r)
+        if self.bracket is not None:
+            for r in self.parse_children(RangeConf):
+                self.ranges.append(r)
     def serialize(self):
         d = {'ranges':[]}
         for r in self.ranges:
@@ -340,44 +225,20 @@ def parse_conf(**kwargs):
     if to_parse is None:
         with open(filename, 'r') as f:
             to_parse = f.read()
-    enclosures = {}
-    t = Text(to_parse)
-    complete = False
-    last_bracket = None
-    while not complete:
-        encl = BracketedEnclosure(text=t, start=last_bracket)
-        if encl.start is None or encl.end is None:
-            break
-        enclosures[encl.id] = encl
-        last_bracket = encl.end
-    if isinstance(to_parse, basestring):
-        to_parse = to_parse.splitlines()
-    line_num = 0
-    parsed_sects = []
     
-    while line_num < len(to_parse):
-        pkwargs = {'conf_lines':to_parse}
-        if line_num != 0:
-            pkwargs['start_line_num'] = line_num
-        parsed_sect = ParsedSection(**pkwargs)
-        if parsed_sect.end_line_num is None:
-            break
-        parsed_sects.append(parsed_sect)
-        line_num = parsed_sect.end_line_num + 1
-    for parsed_sect in parsed_sects:
-        if 'shared-network' in parsed_sect.start_line:
-            nobj = NetworkConf._parse(parsed_section=parsed_sect)
-        elif 'subnet' in parsed_sect.start_line:
-            sobj = SubnetConf._parse(parsed_section=parsed_sect)
+    root_bracket = NestedBracket(text=to_parse)
+    for bracket in root_bracket.children:
+        if 'shared-network' in bracket.lines[0]:
+            nobj = NetworkConf._parse(bracket=bracket)
+        elif 'subnet' in bracket.lines[0]:
+            sobj = SubnetConf._parse(bracket=bracket)
             nobj = sobj.parent
         else:
             nobj = None
         if nobj is not None:
             PARSED_NETWORKS.append(nobj)
-    if return_enclosures:
-        return enclosures
     if return_parsed:
-        return PARSED_NETWORKS, parsed_sects
+        return PARSED_NETWORKS, root_bracket
     return PARSED_NETWORKS
     
 def parse_dt(dtstr):

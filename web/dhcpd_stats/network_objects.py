@@ -50,6 +50,10 @@ class Network(NetworkBase):
             if subnet.match_address(address):
                 return True
         return False
+    def __repr__(self):
+        return 'Network: %s' % (self)
+    def __str__(self):
+        return self.name
         
 class Subnet(NetworkBase):
     def __init__(self, **kwargs):
@@ -67,6 +71,10 @@ class Subnet(NetworkBase):
             if r.match_address(address):
                 return True
         return False
+    def __repr__(self):
+        return 'Subnet %s' % (self)
+    def __str__(self):
+        return str(self.address)
         
 class Range(NetworkBase):
     def __init__(self, **kwargs):
@@ -81,6 +89,10 @@ class Range(NetworkBase):
         if address > self.end:
             return False
         return True
+    def __repr__(self):
+        return 'Range: %s' % (self)
+    def __str__(self):
+        return '%s - %s' % (self.start, self.end)
     
 class Lease(LeaseConf):
     def __init__(self, **kwargs):

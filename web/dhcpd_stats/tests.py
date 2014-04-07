@@ -16,7 +16,7 @@ class TreeStore(object):
             for robj in self.root_obj:
                 self.root_child.append(TreeItem(tree_root=self, object=robj))
         else:
-            self.root_child = TreeItem(tree_root=self, object=self.root_object)
+            self.root_child = TreeItem(tree_root=self, object=self.root_obj)
         
 class TreeItem(object):
     def __init__(self, **kwargs):
@@ -99,12 +99,12 @@ def build_treeviews(**kwargs):
     if data is None:
         data = test(**kwargs)
     tree_stores = []
-    tsdata = {'id':'PARSED_SECTIONS'}
+    tsdata = {'id':'PARSED_BRACKETS'}
     ts = TreeStore(column_names=['start_line', 'end_line', 'text'], 
                    column_types=[int, int, str], 
-                   column_attr_map={'ParsedSection':['start_line_num', 'end_line_num', 'text_with_line_num']}, 
-                   child_attrs={'ParsedSection':'child_sections'}, 
-                   root_obj=data['PARSED_SECTIONS'])
+                   column_attr_map={'NestedBracket':['start_line_num', 'end_line_num', 'contents']}, 
+                   child_attrs={'NestedBracket':'children'}, 
+                   root_obj=data['PARSED_BRACKETS'])
     tsdata['tree_store'] = ts
     tree_stores.append(tsdata)
     win = Window(tree_stores=tree_stores)
@@ -118,7 +118,7 @@ def test(**kwargs):
     nets = network_objects.build_networks(net_conf)
     leases = network_objects.build_leases(lease_conf)
     return {'PARSED_NETWORKS':net_conf, 
-            'PARSED_SECTIONS':net_parse, 
+            'PARSED_BRACKETS':net_parse, 
             'PARSED_LEASES':lease_conf, 
             'NETWORKS':nets, 
             'LEASES':leases}
