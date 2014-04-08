@@ -94,7 +94,6 @@ var playerEmbedder = {
             doComplete();
             return;
         }
-        }
         $("body").one('player_embedder_css_loaded', function(){
             cssComplete = true;
             doComplete();
