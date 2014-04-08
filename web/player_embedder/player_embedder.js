@@ -1,20 +1,28 @@
 
 var playerEmbedder = {
-    embed_methods: ['auto', 'videojs', 'strobe'],
+    embed_methods: ['auto', 'html5', 'videojs', 'strobe'],
     libRootUrls: {
         'videojs':'/videojs',
         'strobe':'/strobe-media',
     },
-    cssUrls: [
-        '//vjs.zencdn.net/4.5/video-js.css',
-        //'_ROOTURL_STROBE_/jquery.strobemediaplayback.css',
-    ],
-    scriptUrls: [
-        '//vjs.zencdn.net/4.5/video.js',
-        '//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js',
-        //'_ROOTURL_VIDEOJS_/videojs.hls.min.js',
-        '_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
-    ],
+    cssUrls: {
+        'videojs':[
+            '//vjs.zencdn.net/4.5/video-js.css',
+        ],
+        'strobe':[
+            //'_ROOTURL_STROBE_/jquery.strobemediaplayback.css',
+        ],
+    },
+    scriptUrls: {
+        'videojs':[
+            '//vjs.zencdn.net/4.5/video.js',
+            //'_ROOTURL_VIDEOJS_/videojs.hls.min.js',
+        ],
+        'strobe':[
+            '//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js',
+            '_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
+        ],
+    },
     formatLibUrl: function(url){
         var self = this;
         var replTxt = null;
@@ -28,13 +36,18 @@ var playerEmbedder = {
         libUrl = self.libRootUrls[lib.toLowerCase()];
         return url.replace(replTxt, libUrl);
     },
-    loadSources: function(){
+    loadSources: function(libName){
         var self = this;
         var cssComplete = false;
         var scriptsComplete = false;
         function loadCss(){
             var numResponse = 0;
-            $.each(self.cssUrls, function(i, url){
+            var urls = self.cssUrls[libName];
+            if (typeof(urls) == 'undefined'){
+                $("body").trigger('player_embedder_css_loaded');
+                return;
+            }
+            $.each(urls, function(i, url){
                 url = self.formatLibUrl(url);
                 $.get(url, function(data){
                     var s = $('<style type="text/css"></style');
@@ -49,7 +62,12 @@ var playerEmbedder = {
         }
         function loadJs(){
             var numResponse = 0;
-            $.each(self.scriptUrls, function(i, url){
+            var urls = self.scriptUrls[libName];
+            if (typeof(urls) == 'undefined'){
+                $("body").trigger('player_embedder_scripts_loaded');
+                return;
+            }
+            $.each(urls, function(i, url){
                 url = self.formatLibUrl(url);
                 $.getScript(url, function(){
                     numResponse += 1;
@@ -122,7 +140,7 @@ var playerEmbedder = {
             }
         }
 */
-        if (typeof(data.container) == 'undefined'){
+        if (typeof(data.container) == 'undefined' || data.container == null){
             data.container = $("body");
         }
         data = self.embedData(data);
@@ -134,40 +152,59 @@ var playerEmbedder = {
         var vidtag = $('<video></video>');
         data.container.append(vidtag);
         if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
-            self.doEmbed_videojs(data);
+            self.doEmbed_html5(data);
         } else {
             vidtag.remove();
             self.doEmbed_strobe(data);
         }
     },
-    doEmbed_videojs: function(data){
+    doEmbed_html5: function(data){
         var vidtag = $("video", data.container);
-        var opts = {
-            'controls': true,
-            'autoplay': true,
-            'width':data.size[0].toString(),
-            'height':data.size[1].toString(),
-        };
         if (vidtag.length == 0){
             vidtag = $('<video></video>');
             data.container.append(vidtag);
         }
-        vidtag.addClass('video-js vjs-default-skin');
         vidtag.attr('id', data.playerId);
+        vidtag.attr('width', data.size[0]);
+        vidtag.attr('height', data.size[1]);
+        vidtag[0].autoplay = true;
+        vidtag[0].controls = true;
         vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
-        videojs(data.playerId, opts);
+    },
+    doEmbed_videojs: function(data){
+        $("body").one('player_embedder_sources_loaded', function(){
+            var vidtag = $("video", data.container);
+            var opts = {
+                'controls': true,
+                'autoplay': true,
+                'width':data.size[0].toString(),
+                'height':data.size[1].toString(),
+            };
+            if (vidtag.length == 0){
+                vidtag = $('<video></video>');
+                data.container.append(vidtag);
+            }
+            vidtag.addClass('video-js vjs-default-skin');
+            vidtag.attr('id', data.playerId);
+            vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
+            videojs(data.playerId, opts);
+        });
+        playerEmbedder.loadSources('videojs');
     },
     doEmbed_strobe: function(data){
-        var opts = {
-            'width': data.size[0],
-            'height': data.size[1],
-            'src': data.streamSrc.hds_url,
-            'swf': data.swfUrl,
-            'expressInstallSwfUrl':data.expressInstallSwfUrl,
-        };
-        var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
-        data.container.append(player);
-        opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
-        player.strobemediaplayback(opts);
+        $("body").one('player_embedder_sources_loaded', function(){
+            var opts = {
+                'width': data.size[0],
+                'height': data.size[1],
+                'src': data.streamSrc.hds_url,
+                'swf': data.swfUrl,
+                'expressInstallSwfUrl':data.expressInstallSwfUrl,
+            };
+            var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
+            data.container.append(player);
+            opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
+            player.strobemediaplayback(opts);
+        });
+        playerEmbedder.loadSources('strobe');
     },
 };
