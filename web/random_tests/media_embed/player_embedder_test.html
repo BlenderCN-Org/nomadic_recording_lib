@@ -13,14 +13,14 @@
             $("form").submit(function(e){
                 e.preventDefault();
                 var url = $("#stream_url").val();
-                playerEmbeder.doEmbed(url);
+                playerEmbedder.doEmbed(url);
             });
         });
     </script>
 </head>
 <body>
     <form>
-        <input type="text" name="stream_url" id="stream_url">
+        <input type="text" style="width:100%;" name="stream_url" id="stream_url">
         <label for="stream_url_input">Stream Url</label>
         <input type="submit" value="Submit">
     </form>

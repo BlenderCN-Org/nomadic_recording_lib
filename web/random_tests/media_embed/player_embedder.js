@@ -7,12 +7,12 @@ var playerEmbedder = {
     },
     cssUrls: [
         '//vjs.zencdn.net/4.5/video-js.css',
-        //'_ROOTURL_VIDEOJS_/videojs.hls.min.js',
-        '_ROOTURL_STROBE_/jquery.strobemediaplayback.css',
+        //'_ROOTURL_STROBE_/jquery.strobemediaplayback.css',
     ],
     scriptUrls: [
         '//vjs.zencdn.net/4.5/video.js',
         '//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js',
+        //'_ROOTURL_VIDEOJS_/videojs.hls.min.js',
         '_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
     ],
     formatLibUrl: function(url){
