@@ -13,7 +13,7 @@
             $("form").submit(function(e){
                 e.preventDefault();
                 var url = $("#stream_url").val();
-                playerEmbedder.doEmbed({"streamSrc":url, "container":"player_container"});
+                playerEmbedder.doEmbed({"streamSrc":url, "container":$("#player_container")});
             });
         });
     </script>

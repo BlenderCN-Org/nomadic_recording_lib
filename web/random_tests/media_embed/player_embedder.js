@@ -114,11 +114,16 @@ var playerEmbedder = {
         if (typeof(data) == 'string'){
             data = {'streamSrc':data};
         }
+/*
         if (typeof(data.container.jquery) == 'undefined'){
             data.container = $(data.container);
             if (data.container.length == 0){
                 data.container = $("#" + data.container);
             }
+        }
+*/
+        if (typeof(data.container) == 'undefined'){
+            data.container = $("body");
         }
         data = self.embedData(data);
         embed_fn = self['doEmbed_' + data.embed_method];
