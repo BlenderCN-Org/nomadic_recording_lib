@@ -130,7 +130,7 @@ var playerEmbedder = {
         embed_fn(data);
     },
     doEmbed_auto: function(data){
-        var self = this;
+        var self = playerEmbedder;
         var vidtag = $('<video></video>');
         data.container.append(vidtag);
         if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
