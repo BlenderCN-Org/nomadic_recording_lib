@@ -19,7 +19,7 @@ var playerEmbedder = {
         var self = this;
         var lib = null;
         var libUrl = null;
-        if (url.indexOf('_ROOTURL_') == 1){
+        if (url.indexOf('_ROOTURL_') == -1){
             return url;
         }
         lib = url.split('_ROOTURL_')[1];
