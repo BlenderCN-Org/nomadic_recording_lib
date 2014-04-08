@@ -43,7 +43,7 @@ var playerEmbedder = {
         function loadCss(){
             var numResponse = 0;
             var urls = self.cssUrls[libName];
-            if (!urls){
+            if (!urls || urls.length == 0){
                 $("body").trigger('player_embedder_css_loaded');
                 return;
             }
@@ -63,7 +63,7 @@ var playerEmbedder = {
         function loadJs(){
             var numResponse = 0;
             var urls = self.scriptUrls[libName];
-            if (!urls){
+            if (!urls || urls.length == 0){
                 $("body").trigger('player_embedder_scripts_loaded');
                 return;
             }
