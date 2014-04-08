@@ -168,6 +168,6 @@ var playerEmbedder = {
         var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
         data.container.append(player);
         opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
-        player.strobemediaplayback(strobeOpts);
+        player.strobemediaplayback(opts);
     },
 };
