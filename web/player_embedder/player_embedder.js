@@ -196,6 +196,7 @@ var playerEmbedder = {
             var opts = {
                 'width': data.size[0],
                 'height': data.size[1],
+                'autoPlay': true,
                 'src': data.streamSrc.hds_url,
                 'swf': data.swfUrl,
                 'expressInstallSwfUrl':data.expressInstallSwfUrl,
