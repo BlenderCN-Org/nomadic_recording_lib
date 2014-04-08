@@ -1,14 +1,79 @@
 
 var playerEmbedder = {
     embed_methods: ['auto', 'videojs', 'strobe'],
-    cssUrls: {
-        'videojs':'//vjs.zencdn.net/4.5/video-js.css',
-        'strobe':'strobe-media/jquery.strobemediaplayback.css',
+    libRootUrls: {
+        'videojs':'/videojs',
+        'strobe':'/strobe-media',
     },
-    scriptUrls: {
-        'videojs':'//vjs.zencdn.net/4.5/video.js',
-        'swfobject':'//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js',
-        'strobe':'strobe-media/jquery.strobemediaplayback.js',
+    cssUrls: [
+        '//vjs.zencdn.net/4.5/video-js.css',
+        //'_ROOTURL_VIDEOJS_/videojs.hls.min.js',
+        '_ROOTURL_STROBE_/jquery.strobemediaplayback.css',
+    ],
+    scriptUrls: [
+        '//vjs.zencdn.net/4.5/video.js',
+        '//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js',
+        '_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
+    ],
+    formatLibUrl: function(url){
+        var self = this;
+        var lib = null;
+        var libUrl = null;
+        if (url.indexOf('_ROOTURL_') == 1){
+            return url;
+        }
+        lib = url.split('_ROOTURL_')[1];
+        lib = lib.split('_')[0].toLowerCase();
+        libUrl = self.libRootUrls[lib].rstrip('/')
+        url = url.lstrip('/');
+        return [libUrl, url].join('/');
+    },
+    loadSources: function(){
+        var self = this;
+        var cssComplete = false;
+        var scriptsComplete = false;
+        function loadCss(){
+            var numResponse = 0;
+            $.each(self.cssUrls, function(i, url){
+                url = self.formatLibUrl(url);
+                $.get(url, function(data){
+                    var s = $('<style type="text/css"></style');
+                    s.text(data);
+                    $("body").append(s);
+                    numResponse += 1;
+                    if (numRequests == self.cssUrls.length){
+                        $("body").trigger('player_embedder_css_loaded');
+                    }
+                });
+            });
+        }
+        function loadJs(){
+            var numResponse = 0;
+            $.each(self.scriptUrls, function(i, url){
+                url = self.formatLibUrl(url);
+                $.getScript(url, function(){
+                    numResponse += 1;
+                    if (numResponse == self.scriptUrls.length){
+                        $("body").trigger('player_embedder_scripts_loaded');
+                    }
+                });
+            });
+        }
+        function doComplete(){
+            if (cssComplete && scriptsComplete){
+                $("body").trigger('player_embedder_sources_loaded');
+            }
+        }
+        $("body").bind('player_embedder_css_loaded', function(){
+            cssComplete = true;
+            doComplete();
+        });
+        $("body").bind('player_embedder_scripts_loaded', function(){
+            scriptsComplete = true;
+            doComplete();
+        });
+        loadCss();
+        loadJs();
     },
     streamSrc: function(base_url){
             var d = {};
@@ -25,8 +90,8 @@ var playerEmbedder = {
         size: [640, 360],
         aspect_ratio: [16, 9],
         container: null,
-        swfUrl: 'strobe-media/StrobeMediaPlayback.swf',
-        expressInstallSwfUrl: 'strobe-media/expressInstall.swf',
+        swfUrl: '_ROOTURL_STROBE_/StrobeMediaPlayback.swf',
+        expressInstallSwfUrl: '_ROOTURL_STROBE_/expressInstall.swf',
     },
     embedData: function(data){
         d = {}
@@ -36,6 +101,8 @@ var playerEmbedder = {
             }
             if (key == 'streamSrc'){
                 val = playerEmbedder.streamSrc(val);
+            } else if (key == 'swfUrl' || key == 'expressInstallSwfUrl'){
+                val = playerEmbedder.formatLibUrl(val);
             }
             d[key] = val;
         });
@@ -44,6 +111,10 @@ var playerEmbedder = {
 
     doEmbed: function(data){
         var self = this;
+        var embed_fn = null;
+        if (typeof(data) == 'string'){
+            data = {'streamSrc':data};
+        }
         data = self.embedData(data);
         if (typeof(data.container.jquery) == 'undefined'){
             data.container = $(data.container);
@@ -51,7 +122,8 @@ var playerEmbedder = {
                 data.container = $("#" + data.container);
             }
         }
-
+        embed_fn = self['doEmbed_' + data.embed_method];
+        embed_fn(data);
     },
     doEmbed_auto: function(data){
         var self = this;

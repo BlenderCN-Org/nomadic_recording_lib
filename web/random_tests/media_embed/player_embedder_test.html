@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+    <script src="player_embedder.js"></script>
+    <script type="text/javascript">
+        playerEmbedder.libRootUrls['videojs'] = 'videojs';
+        playerEmbedder.libRootUrls['strobe'] = 'strobe-media';
+        playerEmbedder.loadSources();
+        $(function(){
+            $("form").submit(function(e){
+                e.preventDefault();
+                var url = $("#stream_url").val();
+                playerEmbeder.doEmbed(url);
+            });
+        });
+    </script>
+</head>
+<body>
+    <form>
+        <input type="text" name="stream_url" id="stream_url">
+        <label for="stream_url_input">Stream Url</label>
+        <input type="submit" value="Submit">
+    </form>
+    <div id="player_container"></div>
+</body>
+</html>
