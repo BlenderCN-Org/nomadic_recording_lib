@@ -81,7 +81,6 @@ var playerEmbedder = {
             d.hls_url = [base_url, 'playlist.m3u8'].join('/')
             d.hds_url = [base_url, 'manifest.f4m'].join('/')
             return d;
-        }
     },
     embedDataDefaults: {
         streamSrc: '',
