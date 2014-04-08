@@ -54,7 +54,7 @@ var playerEmbedder = {
                     s.text(data);
                     $("body").append(s);
                     numResponse += 1;
-                    if (numResponse == self.cssUrls.length){
+                    if (numResponse == urls.length){
                         $("body").trigger('player_embedder_css_loaded');
                     }
                 });
@@ -71,7 +71,7 @@ var playerEmbedder = {
                 url = self.formatLibUrl(url);
                 $.getScript(url, function(){
                     numResponse += 1;
-                    if (numResponse == self.scriptUrls.length){
+                    if (numResponse == urls.length){
                         $("body").trigger('player_embedder_scripts_loaded');
                     }
                 });
@@ -82,11 +82,11 @@ var playerEmbedder = {
                 $("body").trigger('player_embedder_sources_loaded');
             }
         }
-        $("body").bind('player_embedder_css_loaded', function(){
+        $("body").one('player_embedder_css_loaded', function(){
             cssComplete = true;
             doComplete();
         });
-        $("body").bind('player_embedder_scripts_loaded', function(){
+        $("body").one('player_embedder_scripts_loaded', function(){
             scriptsComplete = true;
             doComplete();
         });
