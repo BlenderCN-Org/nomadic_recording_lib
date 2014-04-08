@@ -40,6 +40,11 @@ var playerEmbedder = {
         var self = this;
         var cssComplete = false;
         var scriptsComplete = false;
+        var loadedSources = ($("body").data('player_embedder_sources_loaded');
+        if (typeof(loadedSources) == 'undefined'){
+            loadedSources = {};
+            $("body").data('player_embedder_sources_loaded', loadedSources);
+        }
         function loadCss(){
             var numResponse = 0;
             var urls = self.cssUrls[libName];
@@ -78,9 +83,17 @@ var playerEmbedder = {
             });
         }
         function doComplete(){
+            loadedSources[libName] = true;
             if (cssComplete && scriptsComplete){
                 $("body").trigger('player_embedder_sources_loaded');
             }
+        }
+        if (loadedSources[libName]){
+            cssComplete = true;
+            scriptsComplete = true;
+            doComplete();
+            return;
+        }
         }
         $("body").one('player_embedder_css_loaded', function(){
             cssComplete = true;
