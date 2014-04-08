@@ -40,7 +40,7 @@ var playerEmbedder = {
         var self = this;
         var cssComplete = false;
         var scriptsComplete = false;
-        var loadedSources = ($("body").data('player_embedder_sources_loaded');
+        var loadedSources = $("body").data('player_embedder_sources_loaded');
         if (typeof(loadedSources) == 'undefined'){
             loadedSources = {};
             $("body").data('player_embedder_sources_loaded', loadedSources);
