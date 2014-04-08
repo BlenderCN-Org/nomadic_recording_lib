@@ -17,16 +17,16 @@ var playerEmbedder = {
     ],
     formatLibUrl: function(url){
         var self = this;
+        var replTxt = null;
         var lib = null;
         var libUrl = null;
         if (url.indexOf('_ROOTURL_') == -1){
             return url;
         }
-        lib = url.split('_ROOTURL_')[1];
-        lib = lib.split('_')[0].toLowerCase();
-        libUrl = self.libRootUrls[lib].rstrip('/')
-        url = url.lstrip('/');
-        return [libUrl, url].join('/');
+        lib = url.split('_ROOTURL_')[1].split('_')[0];
+        replTxt = ['', 'ROOTURL', lib, ''].join('_');
+        libUrl = self.libRootUrls[lib.toLowerCase()];
+        return url.replace(replTxt, libUrl);
     },
     loadSources: function(){
         var self = this;
@@ -41,7 +41,7 @@ var playerEmbedder = {
                     s.text(data);
                     $("body").append(s);
                     numResponse += 1;
-                    if (numRequests == self.cssUrls.length){
+                    if (numResponse == self.cssUrls.length){
                         $("body").trigger('player_embedder_css_loaded');
                     }
                 });
