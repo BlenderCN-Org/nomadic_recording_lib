@@ -165,8 +165,10 @@ var playerEmbedder = {
         var vidtag = $('<video></video>');
         data.container.append(vidtag);
         if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
+            data.embed_method = 'html5';
             self.doEmbed_html5(data);
         } else {
+            data.embed_method = 'strobe';
             vidtag.remove();
             self.doEmbed_strobe(data);
         }
