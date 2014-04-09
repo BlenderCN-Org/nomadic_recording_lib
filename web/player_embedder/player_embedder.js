@@ -138,7 +138,7 @@ var playerEmbedder = {
         });
         return d;
     },
-    addPlayerClasses(player, data){
+    addPlayerClasses: function(player, data){
         $.each(data.playerClasses, function(i, cls){
             player.addClass(cls);
         });
