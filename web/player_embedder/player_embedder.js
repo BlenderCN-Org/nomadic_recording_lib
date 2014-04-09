@@ -223,7 +223,7 @@ var playerEmbedder = {
     },
     doResize: function(container, newSize){
         var data = container.data('embedData');
-        var resizeFn = playerEmbedder['doResise_' + data.embed_method];
+        var resizeFn = playerEmbedder['doResize_' + data.embed_method];
         data.size = newSize;
         resizeFn(container, data);
     },
