@@ -115,6 +115,7 @@ var playerEmbedder = {
     embedDataDefaults: {
         streamSrc: '',
         playerId: 'player',
+        playerClasses: [],
         embed_method: 'auto',
         size: [640, 360],
         aspect_ratio: [16, 9],
@@ -137,7 +138,11 @@ var playerEmbedder = {
         });
         return d;
     },
-
+    addPlayerClasses(player, data){
+        $.each(data.playerClasses, function(i, cls){
+            player.addClass(cls);
+        });
+    },
     doEmbed: function(data){
         var self = this;
         var embed_fn = null;
@@ -174,6 +179,7 @@ var playerEmbedder = {
         }
     },
     doEmbed_html5: function(data){
+        var self = playerEmbedder;
         var vidtag = $("video", data.container);
         if (vidtag.length == 0){
             vidtag = $('<video></video>');
@@ -182,11 +188,13 @@ var playerEmbedder = {
         vidtag.attr('id', data.playerId);
         vidtag.attr('width', data.size[0]);
         vidtag.attr('height', data.size[1]);
+        self.addPlayerClasses(vidtag, data);
         vidtag[0].autoplay = true;
         vidtag[0].controls = true;
         vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
     },
     doEmbed_videojs: function(data){
+        var self = playerEmbedder;
         $("body").one('player_embedder_sources_loaded', function(){
             var vidtag = $("video", data.container);
             var opts = {
@@ -200,13 +208,15 @@ var playerEmbedder = {
                 data.container.append(vidtag);
             }
             vidtag.addClass('video-js vjs-default-skin');
+            self.addPlayerClasses(vidtag, data);
             vidtag.attr('id', data.playerId);
             vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
             videojs(data.playerId, opts);
         });
-        playerEmbedder.loadSources('videojs');
+        self.loadSources('videojs');
     },
     doEmbed_strobe: function(data){
+        var self = playerEmbedder;
         $("body").one('player_embedder_sources_loaded', function(){
             var opts = {
                 'width': data.size[0],
@@ -217,11 +227,12 @@ var playerEmbedder = {
                 'expressInstallSwfUrl':data.expressInstallSwfUrl,
             };
             var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
+            self.addPlayerClasses(player, data);
             data.container.append(player);
             opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
             player.strobemediaplayback(opts);
         });
-        playerEmbedder.loadSources('strobe');
+        self.loadSources('strobe');
     },
     doResize: function(container, newSize){
         var data = container.data('embedData');
