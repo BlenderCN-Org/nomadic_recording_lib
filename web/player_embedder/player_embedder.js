@@ -117,7 +117,8 @@ var playerEmbedder = {
         playerId: 'player',
         playerClasses: [],
         embed_method: 'auto',
-        size: [640, 360],
+        size: null,
+        maxWidth: 640,
         aspect_ratio: [16, 9],
         container: null,
         swfUrl: '_ROOTURL_STROBE_/StrobeMediaPlayback.swf',
@@ -161,6 +162,9 @@ var playerEmbedder = {
             data.container = $("body");
         }
         data = self.embedData(data);
+        if (!data.size){
+            self.calcPlayerSize(data);
+        }
         data.container.data('embedData', data);
         embed_fn = self['doEmbed_' + data.embed_method];
         embed_fn(data);
@@ -239,9 +243,20 @@ var playerEmbedder = {
         self.loadSources('strobe');
     },
     doResize: function(container, newSize){
+        var self = this;
         var data = container.data('embedData');
         var resizeFn = playerEmbedder['doResize_' + data.embed_method];
-        data.size = newSize;
+        if (!newSize){
+            hasChanged = self.calcPlayerSize(data);
+            if (!hasChanged){
+                return;
+            }
+        } else {
+            if (data.size[0] == newSize[0] && data.size[1] == newSize[1]){
+                return;
+            }
+            data.size = newSize;
+        }
         resizeFn(container, data);
     },
     doResize_html5: function(data){
@@ -254,5 +269,56 @@ var playerEmbedder = {
     },
     doResize_strobe: function(data){
         // need to look at api docs
+    },
+    calcPlayerSize: function(data){
+        function getMaxWidth(){
+            var width = data.container.innerWidth();
+            if (width > data.maxWidth){
+                width = data.maxWidth;
+            }
+            return width;
+        }
+        var complete = null;
+        var hasChanged = false;
+        var x = getMaxWidth();
+        var xMin = x * 0.5;
+        var y = null;
+        var ratio = data.aspect_ratio[0] / data.aspect_ratio[1];
+        if (data.size){
+            // size hasn't changed so don't waste time
+            if (x == data.size[0]){
+                return false;
+            }
+        }
+        function integersFound(_x, _y){
+            if (Math.floor(_x) != _x){
+                return false;
+            }
+            if (Math.floor(_y) != _y){
+                return false;
+            }
+        }
+        y = x / ratio;
+        complete = integersFound(x, y);
+        while (!complete){
+            x -= 1;
+            y = x / ratio;
+            complete = integersFound(x, y);
+            if (!complete && x <=xMin){
+                x = getMaxWidth();
+                y = x / ratio;
+                y = Math.floor(y);
+                break;
+            }
+        }
+        if (data.size[0] != x){
+            data.size[0] = x;
+            hasChanged = true;
+        }
+        if (data.size[1] != y){
+            data.size[1] = y;
+            hasChanged = true;
+        }
+        return hasChanged;
     },
 };
