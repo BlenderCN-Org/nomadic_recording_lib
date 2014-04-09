@@ -311,13 +311,18 @@ var playerEmbedder = {
                 break;
             }
         }
-        if (data.size[0] != x){
-            data.size[0] = x;
+        if (!data.size){
+            data.size = [x, y];
             hasChanged = true;
-        }
-        if (data.size[1] != y){
-            data.size[1] = y;
-            hasChanged = true;
+        } else {
+            if (data.size[0] != x){
+                data.size[0] = x;
+                hasChanged = true;
+            }
+            if (data.size[1] != y){
+                data.size[1] = y;
+                hasChanged = true;
+            }
         }
         return hasChanged;
     },
