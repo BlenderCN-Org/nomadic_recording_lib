@@ -156,6 +156,7 @@ var playerEmbedder = {
             data.container = $("body");
         }
         data = self.embedData(data);
+        data.container.data('embedData', data);
         embed_fn = self['doEmbed_' + data.embed_method];
         embed_fn(data);
     },
@@ -219,5 +220,24 @@ var playerEmbedder = {
             player.strobemediaplayback(opts);
         });
         playerEmbedder.loadSources('strobe');
+    },
+    doResize: function(container, newSize){
+        var data = container.data('embedData');
+        var resizeFn = playerEmbedder['doResise_' + data.embed_method];
+        data.size = newSize;
+        resizeFn(container, data);
+    },
+    doResize_html5: function(data){
+        var player = $("#" + data.playerId);
+        player.width(data.size[0]);
+        player.height(data.size[1]);
+    },
+    doResize_videojs: function(data){
+        var player = $("#" + data.playerId);
+        player.width(data.size[0]);
+        player.height(data.size[1]);
+    },
+    doResize_strobe: function(data){
+        // need to look at api docs
     },
 };
