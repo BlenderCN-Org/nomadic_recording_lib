@@ -192,6 +192,7 @@ var playerEmbedder = {
         vidtag[0].autoplay = true;
         vidtag[0].controls = true;
         vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
+        data.player = vidtag;
     },
     doEmbed_videojs: function(data){
         var self = playerEmbedder;
@@ -211,7 +212,9 @@ var playerEmbedder = {
             self.addPlayerClasses(vidtag, data);
             vidtag.attr('id', data.playerId);
             vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
-            videojs(data.playerId, opts);
+            videojs(data.playerId, opts, function(){
+                data.player = this;
+            });
         });
         self.loadSources('videojs');
     },
@@ -230,7 +233,8 @@ var playerEmbedder = {
             self.addPlayerClasses(player, data);
             data.container.append(player);
             opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
-            player.strobemediaplayback(opts);
+            var $player = player.strobemediaplayback(opts);
+            data.player = $player
         });
         self.loadSources('strobe');
     },
@@ -241,14 +245,12 @@ var playerEmbedder = {
         resizeFn(container, data);
     },
     doResize_html5: function(data){
-        var player = $("#" + data.playerId);
-        player.width(data.size[0]);
-        player.height(data.size[1]);
+        data.player.width(data.size[0]);
+        data.player.height(data.size[1]);
     },
     doResize_videojs: function(data){
-        var player = $("#" + data.playerId);
-        player.width(data.size[0]);
-        player.height(data.size[1]);
+        data.player.width(data.size[0]);
+        data.player.height(data.size[1]);
     },
     doResize_strobe: function(data){
         // need to look at api docs
