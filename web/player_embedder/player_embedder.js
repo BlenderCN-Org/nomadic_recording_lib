@@ -20,7 +20,7 @@ var playerEmbedder = {
         ],
         'strobe':[
             '//ajax.googleapis.com/ajax/libs/swfobject/2.2/swfobject.js',
-            '_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
+            //'_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
         ],
     },
     formatLibUrl: function(url){
@@ -144,6 +144,13 @@ var playerEmbedder = {
             player.addClass(cls);
         });
     },
+    buildFallbackContent(data){
+        var cdiv = $('<ul></ul>');
+        cdiv.append('<li><h3>Could not load stream</h3></li>');
+        cdiv.append('<li><a href="//www.adobe.com/software/flash/about/‎">Click Here to Install Adobe Flash (Desktops)</a></li>');
+        cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.hls_url));
+        return cdiv;
+    },
     doEmbed: function(data){
         var self = this;
         var embed_fn = null;
@@ -263,6 +270,7 @@ var playerEmbedder = {
         $("body").one('player_embedder_sources_loaded', function(){
             var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId));
             var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
+            player.append(self.buildFallbackContent(data));
             playerWrapper.append(player);
             self.addPlayerClasses(playerWrapper, data);
             data.container.append(playerWrapper);
