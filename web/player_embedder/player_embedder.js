@@ -224,23 +224,49 @@ var playerEmbedder = {
     },
     doEmbed_strobe: function(data){
         var self = playerEmbedder;
+        var embedDataKeys = ['swf', 'id', 'width', 'height', 'minimumFlashPlayerVersion', 'expressInstallSwfUrl'];
+        var embedData = [];
+        var flashVars = {
+            'width': data.size[0],
+            'height': data.size[1],
+            'src': data.streamSrc.hds_url,
+            'autoPlay': true,
+            'loop': false,
+            'controlBarMode': 'docked',
+            'poster': '',
+            'swf': data.swfUrl,
+            'expressInstallSwfUrl':data.expressInstallSwfUrl,
+            'minimumFlashPlayerVersion': '10.0.0',
+            'javascriptCallbackFunction': 'playerEmbedder.strobeCallback',
+        };
+        var params = {
+            'allowFullScreen': 'true',
+            'wmode':'direct',
+        };
+        var attrs = {
+            'id': data.playerId,
+            'name': data.playerId,
+        };
+        var embedCallback = function(event){
+            if (event.success){
+                data.player = $("#" + event.id);
+            }
+        };
+        $.each(embedDataKeys, function(i, key){
+            var val = flashVars[key];
+            if (typeof(val) == 'undefined'){
+                val = attrs[key];
+            }
+            embedData.push(val);
+        });
+        embedData.push(flashVars, params, attrs, embedCallback);
         $("body").one('player_embedder_sources_loaded', function(){
-            var opts = {
-                'width': data.size[0],
-                'height': data.size[1],
-                'autoPlay': true,
-                'src': data.streamSrc.hds_url,
-                'swf': data.swfUrl,
-                'expressInstallSwfUrl':data.expressInstallSwfUrl,
-            };
             var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId));
             var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
             playerWrapper.append(player);
             self.addPlayerClasses(playerWrapper, data);
             data.container.append(playerWrapper);
-            opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
-            var $player = player.strobemediaplayback(opts);
-            data.player = $player
+            swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
         });
         self.loadSources('strobe');
     },
@@ -248,6 +274,9 @@ var playerEmbedder = {
         var self = this;
         var data = container.data('embedData');
         var resizeFn = playerEmbedder['doResize_' + data.embed_method];
+        if (!data.player){
+            return;
+        }
         if (!newSize){
             hasChanged = self.calcPlayerSize(data);
             if (!hasChanged){
@@ -328,4 +357,8 @@ var playerEmbedder = {
         }
         return hasChanged;
     },
+};
+
+playerEmbedder.strobeCallback = function(id, eventName, updatedProperties){
+
 };
