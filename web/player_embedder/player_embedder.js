@@ -147,8 +147,8 @@ var playerEmbedder = {
     buildFallbackContent: function(data){
         var cdiv = $('<ul></ul>');
         cdiv.append('<li><h3>Could not load stream</h3></li>');
-        cdiv.append('<li><a href="www.adobe.com/software/flash/about/‎">Click Here to Install Adobe Flash (Desktops)</a></li>');
-        cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.hls_url));
+        cdiv.append('<li><a href="www.adobe.com/software/flash/about‎">Click Here to Install Adobe Flash (Desktops)</a></li>');
+        cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
         return cdiv;
     },
     doEmbed: function(data){
