@@ -144,7 +144,7 @@ var playerEmbedder = {
             player.addClass(cls);
         });
     },
-    buildFallbackContent(data){
+    buildFallbackContent: function(data){
         var cdiv = $('<ul></ul>');
         cdiv.append('<li><h3>Could not load stream</h3></li>');
         cdiv.append('<li><a href="//www.adobe.com/software/flash/about/‎">Click Here to Install Adobe Flash (Desktops)</a></li>');
