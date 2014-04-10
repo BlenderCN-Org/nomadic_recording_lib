@@ -233,9 +233,11 @@ var playerEmbedder = {
                 'swf': data.swfUrl,
                 'expressInstallSwfUrl':data.expressInstallSwfUrl,
             };
+            var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId));
             var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
-            self.addPlayerClasses(player, data);
-            data.container.append(player);
+            playerWrapper.append(player);
+            self.addPlayerClasses(playerWrapper, data);
+            data.container.append(playerWrapper);
             opts = $.fn.adaptiveexperienceconfigurator.adapt(opts);
             var $player = player.strobemediaplayback(opts);
             data.player = $player
