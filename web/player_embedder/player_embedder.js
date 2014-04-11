@@ -145,10 +145,16 @@ var playerEmbedder = {
         });
     },
     buildFallbackContent: function(data){
-        var cdiv = $('<ul></ul>');
-        cdiv.append('<li><h3>Could not load stream</h3></li>');
-        cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎">Click Here to Install Adobe Flash (Desktops)</a></li>');
-        cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
+        var cdiv = $('<div></div>');
+        // detect desktop
+        if (typeof(window.orientation) == 'undefined'){
+            cdiv.append('<a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to Install Adobe Flash (Desktops)</a>');
+        } else {
+            cdiv.append('<a href="URL">Click here to open in your mobile device</a>'.replace('URL', data.streamSrc.hls_url));
+        }
+        if (data.fallbackContentFunction){
+            cdiv = data.fallbackContentFunction(cdiv);
+        }
         return cdiv;
     },
     doEmbed: function(data){
