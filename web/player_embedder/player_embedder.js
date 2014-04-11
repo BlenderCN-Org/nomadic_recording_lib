@@ -145,12 +145,16 @@ var playerEmbedder = {
         });
     },
     buildFallbackContent: function(data){
-        var cdiv = $('<div></div>');
+        var cdiv = $('<ul></ul>');
+        var ua = navigator.userAgent;
         // detect desktop
         if (typeof(window.orientation) == 'undefined'){
-            cdiv.append('<a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to Install Adobe Flash (Desktops)</a>');
+            cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to Install Adobe Flash (Desktops)</a></li>');
         } else {
-            cdiv.append('<a href="URL">Click here to open in your mobile device</a>'.replace('URL', data.streamSrc.hls_url));
+            cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
+        }
+        if (us.toLowerCase().search('android') != -1){
+            cdiv.append('<li><p>For the best viewing experience in Android devices, we recommend using Chrome (avaliable in the Play Store)</p></li>');
         }
         if (data.fallbackContentFunction){
             cdiv = data.fallbackContentFunction(cdiv);
