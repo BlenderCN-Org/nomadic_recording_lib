@@ -153,7 +153,7 @@ var playerEmbedder = {
         } else {
             cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
         }
-        if (us.toLowerCase().search('android') != -1){
+        if (ua.toLowerCase().search('android') != -1){
             cdiv.append('<li><p>For the best viewing experience in Android devices, we recommend using Chrome (avaliable in the Play Store)</p></li>');
         }
         if (data.fallbackContentFunction){
