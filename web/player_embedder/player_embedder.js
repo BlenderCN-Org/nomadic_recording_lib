@@ -1,6 +1,7 @@
 (function($){
     var playerEmbedder = {
         embed_methods: ['auto', 'html5', 'videojs', 'strobe'],
+        html5_embed_method: 'html5',
         libRootUrls: {
             'videojs':'/videojs',
             'strobe':'/strobe-media',
@@ -142,9 +143,10 @@
             return d;
         },
         addPlayerClasses: function(player, data){
-            $.each(data.playerClasses, function(i, cls){
-                player.addClass(cls);
-            });
+            if (data.playerClasses.length == 0){
+                return;
+            }
+            player.addClass(data.playerClasses.join(' '));
         },
         buildFallbackContent: function(data){
             var cdiv = $('<ul></ul>');
@@ -186,20 +188,23 @@
             }
             data.container.data('embedData', data);
             embed_fn = self['doEmbed_' + data.embed_method];
-            embed_fn(data);
+            return embed_fn(data);
         },
         doEmbed_auto: function(data){
-            var self = playerEmbedder;
-            var vidtag = $('<video></video>');
+            var self = playerEmbedder,
+                vidtag = $('<video></video>'),
+                embed_fn;
             data.container.append(vidtag);
             if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
-                data.embed_method = 'html5';
-                self.doEmbed_html5(data);
+                data.embed_method = self.html5_embed_method;
+                embed_fn = self['doEmbed_' + data.embed_method];
+                data = embed_fn(data);
             } else {
                 data.embed_method = 'strobe';
                 vidtag.remove();
-                self.doEmbed_strobe(data);
+                data = self.doEmbed_strobe(data);
             }
+            return data;
         },
         doEmbed_html5: function(data){
             var self = playerEmbedder;
@@ -220,6 +225,8 @@
             vidtag[0].controls = true;
             vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
             data.player = vidtag;
+            data.container.trigger('player_embed_complete');
+            return data;
         },
         doEmbed_videojs: function(data){
             var self = playerEmbedder;
@@ -228,22 +235,25 @@
                 var opts = {
                     'controls': true,
                     'autoplay': true,
-                    'width':data.size[0].toString(),
-                    'height':data.size[1].toString(),
+                    'width':data.size[0],
+                    'height':data.size[1],
+                    'nativeControlsForTouch': false,
                 };
                 if (vidtag.length == 0){
                     vidtag = $('<video></video>');
                     data.container.append(vidtag);
                 }
-                vidtag.addClass('video-js vjs-default-skin');
                 self.addPlayerClasses(vidtag, data);
+                vidtag.addClass('video-js vjs-default-skin');
                 vidtag.attr('id', data.playerId);
                 vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
                 videojs(data.playerId, opts, function(){
                     data.player = this;
+                    data.container.trigger('player_embed_complete');
                 });
             });
             self.loadSources('videojs');
+            return data
         },
         doEmbed_strobe: function(data){
             var self = playerEmbedder;
@@ -273,6 +283,7 @@
             var embedCallback = function(event){
                 if (event.success){
                     data.player = $("#" + event.id);
+                    data.container.trigger('player_embed_complete');
                 }
             };
             $.each(embedDataKeys, function(i, key){
@@ -293,6 +304,7 @@
                 swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
             });
             self.loadSources('strobe');
+            return data
         },
         doResize: function(container, newSize){
             var self = this;
