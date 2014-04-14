@@ -118,6 +118,8 @@
             playerClasses: [],
             embed_method: 'auto',
             size: null,
+            sizeWithContainer: false,
+            sizeByCSS: false,
             maxWidth: 640,
             aspect_ratio: [16, 9],
             container: null,
@@ -207,6 +209,10 @@
                 data.container.append(vidtag);
             }
             vidtag.attr('id', data.playerId);
+            if (data.sizeWithContainer == true){
+                data.size = ['100%', '100%'];
+                data.sizeByCSS = true;
+            }
             vidtag.attr('width', data.size[0]);
             vidtag.attr('height', data.size[1]);
             self.addPlayerClasses(vidtag, data);
@@ -292,6 +298,9 @@
             var self = this;
             var data = container.data('embedData');
             var resizeFn = playerEmbedder['doResize_' + data.embed_method];
+            if (data.sizeByCSS == true){
+                return;
+            }
             if (!data.player){
                 return;
             }
@@ -320,6 +329,9 @@
             // need to look at api docs
         },
         calcPlayerSize: function(data){
+            if (data.sizeByCSS == true){
+                return false;
+            }
             function getMaxWidth(){
                 var width = data.container.innerWidth();
                 if (width > data.maxWidth){
@@ -333,6 +345,21 @@
             var xMin = x * 0.5;
             var y = null;
             var ratio = data.aspect_ratio[0] / data.aspect_ratio[1];
+            if (data.sizeWithContainer == true){
+                x = data.container.innerWidth();
+                y = data.container.innerHeight();
+                if (data.size){
+                    if (data.size[0] == x || data.size[1] == y){
+                        return false;
+                    }
+                    data.size[0] = x;
+                    data.size[1] = y;
+                    return true;
+                } else {
+                    data.size = [x, y]
+                    return true;
+                }
+            }
             if (data.size){
                 // size hasn't changed so don't waste time
                 if (x == data.size[0]){
