@@ -10,9 +10,9 @@
             'videojs':[
                 '//vjs.zencdn.net/4.5/video-js.css',
             ],
-            'strobe':[
+            //'strobe':[
                 //'_ROOTURL_STROBE_/jquery.strobemediaplayback.css',
-            ],
+            //],
         },
         scriptUrls: {
             'videojs':[
@@ -54,6 +54,9 @@
                     return;
                 }
                 $.each(urls, function(i, url){
+                    if (!url){
+                        return;
+                    }
                     url = self.formatLibUrl(url);
                     $.get(url, function(data){
                         var s = $('<style type="text/css"></style');
@@ -74,6 +77,9 @@
                     return;
                 }
                 $.each(urls, function(i, url){
+                    if (!url){
+                        return;
+                    }
                     url = self.formatLibUrl(url);
                     $.getScript(url, function(){
                         numResponse += 1;
@@ -165,6 +171,21 @@
             }
             return cdiv;
         },
+        testHLSSupport: function(data){
+            var result = false,
+                vidtag = $('<video></video>');
+            try {
+                data.container.append(vidtag);
+                if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
+                    result = true;
+                } else {
+                    vidtag.remove();
+                }
+            } catch(e) {
+                result = false;
+            }
+            return result;
+        },
         doEmbed: function(data){
             var self = this;
             var embed_fn = null;
@@ -192,16 +213,15 @@
         },
         doEmbed_auto: function(data){
             var self = playerEmbedder,
-                vidtag = $('<video></video>'),
+                hlsSupported = self.testHLSSupport(data),
                 embed_fn;
-            data.container.append(vidtag);
-            if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
+            
+            if (hlsSupported){
                 data.embed_method = self.html5_embed_method;
                 embed_fn = self['doEmbed_' + data.embed_method];
                 data = embed_fn(data);
             } else {
                 data.embed_method = 'strobe';
-                vidtag.remove();
                 data = self.doEmbed_strobe(data);
             }
             return data;
