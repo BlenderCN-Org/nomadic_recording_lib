@@ -161,10 +161,11 @@
             if (typeof(window.orientation) == 'undefined'){
                 cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to Install Adobe Flash (Desktops)</a></li>');
             } else {
-                cdiv.append('<li><a href="URL">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
+                cdiv.append('<li><a href="URL" type="application/vnd.apple.mpegurl">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
             }
             if (ua.toLowerCase().search('android') != -1){
-                cdiv.append('<li><p>For the best viewing experience in Android devices, we recommend using Chrome (avaliable in the Play Store)</p></li>');
+                data.isAndroid = true;
+            //    cdiv.append('<li><a href="URL">Click here to open in the video player app on you mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
             }
             if (data.fallbackContentFunction){
                 cdiv = data.fallbackContentFunction(cdiv);
@@ -241,10 +242,13 @@
             vidtag.attr('width', data.size[0]);
             vidtag.attr('height', data.size[1]);
             self.addPlayerClasses(vidtag, data);
-            vidtag[0].autoplay = true;
             vidtag[0].controls = true;
             vidtag.append('<source src="URL" type="application/vnd.apple.mpegurl">'.replace('URL', data.streamSrc.hls_url));
             data.player = vidtag;
+            fbdiv = self.buildFallbackContent(data);
+            if (data.isAndroid){
+                data.container.parent().append(fbdiv);
+            }
             data.container.trigger('player_embed_complete');
             return data;
         },
