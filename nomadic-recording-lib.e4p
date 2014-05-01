@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2014-04-04, 14:18:01 -->
+<!-- Saved: 2014-05-01, 13:27:25 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -172,6 +172,11 @@
     <Source>web/dhcpd_stats/config.py</Source>
     <Source>web/dhcpd_stats/network_objects.py</Source>
     <Source>web/dhcpd_stats/tests.py</Source>
+    <Source>web/django_apps/appmodel_defaults/tests.py</Source>
+    <Source>web/django_apps/appmodel_defaults/models.py</Source>
+    <Source>web/django_apps/appmodel_defaults/views.py</Source>
+    <Source>web/django_apps/appmodel_defaults/admin.py</Source>
+    <Source>web/django_apps/appmodel_defaults/__init__.py</Source>
   </Sources>
   <Forms>
   </Forms>
