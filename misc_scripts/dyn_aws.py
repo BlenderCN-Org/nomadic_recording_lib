@@ -1,0 +1,99 @@
+#! /usr/bin/env python
+
+import os.path
+import argparse
+import urllib2
+
+from boto.route53.connection import Route53Connection
+
+class IPError(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return self.value
+
+OPTS = {
+    'aws_access_key_id':None,
+    'aws_secret_access_key':None,
+    'aws_credentials_file':None,
+    'zone':None,
+    'record':None,
+    'value':None,
+    'ip_get_url':'http://curlmyip.com'
+}
+
+def get_inet_ip():
+    u = urllib2.urlopen(OPTS['ip_get_url'])
+    s = u.read()
+    u.close()
+    s = s.strip()
+    if len(s.split('.')) != 4:
+        raise IPError('could not find IP address: %s' % (s))
+    return s
+
+def process_opts(opts):
+    OPTS.update(opts)
+    cfn = OPTS['aws_credentials_file']
+    if cfn is not None:
+        with open(os.path.expanduser(cfn), 'r') as f:
+            s = f.read()
+        for key, val in zip(['aws_access_key_id', 'aws_secret_access_key'], s.splitlines()[:2]):
+            val = val.strip()
+            OPTS[key] = val
+    if OPTS['zone'] not in OPTS['record']:
+        OPTS['record'] = '.'.join([OPTS['record'], OPTS['zone']])
+    if not OPTS['value']:
+        OPTS['value'] = get_inet_ip()
+
+CONNECTION = None
+def get_connection():
+    global CONNECTION
+    if CONNECTION is None:
+        keys = ['aws_access_key_id', 'aws_secret_access_key']
+        ckwargs = {}
+        for key in keys:
+            ckwargs[key] = OPTS[key]
+        if None in ckwargs.values():
+            ckwargs.clear()
+        CONNECTION = Route53Connection(**ckwargs)
+    return CONNECTION
+
+def update_zone():
+    c = get_connection()
+    zone = c.get_hosted_zone_by_name(OPTS['zone'])
+    record_name = OPTS['record']
+    if OPTS['zone'] not in record_name:
+        record_name = '.'.join([record_name, OPTS['zone']])
+    def wait_for_result(req):
+        while req.status == u'PENDING':
+            time.sleep(50)
+            req.update()
+        return True
+    def create_record():
+        req = zone.add_record('A', record_name, OPTS['value'])
+        return wait_for_result(req)
+    def get_record():
+        return zone.find_records(record_name, 'A')
+    def get_or_create_record():
+        record = get_record()
+        if not record:
+            create_record()
+            record = get_record()
+        return record
+    def update_record():
+        record = get_or_create_record()
+        if OPTS['value'] in record.resource_records:
+            return True
+        req = zone.update_record(record, OPTS['value'])
+        return wait_for_result(req)
+    return update_record()
+
+def main():
+    p = argparse.ArgumentParser()
+    for key in OPTS.iterkeys():
+        p.add_argument('--%s' % (key), dest=key)
+    args, remaining = p.parse_known_args()
+    o = vars(args)
+    process_opts(o)
+    update_zone()
+    
