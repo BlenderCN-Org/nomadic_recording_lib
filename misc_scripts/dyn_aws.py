@@ -50,6 +50,8 @@ def process_opts(opts):
             OPTS[key] = val
     if OPTS['zone'] not in OPTS['record']:
         OPTS['record'] = '.'.join([OPTS['record'], OPTS['zone']])
+    if not OPTS['zone'].endswith('.'):
+        OPTS['zone'] += '.'
     if not OPTS['value']:
         OPTS['value'] = get_inet_ip()
 
@@ -70,8 +72,6 @@ def update_zone():
     c = get_connection()
     zone = c.get_hosted_zone_by_name(OPTS['zone'])
     record_name = OPTS['record']
-    if OPTS['zone'] not in record_name:
-        record_name = '.'.join([record_name, OPTS['zone']])
     def wait_for_result(req):
         while req.status == u'PENDING':
             time.sleep(50)
