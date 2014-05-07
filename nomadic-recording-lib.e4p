@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib -->
-<!-- Saved: 2014-05-01, 13:27:25 -->
+<!-- Saved: 2014-05-07, 13:06:59 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -177,6 +177,8 @@
     <Source>web/django_apps/appmodel_defaults/views.py</Source>
     <Source>web/django_apps/appmodel_defaults/admin.py</Source>
     <Source>web/django_apps/appmodel_defaults/__init__.py</Source>
+    <Source>misc_scripts/dyn_aws.py</Source>
+    <Source>misc_scripts/__init__.py</Source>
   </Sources>
   <Forms>
   </Forms>

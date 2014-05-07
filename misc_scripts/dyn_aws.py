@@ -23,7 +23,7 @@ OPTS = {
     'zone':None,
     'record':None,
     'value':None,
-    'ip_get_url':'http://curlmyip.com'
+    'ip_get_url':'http://curlmyip.com', 
     'test_mode':False
 }
 
@@ -104,7 +104,7 @@ def update_zone():
             return
         req = zone.update_record(record, OPTS['value'])
         result = wait_for_result(req)
-        LOG('zone update: %s' % (result)
+        LOG('zone update: %s' % (result))
         return result
     return update_record()
 
