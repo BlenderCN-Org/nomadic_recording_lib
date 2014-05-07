@@ -36,18 +36,22 @@ def get_inet_ip():
         raise IPError('could not find IP address: %s' % (s))
     return s
 
+def load_aws_credentials():
+    cfn = OPTS['aws_credentials_file']
+    if not cfn:
+        return
+    with open(os.path.expanduser(cfn), 'r') as f:
+        s = f.read()
+    for key, val in zip(['aws_access_key_id', 'aws_secret_access_key'], s.splitlines()[:2]):
+        val = val.strip()
+        OPTS[key] = val
+        
 def process_opts(opts):
     for key, val in opts.iteritems():
         if val is None:
             continue
         OPTS[key] = val
-    cfn = OPTS['aws_credentials_file']
-    if cfn is not None:
-        with open(os.path.expanduser(cfn), 'r') as f:
-            s = f.read()
-        for key, val in zip(['aws_access_key_id', 'aws_secret_access_key'], s.splitlines()[:2]):
-            val = val.strip()
-            OPTS[key] = val
+    load_aws_credentials()
     if OPTS['zone'] not in OPTS['record']:
         OPTS['record'] = '.'.join([OPTS['record'], OPTS['zone']])
     if not OPTS['record'].endswith('.'):
