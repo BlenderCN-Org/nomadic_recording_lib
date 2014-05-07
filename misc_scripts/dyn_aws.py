@@ -37,7 +37,10 @@ def get_inet_ip():
     return s
 
 def process_opts(opts):
-    OPTS.update(opts)
+    for key, val in opts.iteritems():
+        if val is None:
+            continue
+        OPTS[key] = val
     cfn = OPTS['aws_credentials_file']
     if cfn is not None:
         with open(os.path.expanduser(cfn), 'r') as f:
