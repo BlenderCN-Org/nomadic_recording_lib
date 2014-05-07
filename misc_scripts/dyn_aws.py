@@ -74,7 +74,7 @@ def get_connection():
 
 def update_zone():
     c = get_connection()
-    zone = c.get_hosted_zone_by_name(OPTS['zone'])
+    zone = c.get_zone(OPTS['zone'])
     record_name = OPTS['record']
     def wait_for_result(req):
         while req.status == u'PENDING':
