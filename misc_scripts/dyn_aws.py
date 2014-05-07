@@ -50,8 +50,8 @@ def process_opts(opts):
             OPTS[key] = val
     if OPTS['zone'] not in OPTS['record']:
         OPTS['record'] = '.'.join([OPTS['record'], OPTS['zone']])
-    if not OPTS['zone'].endswith('.'):
-        OPTS['zone'] += '.'
+    if not OPTS['record'].endswith('.'):
+        OPTS['record'] += '.'
     if not OPTS['value']:
         OPTS['value'] = get_inet_ip()
 
