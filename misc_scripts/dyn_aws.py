@@ -6,6 +6,10 @@ import urllib2
 
 from boto.route53.connection import Route53Connection
 
+def LOG(*args):
+    for arg in args:
+        print arg
+
 class IPError(Exception):
     def __init__(self, value):
         self.value = value
@@ -20,6 +24,7 @@ OPTS = {
     'record':None,
     'value':None,
     'ip_get_url':'http://curlmyip.com'
+    'test_mode':False
 }
 
 def get_inet_ip():
@@ -70,8 +75,14 @@ def update_zone():
             req.update()
         return True
     def create_record():
+        LOG('creating record')
+        if OPTS['test_mode']:
+            LOG('test only, not really creating record')
+            return False
         req = zone.add_record('A', record_name, OPTS['value'])
-        return wait_for_result(req)
+        result = wait_for_result(req)
+        LOG('record creation: %s' % (result))
+        return result
     def get_record():
         return zone.find_records(record_name, 'A')
     def get_or_create_record():
@@ -82,18 +93,34 @@ def update_zone():
         return record
     def update_record():
         record = get_or_create_record()
+        if record is False:
+            LOG('record not found or created')
+            return False
         if OPTS['value'] in record.resource_records:
+            LOG('no update needed')
             return True
+        if OPTS['test_mode']:
+            LOG('update needed (test only)')
+            return
         req = zone.update_record(record, OPTS['value'])
-        return wait_for_result(req)
+        result = wait_for_result(req)
+        LOG('zone update: %s' % (result)
+        return result
     return update_record()
 
 def main():
     p = argparse.ArgumentParser()
     for key in OPTS.iterkeys():
-        p.add_argument('--%s' % (key), dest=key)
+        akwargs = {'dest':key}
+        if key == 'test_mode':
+            akwargs['action'] = 'store_true'
+        p.add_argument('--%s' % (key), **akwargs)
     args, remaining = p.parse_known_args()
     o = vars(args)
     process_opts(o)
+    if OPTS['test_mode']:
+        LOG('options: %s' % (OPTS))
     update_zone()
     
+if __name__ == '__main__':
+    main()
