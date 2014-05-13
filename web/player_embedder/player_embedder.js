@@ -444,4 +444,5 @@
 
     };
     window.playerEmbedder = playerEmbedder;
+    $(document).trigger('playerEmbedderReady');
 })(jQuery);
