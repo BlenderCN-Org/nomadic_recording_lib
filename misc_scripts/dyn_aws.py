@@ -11,7 +11,7 @@ logging.basicConfig(filename=os.path.expanduser('~/.dyn_aws.log'),
 from boto.route53.connection import Route53Connection
 
 def LOG(*args):
-    logging.info(' '.join([str(arg) for arg in args])
+    logging.info(' '.join([str(arg) for arg in args]))
 
 class IPError(Exception):
     def __init__(self, value):
