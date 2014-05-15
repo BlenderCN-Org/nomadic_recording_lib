@@ -3,12 +3,15 @@
 import os.path
 import argparse
 import urllib2
+import logging
+logging.basicConfig(filename=os.path.expanduser('~/.dyn_aws.log'), 
+                    level=logging.INFO,
+                    format='%(asctime)s\t%(levelname)s\t%(message)s')
 
 from boto.route53.connection import Route53Connection
 
 def LOG(*args):
-    for arg in args:
-        print arg
+    logging.info(' '.join([str(arg) for arg in args])
 
 class IPError(Exception):
     def __init__(self, value):
