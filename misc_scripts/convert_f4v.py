@@ -38,6 +38,9 @@ def build_avconv_str(**kwargs):
 
 def convert_file(**kwargs):
     kwargs = handle_filenames(**kwargs)
+    if os.path.exists(kwargs.get('outfile_full')) and not kwargs.get('overwrite'):
+        LOG('%s exists.. skipping' % (kwargs.get('outfile')))
+        return
     cmd_str = build_avconv_str(**kwargs)
     cmd_out = subprocess.check_output(cmd_str, shell=True)
     LOG(cmd_out)
@@ -65,6 +68,7 @@ def main():
     for arg in ['infile', 'inpath', 'outfile', 'outpath']:
         p.add_argument('--%s' % (arg), dest=arg)
     p.add_argument('--convert-dir', dest='convert_dir', action='store_true')
+    p.add_argument('--overwrite', dest='overwrite', action='store_true')
     args, remaining = p.parse_known_args()
     o = vars(args)
     if o.get('convert_dir'):
