@@ -72,6 +72,8 @@ def main():
     args, remaining = p.parse_known_args()
     o = vars(args)
     if o.get('convert_dir'):
+        if not o.get('inpath'):
+            o['inpath'] = os.getcwd()
         convert_dir(**o)
     else:
         convert_file(**o)
