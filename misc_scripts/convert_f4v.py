@@ -13,7 +13,9 @@ def handle_filenames(**kwargs):
     inpath = os.path.dirname(infile)
     infile = os.path.basename(infile)
     outfile = kwargs.get('outfile')
-    outext = kwargs.get('outext', 'mp4')
+    outext = kwargs.get('outext')
+    if not outext:
+        outext = 'mp4'
     if outfile is None:
         outfile = '.'.join([os.path.splitext(infile)[0], outext])
         outpath = kwargs.get('outpath')
@@ -36,20 +38,38 @@ def build_avconv_str(**kwargs):
     s = 'avconv -i "%(infile_full)s" -vcodec copy -acodec copy %(outfile_full)s'
     return s % (kwargs)
 
+
+class FilePreprocessor(object):
+    def __init__(self, **kwargs):
+        self.infile = kwargs.get('infile')
+        self.tempfn = '_temp'.join(os.path.splitext(self.infile))
+        self.cmd_str = 'f4vpp -i %s -o %s' % (self.infile, self.tempfn)
+    def __enter__(self, **kwargs):
+        cmd_out = subprocess.check_output(self.cmd_str, shell=True)
+        LOG(cmd_out)
+    def __exit__(self, *args, **kwargs):
+        os.remove(self.tempfn)
+    
 def convert_file(**kwargs):
     kwargs = handle_filenames(**kwargs)
     if os.path.exists(kwargs.get('outfile_full')) and not kwargs.get('overwrite'):
         LOG('%s exists.. skipping' % (kwargs.get('outfile')))
         return
-    cmd_str = build_avconv_str(**kwargs)
-    cmd_out = subprocess.check_output(cmd_str, shell=True)
-    LOG(cmd_out)
+    pre_proc = FilePreprocessor(**kwargs)
+    with pre_proc:
+        avkwargs = kwargs.copy()
+        avkwargs['infile'] = pre_proc.tempfn
+        cmd_str = build_avconv_str(**avkwargs)
+        cmd_out = subprocess.check_output(cmd_str, shell=True)
+        LOG(cmd_out)
     
 
 def convert_dir(**kwargs):
     inpath = kwargs.get('inpath')
     outpath = kwargs.get('outpath')
-    outext = kwargs.get('outext', 'mp4')
+    outext = kwargs.get('outext')
+    if not outext:
+        outext = 'mp4'
     if not outpath:
         outpath = inpath
     for fn in os.listdir(inpath):
@@ -65,7 +85,7 @@ def convert_dir(**kwargs):
 
 def main():
     p = argparse.ArgumentParser()
-    for arg in ['infile', 'inpath', 'outfile', 'outpath']:
+    for arg in ['infile', 'inpath', 'outfile', 'outpath', 'outext']:
         p.add_argument('--%s' % (arg), dest=arg)
     p.add_argument('--convert-dir', dest='convert_dir', action='store_true')
     p.add_argument('--overwrite', dest='overwrite', action='store_true')
@@ -76,7 +96,13 @@ def main():
             o['inpath'] = os.getcwd()
         convert_dir(**o)
     else:
-        convert_file(**o)
+        if o.get('infile') and ',' in o.get('infile'):
+            ckwargs = o.copy()
+            for infile in o['infile'].split(','):
+                ckwargs['infile'] = infile.strip()
+                convert_file(**ckwargs)
+        else:
+            convert_file(**o)
 
 if __name__ == '__main__':
     main()
