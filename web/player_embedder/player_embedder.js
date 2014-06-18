@@ -293,7 +293,7 @@
                 'poster': '',
                 'swf': data.swfUrl,
                 'expressInstallSwfUrl':data.expressInstallSwfUrl,
-                'minimumFlashPlayerVersion': '10.0.0',
+                'minimumFlashPlayerVersion': '9',
                 'javascriptCallbackFunction': 'playerEmbedder.strobeCallback',
             };
             var params = {
