@@ -45,10 +45,14 @@ class FilePreprocessor(object):
         self.tempfn = '_temp'.join(os.path.splitext(self.infile))
         self.cmd_str = 'f4vpp -i %s -o %s' % (self.infile, self.tempfn)
     def __enter__(self, **kwargs):
-        cmd_out = subprocess.check_output(self.cmd_str, shell=True)
-        LOG(cmd_out)
+        try:
+            cmd_out = subprocess.check_output(self.cmd_str, shell=True)
+            LOG(cmd_out)
+        except subprocess.CalledProcessError:
+            self.tempfn = self.infile
     def __exit__(self, *args, **kwargs):
-        os.remove(self.tempfn)
+        if self.tempfn != self.infile:
+            os.remove(self.tempfn)
     
 def convert_file(**kwargs):
     kwargs = handle_filenames(**kwargs)
