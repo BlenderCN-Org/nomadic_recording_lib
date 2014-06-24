@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-4.6.dtd">
 <!-- eric4 project file for project nomadic-recording-lib.eric5 -->
-<!-- Saved: 2014-06-24, 14:50:12 -->
+<!-- Saved: 2014-06-24, 15:50:47 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="4.6">
   <Language></Language>
@@ -182,6 +182,7 @@
     <Source>misc_scripts/engenius_controller/__init__.py</Source>
     <Source>misc_scripts/engenius_controller/cli_commands.py</Source>
     <Source>misc_scripts/engenius_controller/cli_messages.py</Source>
+    <Source>misc_scripts/engenius_controller/telnet_io.py</Source>
   </Sources>
   <Forms>
   </Forms>
