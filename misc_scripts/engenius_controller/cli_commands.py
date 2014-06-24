@@ -42,7 +42,10 @@ class BaseCommand(object):
         self.context = CommandContext(self)
         self._message_io = kwargs.get('message_io')
         self.is_root = self.parent is None
+        if self.is_root and self.exit_command is None:
+            self.exit_command = 'logout'
         self.children = []
+        self.children_by_cmd = {}
         for ckwargs in kwargs.get('children', []):
             self.add_child(**ckwargs)
     @classmethod
@@ -52,12 +55,28 @@ class BaseCommand(object):
             if isinstance(_cls, basestring):
                 _cls = BaseCommand._command_classes.get(_cls)
             cls = _cls
+        else:
+            cls = BaseCommand
         return cls(**kwargs)
     def add_child(self, **kwargs):
         kwargs['parent'] = self
         child = self.build_cmd(**kwargs)
         self.children.append(child)
+        self.children_by_cmd[child.command] = child
         return child
+    @property
+    def path(self):
+        p = getattr(self, '_path', None)
+        if p is not None:
+            return p
+        l = [self.command]
+        parent = self.parent
+        while parent is not None:
+            l.append(parent.command)
+            parent = parent.parent
+        l.reverse()
+        p = self._path = '/'.join(l)
+        return p
     @property
     def root(self):
         if self.is_root:
@@ -78,10 +97,28 @@ class BaseCommand(object):
         return prompt
     def get_prompt(self):
         return self.parent.prompt
+    def find_by_path(self, path):
+        if path == self.path:
+            return self
+        return self.root._find_by_path(path)
+    def _find_by_path(self, path):
+        if path == self.path:
+            return self
+        for child in self.children:
+            r = child._find_by_path(path)
+            if r is not None:
+                return r
+        return None
     def __call__(self):
         with self.context:
-            msg = self.message_io.build_tx(content=self.command + '\n', read_until=self.prompt)
-            valid = self.validate_response(msg)
+            if self.command is not None:
+                msg = self.message_io.build_tx(content=self.command + '\n', read_until=self.prompt)
+                valid = self.validate_response(msg)
+            elif self.prompt is not None:
+                msg = self.message_io.rx_fn(self.prompt)
+                valid = self.validate_response(msg)
+            else:
+                msg = None
             for child in self.children:
                 child()
             if self.exit_command is not None:
@@ -103,14 +140,36 @@ class BaseCommand(object):
         if self.prompt not in last_line:
             raise CLICommandInvalidResponseError(self)
         return True
+    def __str__(self):
+        return 'path: %s, active: %s, complete: %s, response: %s, exit: %s' % (self.path, 
+                                                                               self.context.active, 
+                                                                               self.context.complete, 
+                                                                               self.response_message, 
+                                                                               self.exit_message)
         
-class LoginCommand(BaseCommand):
+class AuthCommand(BaseCommand):
+    def __init__(self, **kwargs):
+        self.username = kwargs.get('username', 'admin')
+        self.password = kwargs.get('password', 'admin')
+        super(AuthCommand, self).__init__(**kwargs)
+        self.exit_command = None
+        self.add_child(cls=LoginCommand)
     def get_prompt(self):
         return 'login as: '
-class PasswordCommand(BaseCommand):
-    exit_command = 'logout'
+class LoginCommand(BaseCommand):
+    def __init__(self, **kwargs):
+        super(LoginCommand, self).__init__(**kwargs)
+        self.command = self.parent.username
+        self.add_child(cls=PasswordCommand)
     def get_prompt(self):
         return 'password: '
+class PasswordCommand(BaseCommand):
+    def __init__(self, **kwargs):
+        super(PasswordCommand, self).__init__(**kwargs)
+        self.command = self.root.password
+    def get_prompt(self):
+        return None
+    
 class MenuCommand(BaseCommand):
     exit_command = 'exit'
     def __init__(self, **kwargs):
@@ -119,4 +178,20 @@ class MenuCommand(BaseCommand):
         prompt = self.parent.prompt.rstrip('>')
         prompt = '/'.join([prompt, self.command])
         return prompt + '>'
-        
+    
+def build_tree(**kwargs):
+    auth = kwargs.get('auth')
+    model = kwargs.get('model')
+    commands = kwargs.get('commands')
+    message_io = kwargs.get('message_io')
+    auth_command = AuthCommand(username=auth['username'], 
+                               password=auth['password'], 
+                               message_io=message_io)
+    root_command = BaseCommand(prompt=model + '>', 
+                               message_io=message_io, 
+                               children=commands)
+    auth_command()
+    if auth_command.context.active:
+        root_command()
+        if not root_command.context.complete:
+            root_command.context.wait()

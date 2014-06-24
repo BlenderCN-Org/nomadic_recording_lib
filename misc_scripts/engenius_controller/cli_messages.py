@@ -30,6 +30,8 @@ class TXMessage(MessageBase):
             
             self.response = RXMessage(content=resp, message_io=self.message_io)
         self.reading.clear()
+    def __str__(self):
+        return self.content
         
 class MessageIO(object):
     def __init__(self, **kwargs):
