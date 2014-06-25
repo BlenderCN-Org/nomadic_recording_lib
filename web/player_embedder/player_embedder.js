@@ -24,6 +24,25 @@
                 //'_ROOTURL_STROBE_/jquery.strobemediaplayback.js',
             ],
         },
+        debugMode: false,
+        debugOutputFunction: null,
+        debug: function(){
+            if (!this.debugMode){
+                return;
+            }
+            if (typeof(this.firstDebugTimestamp) == 'undefined'){
+                this.firstDebugTimestamp = new Date();
+            }
+            var args = [new Date() - this.firstDebugTimestamp, 'playerEmbedder'];
+            $.each(arguments, function(i, arg){
+                args.push(arg);
+            });
+            if (this.debugOutputFunction){
+                this.debugOutputFunction(args);
+            } else {
+                console.log(args);
+            }
+        },
         formatLibUrl: function(url){
             var self = this;
             var replTxt = null;
@@ -42,9 +61,12 @@
             var cssComplete = false;
             var scriptsComplete = false;
             var loadedSources = $("body").data('player_embedder_sources_loaded');
+            self.debug('loading sources');
             if (typeof(loadedSources) == 'undefined'){
                 loadedSources = {};
                 $("body").data('player_embedder_sources_loaded', loadedSources);
+            } else {
+                self.debug('sources already loaded: ', loadedSources);
             }
             function loadCss(){
                 var numResponse = 0;
@@ -53,6 +75,7 @@
                     $("body").trigger('player_embedder_css_loaded');
                     return;
                 }
+                self.debug('loading css');
                 $.each(urls, function(i, url){
                     if (!url){
                         return;
@@ -76,6 +99,7 @@
                     $("body").trigger('player_embedder_scripts_loaded');
                     return;
                 }
+                self.debug('loading js');
                 $.each(urls, function(i, url){
                     if (!url){
                         return;
@@ -92,6 +116,7 @@
             function doComplete(){
                 loadedSources[libName] = true;
                 if (cssComplete && scriptsComplete){
+                    self.debug('all sources loaded');
                     $("body").trigger('player_embedder_sources_loaded');
                 }
             }
@@ -102,10 +127,12 @@
                 return;
             }
             $("body").one('player_embedder_css_loaded', function(){
+                self.debug('css loaded');
                 cssComplete = true;
                 doComplete();
             });
             $("body").one('player_embedder_scripts_loaded', function(){
+                self.debug('js loaded');
                 scriptsComplete = true;
                 doComplete();
             });
@@ -173,16 +200,20 @@
             return cdiv;
         },
         testHLSSupport: function(data){
+            this.debug('testing HLS capabilities');
             var result = false,
                 vidtag = $('<video></video>');
             try {
                 data.container.append(vidtag);
                 if (vidtag[0].canPlayType('application/vnd.apple.mpegurl') != ''){
                     result = true;
+                    this.debug('HLS supported');
                 } else {
+                    this.debug('HTML5 supported, but no HLS');
                     vidtag.remove();
                 }
             } catch(e) {
+                this.debug('HTML5 error:', e);
                 result = false;
             }
             return result;
@@ -207,8 +238,10 @@
             data = self.embedData(data);
             if (!data.size){
                 self.calcPlayerSize(data);
+                self.debug('calculated player size: ', data.size);
             }
             data.container.data('embedData', data);
+            self.debug('embedding now. data: ', data);
             embed_fn = self['doEmbed_' + data.embed_method];
             return embed_fn(data);
         },
@@ -216,7 +249,7 @@
             var self = playerEmbedder,
                 hlsSupported = self.testHLSSupport(data),
                 embed_fn;
-            
+
             if (hlsSupported){
                 data.embed_method = self.html5_embed_method;
                 embed_fn = self['doEmbed_' + data.embed_method];
@@ -319,14 +352,23 @@
             });
             embedData.push(flashVars, params, attrs, embedCallback);
             $("body").one('player_embedder_sources_loaded', function(){
-                var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId));
-                var player = $('<div id="ID"></div>'.replace('ID', data.playerId));
+                var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId)),
+                    player = $('<div id="ID"></div>'.replace('ID', data.playerId)),
+                    flashVer = swfobject.getFlashPlayerVersion(),
+                    flashVerStr = [];
+                $.each(['major', 'minor', 'release'], function(i, n){
+                    flashVerStr.push(n.toString());
+                });
+                flashVerStr = flashVerStr.join('.');
                 player.append(self.buildFallbackContent(data));
                 playerWrapper.append(player);
                 self.addPlayerClasses(playerWrapper, data);
                 data.container.append(playerWrapper);
+                self.debug('testing Flash version... ', flashVerStr);
+                self.debug('embedding via strobe. data: ', embedData);
                 swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
             });
+            self.debug('loading strobe sources');
             self.loadSources('strobe');
             return data
         },
@@ -441,7 +483,7 @@
     };
 
     playerEmbedder.strobeCallback = function(id, eventName, updatedProperties){
-
+        playerEmbedder.debug('strobe callback: ', id, eventName, updatedProperties);
     };
     window.playerEmbedder = playerEmbedder;
     $(document).trigger('playerEmbedderReady');
