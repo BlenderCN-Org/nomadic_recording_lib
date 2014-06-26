@@ -182,10 +182,19 @@
             player.addClass(data.playerClasses.join(' '));
         },
         buildFallbackContent: function(data){
-            var cdiv = $('<ul></ul>');
-            var ua = navigator.userAgent;
-            // detect desktop
-            if (typeof(window.orientation) == 'undefined'){
+            var cdiv = $('<ul></ul>'),
+                ua = navigator.userAgent,
+                isDesktop = false;
+            this.debug('building fallback content');
+            try {
+                if (typeof(window.orientation) == 'undefined'){
+                    isDesktop = true;
+                }
+            } catch(e) {
+                this.debug('window.orientation check failed: ');
+                this.debug(e);
+            }
+            if (isDesktop){
                 cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to Install Adobe Flash (Desktops)</a></li>');
             } else {
                 cdiv.append('<li><a href="URL" type="application/vnd.apple.mpegurl">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
@@ -197,6 +206,7 @@
             if (data.fallbackContentFunction){
                 cdiv = data.fallbackContentFunction(cdiv);
             }
+            this.debug('fallback content built');
             return cdiv;
         },
         testHLSSupport: function(data){
@@ -313,36 +323,36 @@
             return data
         },
         doEmbed_strobe: function(data){
-            var self = playerEmbedder;
-            var embedDataKeys = ['swf', 'id', 'width', 'height', 'minimumFlashPlayerVersion', 'expressInstallSwfUrl'];
-            var embedData = [];
-            var flashVars = {
-                'width': data.size[0],
-                'height': data.size[1],
-                'src': data.streamSrc.hds_url,
-                'autoPlay': true,
-                'loop': false,
-                'controlBarMode': 'docked',
-                'poster': '',
-                'swf': data.swfUrl,
-                'expressInstallSwfUrl':data.expressInstallSwfUrl,
-                'minimumFlashPlayerVersion': '9',
-                'javascriptCallbackFunction': 'playerEmbedder.strobeCallback',
-            };
-            var params = {
-                'allowFullScreen': 'true',
-                'wmode':'direct',
-            };
-            var attrs = {
-                'id': data.playerId,
-                'name': data.playerId,
-            };
-            var embedCallback = function(event){
-                if (event.success){
-                    data.player = $("#" + event.id);
-                    data.container.trigger('player_embed_complete');
-                }
-            };
+            var self = playerEmbedder,
+                embedDataKeys = ['swf', 'id', 'width', 'height', 'minimumFlashPlayerVersion', 'expressInstallSwfUrl'],
+                embedData = [],
+                flashVars = {
+                    'width': data.size[0],
+                    'height': data.size[1],
+                    'src': data.streamSrc.hds_url,
+                    'autoPlay': true,
+                    'loop': false,
+                    'controlBarMode': 'docked',
+                    'poster': '',
+                    'swf': data.swfUrl,
+                    'expressInstallSwfUrl':data.expressInstallSwfUrl,
+                    'minimumFlashPlayerVersion': '9',
+                    'javascriptCallbackFunction': 'playerEmbedder.strobeCallback',
+                },
+                params = {
+                    'allowFullScreen': 'true',
+                    'wmode':'direct',
+                },
+                attrs = {
+                    'id': data.playerId,
+                    'name': data.playerId,
+                },
+                embedCallback = function(event){
+                    if (event.success){
+                        data.player = $("#" + event.id);
+                        data.container.trigger('player_embed_complete');
+                    }
+                };
             $.each(embedDataKeys, function(i, key){
                 var val = flashVars[key];
                 if (typeof(val) == 'undefined'){
@@ -352,25 +362,28 @@
             });
             embedData.push(flashVars, params, attrs, embedCallback);
             $("body").one('player_embedder_sources_loaded', function(){
+                self.debug('beginning swfobject embed');
                 var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId)),
                     player = $('<div id="ID"></div>'.replace('ID', data.playerId)),
-                    flashVer = swfobject.getFlashPlayerVersion(),
+                    flashVer,
                     flashVerStr = [];
+                player.append(self.buildFallbackContent(data));
+                self.debug('testing Flash version...');
+                flashVer = swfobject.getFlashPlayerVersion(),
                 $.each(['major', 'minor', 'release'], function(i, n){
-                    flashVerStr.push(n.toString());
+                    flashVerStr.push(flashVer[n].toString());
                 });
                 flashVerStr = flashVerStr.join('.');
-                player.append(self.buildFallbackContent(data));
+                self.debug('Flash version: ', flashVerStr);
                 playerWrapper.append(player);
                 self.addPlayerClasses(playerWrapper, data);
                 data.container.append(playerWrapper);
-                self.debug('testing Flash version... ', flashVerStr);
                 self.debug('embedding via strobe. data: ', embedData);
                 swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
             });
             self.debug('loading strobe sources');
             self.loadSources('strobe');
-            return data
+            return data;
         },
         doResize: function(container, newSize){
             var self = this;
