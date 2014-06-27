@@ -378,6 +378,7 @@
                     var player = $('<div></div>');
                     player.attr('id', data.playerId);
                     player.append(self.buildFallbackContent(data));
+                    playerWrapper.append(player);
                     data.container.append(playerWrapper);
                     swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
                 };
