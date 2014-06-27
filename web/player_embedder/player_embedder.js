@@ -353,6 +353,34 @@
                         data.container.trigger('player_embed_complete');
                     }
                 };
+                embedStatic = function(playerWrapper){
+                    self.debug('embedding using static method (PS3)');
+                    var player = $('<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"></object>');
+                    player.attr({'id': data.playerId, 'width': data.size[0], 'height': data.size[1]});
+                    params.movie = flashVars.swf;
+                    params.flashvars = flashVars;
+                    $.each(params, function(key, val){
+                        if (key == 'flashvars'){
+                            val = $.param(val);
+                        } else {
+                            val = val.toString();
+                        }
+                        player.append('<param name="KEY" value="VAL" />'.replace('KEY', key).replace('VAL', val));
+                    });
+                    player.append(self.buildFallbackContent(data);
+                    playerWrapper.append(player);
+                    data.container.append(playerWrapper);
+                    self.debug('static content built... registering with swfobject');
+                    swfobject.registerObject(data.playerId, flashVars.minimumFlashPlayerVersion);
+                },
+                embedDynamic = function(playerWrapper){
+                    self.debug('embedding using dynamic method');
+                    var player = $('<div></div>');
+                    player.attr('id', data.playerId);
+                    player.append(self.buildFallbackContent(data);
+                    data.container.append(playerWrapper);
+                    swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
+                };
             $.each(embedDataKeys, function(i, key){
                 var val = flashVars[key];
                 if (typeof(val) == 'undefined'){
@@ -364,10 +392,8 @@
             $("body").one('player_embedder_sources_loaded', function(){
                 self.debug('beginning swfobject embed');
                 var playerWrapper = $('<div id="ID-wrapper"></div>'.replace('ID', data.playerId)),
-                    player = $('<div id="ID"></div>'.replace('ID', data.playerId)),
                     flashVer,
                     flashVerStr = [];
-                player.append(self.buildFallbackContent(data));
                 self.debug('testing Flash version...');
                 flashVer = swfobject.getFlashPlayerVersion(),
                 $.each(['major', 'minor', 'release'], function(i, n){
@@ -375,11 +401,12 @@
                 });
                 flashVerStr = flashVerStr.join('.');
                 self.debug('Flash version: ', flashVerStr);
-                playerWrapper.append(player);
                 self.addPlayerClasses(playerWrapper, data);
-                data.container.append(playerWrapper);
-                self.debug('embedding via strobe. data: ', embedData);
-                swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
+                if (navigator.userAgent.search('PLAYSTATION') != -1){
+                    embedStatic(playerWrapper);
+                } else {
+                    embedDynamic(playerWrapper);
+                }
             });
             self.debug('loading strobe sources');
             self.loadSources('strobe');
