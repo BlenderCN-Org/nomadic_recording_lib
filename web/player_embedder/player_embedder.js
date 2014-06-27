@@ -367,7 +367,7 @@
                         }
                         player.append('<param name="KEY" value="VAL" />'.replace('KEY', key).replace('VAL', val));
                     });
-                    player.append(self.buildFallbackContent(data);
+                    player.append(self.buildFallbackContent(data));
                     playerWrapper.append(player);
                     data.container.append(playerWrapper);
                     self.debug('static content built... registering with swfobject');
@@ -377,7 +377,7 @@
                     self.debug('embedding using dynamic method');
                     var player = $('<div></div>');
                     player.attr('id', data.playerId);
-                    player.append(self.buildFallbackContent(data);
+                    player.append(self.buildFallbackContent(data));
                     data.container.append(playerWrapper);
                     swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
                 };
