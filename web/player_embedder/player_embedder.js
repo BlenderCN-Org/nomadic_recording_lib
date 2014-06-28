@@ -355,19 +355,26 @@
                 };
                 embedStatic = function(playerWrapper){
                     self.debug('embedding using static method (PS3)');
-                    var player = $('<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"></object>');
+                    var player = $('<object classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"></object>'),
+                        innerObj = $('<object type="application/x-shockwave-flash"></object>');
                     player.attr({'id': data.playerId, 'width': data.size[0], 'height': data.size[1]});
                     params.movie = flashVars.swf;
                     params.flashvars = flashVars;
-                    $.each(params, function(key, val){
-                        if (key == 'flashvars'){
-                            val = $.param(val);
-                        } else {
-                            val = val.toString();
-                        }
-                        player.append('<param name="KEY" value="VAL" />'.replace('KEY', key).replace('VAL', val));
-                    });
-                    player.append(self.buildFallbackContent(data));
+                    function buildParams($objElem){
+                        $.each(params, function(key, val){
+                            if (key == 'flashvars'){
+                                val = $.param(val);
+                            } else {
+                                val = val.toString();
+                            }
+                            $objElem.append('<param name="KEY" value="VAL" />'.replace('KEY', key).replace('VAL', val));
+                        });
+                    };
+                    buildParams(player);
+                    innerObj.attr({'data':flashVars.swf, 'width':data.size[0], 'height':data.size[1]});
+                    player.append(innerObj);
+                    buildParams(innerObj);
+                    innerObj.append(self.buildFallbackContent(data));
                     playerWrapper.append(player);
                     data.container.append(playerWrapper);
                     self.debug('static content built... registering with swfobject');
