@@ -16,14 +16,12 @@
 
 import time
 import datetime
-import threading
 
 from Bases import BaseObject, ChildGroup, Config, Scheduler
 from ..BaseIO import BaseIO
 
 from mapper import MidiMapper
 import messages
-from midi_osc import MidiOSCRoot
 
 class MidiIO(BaseIO, Config):
     _confsection = 'MIDI'
@@ -32,12 +30,13 @@ class MidiIO(BaseIO, Config):
         Config.__init__(self, **kwargs)
         self.comm = kwargs.get('comm')
         self.register_signal('msg_received', 'msg_sent')
+        self.time_scale = self.get_time_scale()
         self.detected_inputs = ChildGroup(name='Inputs')
         self.detected_outputs = ChildGroup(name='Outputs')
         self.dev_info = {'in':self.detected_inputs, 
                          'out':self.detected_outputs}
         self.devices = {}
-        for key, cls in self.io_device_classes.iteritems():
+        for key, cls in self.get_io_device_classes().iteritems():
             self.devices[key] = ChildGroup(name=key, child_class=cls)
         
         self.init_module()
@@ -104,9 +103,8 @@ class MidiIO(BaseIO, Config):
         self.connected = False
         
     def update_devices(self):
-        infoList = self.get_info()
-        for i, info in enumerate(infoList):
-            dev = DeviceInfo(Index=i, info=info)
+        for dev_info in self.get_info():
+            dev = DeviceInfo(**dev_info)
             self.dev_info[dev.type].add_child(existing_object=dev)
             dev.bind(active=self.on_dev_info_active_set)
         
@@ -175,25 +173,56 @@ class MidiIO(BaseIO, Config):
         
     def on_msg_sent(self, **kwargs):
         self.emit('msg_sent', **kwargs)
+    
+    def init_module(self):
+        '''
+        subclasses may use this to perform any initialization necessary
+        '''
+        pass
+        
+    def get_time_scale(self):
+        '''
+        subclasses may override the time scale (default is milliseconds)
+        '''
+        return 1000.
+        
+    def get_io_device_classes(self):
+        '''
+        subclasses must return a dict containing:
+            {'in':[midi input class], 'out':[midi output class]}
+        '''
+        raise NotImplementedError('method must be defined by subclass')
+        
+    def get_info(self, *args, **kwargs):
+        '''
+        subclasses must return a sequence of dicts to initialize the DeviceInfo class.
+            interface: (midi subsystem name)
+            name: name of the device
+            type: either "in" or "out"
+            open: (bool) whether the device is currently opened by the system
+            id: 
+        '''
+        raise NotImplementedError('method must be defined by subclass')
+        
+    def get_module_time(self):
+        '''
+        subclasses must return the current timestamp from the midi subsystem
+        '''
+        raise NotImplementedError('method must be defined by subclass')
         
 class DeviceInfo(BaseObject):
     _Properties = {'name':dict(type=str), 
+                   'type':dict(type=str, entries=['in', 'out']), 
                    'active':dict(default=False)}
     _SettingsProperties = ['Index', 'name', 'active']
     def __init__(self, **kwargs):
         super(DeviceInfo, self).__init__(**kwargs)
         self.register_signal('state_changed')
-        #self.index = index
-        info = kwargs.get('info')
-        keys = ['interf', 'name', 'ins', 'outs', 'open']
-        for x, key in enumerate(keys):
-            setattr(self, key, info[x])
-        self.type = None
-        if self.ins > 0:
-            self.type = 'in'
-        elif self.outs > 0:
-            self.type = 'out'
-        self.id = self.name
+        self.interface = kwargs.get('interface')
+        self.name = kwargs.get('name')
+        self.type = kwargs.get('type')
+        self.open = kwargs.get('open')
+        self.id = kwargs.get('id', self.name)
     @property
     def index(self):
         return self.Index

@@ -15,7 +15,6 @@
 # Copyright (c) 2011 Matthew Reid
 
 import sys
-import threading
 import select
 import tempfile
 
@@ -43,22 +42,26 @@ class pypmMidiIO(MidiIO):
     There is also a PPA with Ubuntu builds here:
     https://launchpad.net/~frasten/+archive/ppa
     '''
-    def __init__(self, **kwargs):
-        self.io_device_classes = {'in':pypmMidiIn, 'out':pypmMidiOut}
-        self.time_scale = 1000.
-        super(pypmMidiIO, self).__init__(**kwargs)
-        
     def init_module(self):
         pyportmidi.Initialize()
+        
+    def get_io_device_classes(self):
+        return {'in':pypmMidiIn, 'out':pypmMidiOut}
         
     def get_module_time(self):
         return pyportmidi.Time()
         
     def get_info(self):
-        l = []
+        info_keys = ['interface', 'name', 'ins', 'outs', 'open']
         for i in range(pyportmidi.CountDevices()):
-            l.append(pyportmidi.GetDeviceInfo(i))
-        return l
+            info_list = pyportmidi.GetDeviceInfo(i)
+            info_dict = dict(zip(info_keys, info_list))
+            if info_dict['ins']:
+                info_dict['type'] = 'in'
+            else:
+                info_dict['type'] = 'out'
+            info_dict['Index'] = i
+            yield info_dict
 
 class pypmMidiIn(MidiIn):
     def build_device(self, **kwargs):
@@ -162,7 +165,7 @@ class Listener(BaseThread):
     def process_message(self, data):
         #print data
         try:
-            msg = self.device.parse_midi_message(data=data[0], timestamp=data[1])
+            self.device.parse_midi_message(data=data[0], timestamp=data[1])
             #print 'msgdata: ', msg.build_data()
         except:
             self.LOG.warning(sys.exc_info())
