@@ -1,3 +1,4 @@
+import time
 import rtmidi_python as rtmidi
 
 
@@ -6,6 +7,8 @@ from midi_io import MidiIO, MidiIn, MidiOut
 class rtmMidiIO(MidiIO):
     def get_io_device_classes(self):
         return {'in':rtmMidiIn, 'out':rtmMidiOut}
+    def get_module_time(self):
+        return time.time()
     def get_info(self):
         d = {'in':rtmidi.MidiIn(), 'out':rtmidi.MidiOut()}
         i = 0
@@ -36,7 +39,6 @@ class rtmMidiOut(MidiOut):
         
     def send(self, **kwargs):
         data = kwargs.get('data')
-        timestamp = kwargs.get('timestamp', 0)
         sysex = kwargs.get('sysex')
         if not self.state:
             return
