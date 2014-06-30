@@ -196,7 +196,7 @@
             }
             if (isDesktop){
                 cdiv.append('<li><p>Flash Player plugin either not installed or out of date.</p></li>');
-                cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to update or install Flash</a></li>');
+                cdiv.append('<li><a href="//www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to update or install Flash</a></li>');
             } else {
                 cdiv.append('<li><a href="URL" type="application/vnd.apple.mpegurl">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
             }
@@ -206,6 +206,24 @@
             }
             if (data.fallbackContentFunction){
                 cdiv = data.fallbackContentFunction(cdiv);
+            } else {
+                data.container.one('player_embed_complete', function(){
+                    $("a", cdiv).each(function(){
+                        var $this = $(this),
+                            s = $this.attr('href'),
+                            firstUnicodeChar;
+                        for (i=1; i<s.length; i++){
+                            if (s.charCodeAt(i) > 255){
+                                firstUnicodeChar = i;
+                                break;
+                            }
+                        }
+                        if (firstUnicodeChar){
+                            s = s.slice(0, firstUnicodeChar);
+                            $this.attr('href', s);
+                        }
+                    });
+                });
             }
             this.debug('fallback content built');
             return cdiv;
@@ -351,8 +369,8 @@
                 embedCallback = function(event){
                     if (event.success){
                         data.player = $("#" + event.id);
-                        data.container.trigger('player_embed_complete');
                     }
+                    data.container.trigger('player_embed_complete');
                 };
                 embedStatic = function(playerWrapper){
                     self.debug('embedding using static method (PS3)');
