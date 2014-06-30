@@ -182,7 +182,7 @@
             player.addClass(data.playerClasses.join(' '));
         },
         buildFallbackContent: function(data){
-            var cdiv = $('<ul></ul>'),
+            var cdiv = $('<ul style="margin-top:25%;text-align:center;font-size:1.5em;"></ul>'),
                 ua = navigator.userAgent,
                 isDesktop = false;
             this.debug('building fallback content');
@@ -195,7 +195,8 @@
                 this.debug(e);
             }
             if (isDesktop){
-                cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to Install Adobe Flash (Desktops)</a></li>');
+                cdiv.append('<li><p>Flash Player plugin either not installed or out of date.</p></li>');
+                cdiv.append('<li><a href="http://www.adobe.com/software/flash/about/‎" taget="_blank">Click Here to update or install Flash</a></li>');
             } else {
                 cdiv.append('<li><a href="URL" type="application/vnd.apple.mpegurl">Click here to open in your mobile device</a></li>'.replace('URL', data.streamSrc.hls_url));
             }
