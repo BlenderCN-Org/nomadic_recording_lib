@@ -427,12 +427,19 @@
                     flashVer,
                     flashVerStr = [];
                 self.debug('testing Flash version...');
-                flashVer = swfobject.getFlashPlayerVersion(),
-                $.each(['major', 'minor', 'release'], function(i, n){
-                    flashVerStr.push(flashVer[n].toString());
-                });
-                flashVerStr = flashVerStr.join('.');
-                self.debug('Flash version: ', flashVerStr);
+                try {
+                    flashVer = swfobject.getFlashPlayerVersion();
+                } catch(e) {
+                    self.debug('Flash detection error: ', e);
+                    flashVer = null;
+                }
+                if (flashVer){
+                    $.each(['major', 'minor', 'release'], function(i, n){
+                        flashVerStr.push(flashVer[n].toString());
+                    });
+                    flashVerStr = flashVerStr.join('.');
+                    self.debug('Flash version: ', flashVerStr);
+                }
                 self.addPlayerClasses(playerWrapper, data);
                 if (navigator.userAgent.search('PLAYSTATION') != -1){
                     embedStatic(playerWrapper);
