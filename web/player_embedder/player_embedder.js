@@ -402,7 +402,11 @@
                     playerWrapper.append(player);
                     data.container.append(playerWrapper);
                     self.debug('static content built... registering with swfobject');
-                    swfobject.registerObject(data.playerId, flashVars.minimumFlashPlayerVersion);
+                    try {
+                        swfobject.registerObject(data.playerId, flashVars.minimumFlashPlayerVersion);
+                    } catch(e) {
+                        self.debug('swfobject error: ', e);
+                    }
                 },
                 embedDynamic = function(playerWrapper){
                     self.debug('embedding using dynamic method');
@@ -411,7 +415,11 @@
                     player.append(self.buildFallbackContent(data));
                     playerWrapper.append(player);
                     data.container.append(playerWrapper);
-                    swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
+                    try {
+                        swfobject.embedSWF.apply(swfobject.embedSWF, embedData);
+                    } catch(e) {
+                        self.debug('swfobject error: ', e);
+                    }
                 };
             $.each(embedDataKeys, function(i, key){
                 var val = flashVars[key];
