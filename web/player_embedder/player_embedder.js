@@ -26,6 +26,8 @@
         },
         debugMode: false,
         debugOutputFunction: null,
+        debugSaveDataEnable: false,
+        debugData: [],
         debug: function(){
             if (!this.debugMode){
                 return;
@@ -37,10 +39,13 @@
             $.each(arguments, function(i, arg){
                 args.push(arg);
             });
-            if (this.debugOutputFunction){
-                this.debugOutputFunction(args);
-            } else {
+            if (this.debugOutputFunction == 'console'){
                 console.log(args);
+            } else if (this.debugOutputFunction){
+                this.debugOutputFunction(args);
+            }
+            if (this.debugSaveDataEnable){
+                this.debugData.push(args);
             }
         },
         formatLibUrl: function(url){
