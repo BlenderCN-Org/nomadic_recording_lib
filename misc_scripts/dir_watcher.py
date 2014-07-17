@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import time
+import weakref
 import os.path
 import argparse
 
@@ -18,7 +19,64 @@ def LOG(*args):
     line = '%013.6f - %s\n' % (ts, ' '.join([str(arg) for arg in args]))
     with open(LOG_FILENAME, 'a') as f:
         f.write(line)
-    
+
+class Signal(object):
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')
+        self.parent = kwargs.get('parent')
+        self.value = kwargs.get('value')
+        self.listeners = weakref.WeakValueDictionary()
+    def bind(self, method):
+        obj_id = id(method.im_self)
+        wrkey = (method.im_func, obj_id)
+        self.listeners[wrkey] = method.im_self
+    def emit(self, **kwargs):
+        kwargs['signal'] = self
+        listeners = self.listeners
+        for key in listeners.keys()[:]:
+            f, obj_id = key
+            obj = listeners.get(key)
+            if obj is None:
+                continue
+            r = f(obj, **kwargs)
+            if r is False:
+                del listeners[key]
+class WatchedFile(object):
+    def __init__(self, **kwargs):
+        self.filename = kwargs.get('filename')
+        self.dirname = kwargs.get('dirname')
+        self.ready = Signal(name='ready', parent=self, value=False)
+    def set_ready(self):
+        if self.ready.value:
+            return
+        self.ready.value = True
+        self.ready.emit()
+class WatchedDir(object):
+    def __init__(self, **kwargs):
+        self.dirname = kwargs.get('dirname')
+        self.new_file = Signal(name='new_file', parent=self)
+        self.file_ready = Signal(name='file_ready', parent=self)
+        self.files = {}
+    def add_file(self, filename):
+        if filename in self.files:
+            return
+        f = WatchedFile(filename=filename, dirname=self.dirname)
+        f.ready.bind(self.on_file_ready)
+        self.files[filename] = f
+    def set_file_ready(self, filename):
+        if filename not in self.files:
+            self.add_file(filename)
+        self.files[filename].set_ready()
+    def on_file_ready(self, **kwargs):
+        s = kwargs.get('signal')
+        self.file_ready.emit(file=s.parent)
+    def handle_event(self, event):
+        if event.path != self.dirname:
+            return
+        if event.mask == pyinotify.IN_CREATE:
+            self.add_file(event.name)
+        elif event.mask == pyinotify.IN_CLOSE_WRITE:
+            self.set_file_ready(event.name)
 
 class EventHandler(pyinotify.ProcessEvent):
     def my_init(self, **kwargs):
@@ -55,6 +113,9 @@ def build_notifier(**kwargs):
         notifier.loop()
     else:
         return {'handler':handler, 'notifier':notifier}
+    
+def watch_dir(dirname):
+    pass
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
