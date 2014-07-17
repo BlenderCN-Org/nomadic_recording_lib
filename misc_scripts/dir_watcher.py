@@ -95,6 +95,34 @@ def build_mask(*args):
         mask |= arg
     return mask
     
+class Notifier(object):
+    def __init__(self, **kwargs):
+        self.wm = pyinotify.WatchManager()
+        self.mask = kwargs.get('mask', 0)
+        events = kwargs.get('events')
+        if events:
+            if type(events) not in [list, tuple, set]:
+                events = [events]
+            self.mask |= build_mask(*events)
+        self.path = kwargs.get('path')
+        self.callback = kwargs.get('callback')
+        self.handler = EventHandler(callback=self.callback)
+        self.notifier = self.build_notifier()
+        self.wm.add_watch(self.path, self.mask)
+    def build_notifier(self):
+        return pyinotify.Notifier(self.wm, self.handler)
+    def run(self):
+        self.notifier.loop()
+    def stop(self):
+        self.notifier.stop()
+class ThreadedNotifier(Notifier):
+    def build_notifier(self):
+        n = pyinotify.ThreadedNotifier(self.wm, self.handler)
+        n.start()
+        return n
+    def run(self):
+        pass
+    
 def build_notifier(**kwargs):
     wm = pyinotify.WatchManager()
     mask = kwargs.get('mask', 0)
