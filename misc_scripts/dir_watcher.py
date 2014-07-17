@@ -21,30 +21,56 @@ def LOG(*args):
     
 
 class EventHandler(pyinotify.ProcessEvent):
+    def my_init(self, **kwargs):
+        self.callback = kwargs.get('callback')
     def process_default(self, event):
-        LOG(repr(event))
+        cb = self.callback
+        if cb is None:
+            return
+        cb(event)
 
-def loop_callback(wm):
-    LOG('loop')
-
+def build_mask(*args):
+    mask = 0
+    for arg in args:
+        if isinstance(arg, basestring):
+            arg = getattr(pyinotify, arg)
+        mask |= arg
+    return mask
+    
 def build_notifier(**kwargs):
     wm = pyinotify.WatchManager()
-    mask = kwargs.get('mask')
+    mask = kwargs.get('mask', 0)
+    events = kwargs.get('events')
+    if events:
+        if type(events) not in [list, tuple, set]:
+            events = [events]
+        mask |= build_mask(*events)
     path = kwargs.get('path')
-    handler = EventHandler()
+    callback = kwargs.get('callback')
+    run_loop = kwargs.get('run_loop', True)
+    handler = EventHandler(callback=callback)
     notifier = pyinotify.Notifier(wm, handler)
-    wdd = wm.add_watch(path, mask)
-    notifier.loop(callback=loop_callback)
+    wm.add_watch(path, mask)
+    if run_loop:
+        notifier.loop()
+    else:
+        return {'handler':handler, 'notifier':notifier}
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
     p.add_argument('-p', dest='path')
     p.add_argument('--logfile', dest='logfile')
+    p.add_argument('-e', dest='events', action='append')
     args, remaining = p.parse_known_args()
     o = vars(args)
     if not o.get('path'):
         o['path'] = os.getcwd()
     if o.get('logfile'):
         LOG_FILENAME = o['logfile']
-    o['mask'] = pyinotify.ALL_EVENTS
+    if not o.get('events'):
+        o['events'] = 'IN_CLOSE_WRITE'
+    mask = 0
+    for event in o['events']:
+        mask |= getattr(pyinotify, event)
+    o['mask'] = mask
     build_notifier(**o)

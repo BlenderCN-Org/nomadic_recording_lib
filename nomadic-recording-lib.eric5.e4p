@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric5 project file for project nomadic-recording-lib.eric5 -->
-<!-- Saved: 2014-06-30, 10:59:05 -->
+<!-- Saved: 2014-07-17, 11:25:35 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -186,6 +186,7 @@
     <Source>misc_scripts/engenius_controller/cli_messages.py</Source>
     <Source>misc_scripts/engenius_controller/telnet_io.py</Source>
     <Source>misc_scripts/convert_f4v.py</Source>
+    <Source>misc_scripts/dir_watcher.py</Source>
   </Sources>
   <Forms/>
   <Translations/>
