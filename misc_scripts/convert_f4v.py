@@ -58,14 +58,19 @@ def convert_file(**kwargs):
     kwargs = handle_filenames(**kwargs)
     if os.path.exists(kwargs.get('outfile_full')) and not kwargs.get('overwrite'):
         LOG('%s exists.. skipping' % (kwargs.get('outfile')))
-        return
+        return False
     pre_proc = FilePreprocessor(**kwargs)
     with pre_proc:
         avkwargs = kwargs.copy()
         avkwargs['infile'] = pre_proc.tempfn
         cmd_str = build_avconv_str(**avkwargs)
-        cmd_out = subprocess.check_output(cmd_str, shell=True)
-        LOG(cmd_out)
+        try:
+            cmd_out = subprocess.check_output(cmd_str, shell=True)
+            LOG(cmd_out)
+            r = True
+        except subprocess.CalledProcessError:
+            r = False
+        return r
     
 
 def convert_dir(**kwargs):
