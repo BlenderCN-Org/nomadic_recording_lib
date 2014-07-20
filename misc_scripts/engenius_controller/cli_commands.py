@@ -113,10 +113,10 @@ class BaseCommand(object):
         with self.context:
             if self.command is not None:
                 msg = self.message_io.build_tx(content=self.command + '\n', read_until=self.prompt)
-                valid = self.validate_response(msg)
+                self.validate_response(msg)
             elif self.prompt is not None:
                 msg = self.message_io.rx_fn(self.prompt)
-                valid = self.validate_response(msg)
+                self.validate_response(msg)
             else:
                 msg = None
             for child in self.children:
@@ -190,8 +190,11 @@ def build_tree(**kwargs):
     root_command = BaseCommand(prompt=model + '>', 
                                message_io=message_io, 
                                children=commands)
-    auth_command()
-    if auth_command.context.active:
-        root_command()
-        if not root_command.context.complete:
-            root_command.context.wait()
+    if kwargs.get('threaded'):
+        return {'auth':auth_command, 'root':root_command}
+    else:
+        auth_command()
+        if auth_command.context.active:
+            root_command()
+            if not root_command.context.complete:
+                root_command.context.wait()
