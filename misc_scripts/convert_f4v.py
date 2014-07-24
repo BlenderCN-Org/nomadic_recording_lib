@@ -35,7 +35,9 @@ def handle_filenames(**kwargs):
     return kwargs
 
 def build_avconv_str(**kwargs):
-    s = 'avconv -i "%(infile_full)s" -vcodec copy -acodec copy %(outfile_full)s'
+    kwargs.setdefault('libav_opts', '-vcodec copy -acodec copy')
+    kwargs['libav_opts'] = kwargs.get('libav_opts')
+    s = 'avconv -i "%(infile_full)s" %(libav_opts)s %(outfile_full)s'
     return s % (kwargs)
 
 
