@@ -58,9 +58,12 @@ class FilePreprocessor(object):
     
 def convert_file(**kwargs):
     kwargs = handle_filenames(**kwargs)
+    def handle_return(r, **rkwargs):
+        if rkwargs.get('return_outfile'):
+            return r, rkwargs['outfile_full']
     if os.path.exists(kwargs.get('outfile_full')) and not kwargs.get('overwrite'):
         LOG('%s exists.. skipping' % (kwargs.get('outfile')))
-        return False
+        return handle_return(False, **kwargs)
     pre_proc = FilePreprocessor(**kwargs)
     with pre_proc:
         avkwargs = kwargs.copy()
@@ -72,7 +75,7 @@ def convert_file(**kwargs):
             r = True
         except subprocess.CalledProcessError:
             r = False
-        return r
+        return handle_return(r, **avkwargs)
     
 
 def convert_dir(**kwargs):
