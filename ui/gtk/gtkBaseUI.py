@@ -12,6 +12,7 @@ class Application(BaseUI.Application):
         if self.GLOBAL_CONFIG['gtk_version'] >= 3:
             self.app_flags = gio.ApplicationFlags(0)
             self._application = gtk.Application.new(self.app_id, self.app_flags)
+            self._application.register()
         else:
             self._application = None
     
