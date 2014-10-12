@@ -37,8 +37,10 @@ class BaseCommand(object):
         self.command = command
         exit_command = kwargs.get('exit_command', getattr(self, 'exit_command', None))
         self.exit_command = exit_command
+        self._response_data = None
         self._prompt = kwargs.get('prompt')
         self.parent = kwargs.get('parent')
+        self.response_data_callback = kwargs.get('response_data_callback')
         self.context = CommandContext(self)
         self._message_io = kwargs.get('message_io')
         self.is_root = self.parent is None
@@ -95,6 +97,19 @@ class BaseCommand(object):
             return prompt
         prompt = self._prompt = self.get_prompt()
         return prompt
+    @property
+    def response_data(self):
+        return self._response_data
+    @response_data.setter
+    def response_data(self, value):
+        if value == self._response_data:
+            return
+        if value is None:
+            return
+        self._response_data = value
+        r = self.root
+        if r.response_data_callback is not None:
+            r.response_data_callback(obj=self, response_data=value)
     def get_prompt(self):
         return self.parent.prompt
     def find_by_path(self, path):
@@ -132,7 +147,10 @@ class BaseCommand(object):
             else:
                 exit_msg = None
             self.response_message = msg
+            self.response_data = self.parse_response_data(msg)
             self.exit_message = exit_msg
+    def parse_response_data(self, msg):
+        return False
     def validate_response(self, msg):
         if msg is None:
             raise CLICommandNoResponseError(self)
@@ -180,16 +198,23 @@ class MenuCommand(BaseCommand):
         return prompt + '>'
     
 def build_tree(**kwargs):
+    response_data = {}
+    def _response_data_callback(**kwargs):
+        response_data[kwargs.get('obj').path] = kwargs.get('response_data')
     auth = kwargs.get('auth')
     model = kwargs.get('model')
     commands = kwargs.get('commands')
     message_io = kwargs.get('message_io')
+    response_data_callback = kwargs.get('response_data_callback')
+    if response_data_callback is None:
+        response_data_callback = _response_data_callback
     auth_command = AuthCommand(username=auth['username'], 
                                password=auth['password'], 
                                message_io=message_io)
     root_command = BaseCommand(prompt=model + '>', 
                                message_io=message_io, 
-                               children=commands)
+                               children=commands, 
+                               response_data_callback=response_data_callback)
     if kwargs.get('threaded'):
         return {'auth':auth_command, 'root':root_command}
     else:
@@ -198,3 +223,4 @@ def build_tree(**kwargs):
             root_command()
             if not root_command.context.complete:
                 root_command.context.wait()
+    return response_data
