@@ -1,4 +1,5 @@
 import json
+from cli_commands import BaseCommand
 
 def iterbases(obj, lastclass='object'):
     if type(lastclass) == type:
@@ -125,13 +126,18 @@ class RootConf(ConfBase):
 class EAP350(APConf):
     def do_init(self, **kwargs):
         self['model'] = 'eap350'
+class UptimeCommand(BaseCommand):
+    command = 'sysuptime'
+    def parse_response_data(self, msg):
+        s = msg.split('up ')[1].split(' days')[0]
+        return int(s)
 class EAP350GetUptime(EAP350):
     def do_init(self, **kwrags):
         cmds = self['commands']
         stat = cmds.append({'command':'stat'})
-        
-        
-        
+        info = stat.append({'command':'info'})
+        info.append({'cls':UptimeCommand, 
+                     'response_data_callback':self.on_uptime_response})
     
 def parse_conf(filename):
     with open(filename, 'r') as f:

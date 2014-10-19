@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric5 project file for project nomadic-recording-lib.eric5 -->
+<<<<<<< HEAD
 <!-- Saved: 2014-10-19, 14:55:08 -->
+=======
+<!-- Saved: 2014-10-12, 13:02:20 -->
+>>>>>>> 3e5b6d4acf1ba3e91c972f284ef2dcaa75e908c6
 <!-- Copyright (C) 2014 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -187,7 +191,11 @@
     <Source>misc_scripts/engenius_controller/telnet_io.py</Source>
     <Source>misc_scripts/convert_f4v.py</Source>
     <Source>misc_scripts/dir_watcher.py</Source>
+<<<<<<< HEAD
     <Source>misc_scripts/freemind_parser.py</Source>
+=======
+    <Source>misc_scripts/engenius_controller/conf.py</Source>
+>>>>>>> 3e5b6d4acf1ba3e91c972f284ef2dcaa75e908c6
   </Sources>
   <Forms/>
   <Translations/>
