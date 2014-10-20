@@ -1,4 +1,5 @@
 import datetime
+import json
 import xml.etree.ElementTree as ET
 
 class Color(object):
@@ -6,24 +7,38 @@ class Color(object):
         self.red = kwargs.get('red')
         self.green = kwargs.get('green')
         self.blue = kwargs.get('blue')
+    def to_hex(self):
+        l = []
+        for attr in ['red', 'green', 'blue']:
+            l.append(hex(getattr(self, attr)).split('0x')[1])
+        return '#%s' % (''.join(l))
         
 def parse_color(color):
     if isinstance(color, basestring):
         color = color.strip('#')
         d = {}
         for key in ['red', 'green', 'blue']:
-            d[key] = color[:2]
+            d[key] = int(color[:2], 16)
             if len(color):
                 color = color[2:]
+        color = d
     if isinstance(color, dict):
         color = Color(**d)
     return color
+
+DT_FMT_STR = '%Y%m%d-%H:%M:%S.%f'
 def parse_dt(dt):
     if isinstance(dt, datetime.datetime):
         return dt
     if isinstance(dt, basestring):
-        dt = int(dt)
+        if dt.isdigit:
+            dt = int(dt)
+        else:
+            return datetime.datetime.strptime(dt, DT_FMT_STR)
     return datetime.datetime.fromtimestamp(dt/1000.)
+
+def dt_to_str(dt):
+    return dt.strftime(DT_FMT_STR)
     
 class Element(object):
     def __init__(self, **kwargs):
@@ -91,7 +106,13 @@ class Element(object):
         for cls in classes:
             for c_element in element.findall(cls.tag_name):
                 self.add_child(cls, etree_element=c_element)
-                
+    def get_dict(self):
+        return self.element_attributes.copy()
+    def __repr__(self):
+        return '<%s (%s)>' % (self.__class__.__name__, self)
+    def __str__(self):
+        return '%s: %s' % (self.tag_name, self.element_attributes)
+        
 class MindMap(Element):
     tag_name = 'map'
     def do_init(self, **kwargs):
@@ -102,6 +123,12 @@ class MindMap(Element):
     def from_xml(cls, source):
         tree = ET.parse(source)
         return cls.from_etree(tree.getroot())
+    def to_json(self, pretty=True):
+        d = self.get_dict()
+        jkwargs = {}
+        if pretty:
+            jkwargs['indent'] = 2
+        return json.dumps(d, **jkwargs)
     def add_child(self, cls, **kwargs):
         obj = super(MindMap, self).add_child(cls, **kwargs)
         if cls == AttributeRegistry:
@@ -111,6 +138,11 @@ class MindMap(Element):
         return obj
     def get_child_classes(self):
         return [AttributeRegistry, Node]
+    def get_dict(self):
+        d = super(MindMap, self).get_dict()
+        d['attribute_registry'] = self.attribute_registry.get_dict()
+        d['root_node'] = self.root_node.get_dict()
+        return d
         
 class AttributeRegistry(Element):
     tag_name = 'attribute_registry'
@@ -127,6 +159,12 @@ class AttributeRegistry(Element):
         return attr
     def get(self, name, default=None):
         return self.attributes.get(name, default)
+    def get_dict(self):
+        d = super(AttributeRegistry, self).get_dict()
+        d['attributes'] = {}
+        for key, val in self.attributes.iteritems():
+            d['attributes'][key] = val.get_dict()
+        return d
         
 class RegisteredAttribute(Element):
     tag_name = 'attribute_name'
@@ -148,8 +186,7 @@ class Node(Element):
         self.child_nodes = {}
         self.attributes = []
         self.node_links = {}
-        for key, val in kwargs.get('attributes', {}).iteritems():
-            val.setdefault('name', key)
+        for val in kwargs.get('attributes', []):
             self.add_child(NodeAttribute, **val)
         for link in kwargs.get('node_links', []):
             self.add_node_link(NodeLink, **link)
@@ -167,6 +204,26 @@ class Node(Element):
         elif cls == Node:
             self.child_nodes[obj.id] = obj
         return obj
+    def get_dict(self):
+        d = super(Node, self).get_dict()
+        d['created'] = dt_to_str(self.created)
+        d['modified'] = dt_to_str(self.modified)
+        for attr in ['color', 'background_color']:
+            c = getattr(self, attr)
+            if c is None:
+                continue
+            d[attr] = c.to_hex()
+        for attr in ['attributes', 'node_links', 'child_nodes']:
+            coll = getattr(self, attr)
+            if isinstance(coll, list):
+                d[attr] = []
+                for obj in coll:
+                    d[attr].append(obj.get_dict())
+            else:
+                d[attr] = {}
+                for key, val in coll.iteritems():
+                    d[attr][key] = val.get_dict()
+        return d
         
 class NodeAttribute(Element):
     tag_name = 'attribute'
@@ -186,4 +243,7 @@ class NodeLink(Element):
         self.id = kwargs.get('id')
         self.destination_id = kwargs.get('destination')
         self.node = kwargs.get('node')
-        
+    def get_dict(self):
+        d = super(NodeLink, self).get_dict()
+        d['destination'] = self.destination_id
+        return d
