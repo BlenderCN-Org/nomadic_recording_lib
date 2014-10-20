@@ -109,16 +109,23 @@ class Node(Element):
         kwargs['parent'] = self
         attr = NodeAttribute(**kwargs)
         self.attributes.append(attr)
-    def add_node_link(self, node):
-        if isinstance(node, Node):
-            self.node_links[node.id] = node
-        else:
-            self.node_links[node] = None
+    def add_node_link(self, **kwargs):
+        kwargs['parent'] = self
+        link = NodeLink(**kwargs)
+        self.node_links[link.id] = link
         
 class NodeAttribute(Element):
+    tag_name = 'attribute'
     def __init__(self, **kwargs):
         super(NodeAttribute, self).__init__(**kwargs)
         self.name = kwargs.get('name')
         self.value = kwargs.get('value')
         self.registered_attribute = self.attribute_registry.get(self.name)
+        
+class NodeLink(Element):
+    tag_name = 'arrowlink'
+    def __init__(self, **kwargs):
+        self.id = kwargs.get('id')
+        self.destination_id = kwargs.get('destination')
+        self.node = kwargs.get('node')
         
