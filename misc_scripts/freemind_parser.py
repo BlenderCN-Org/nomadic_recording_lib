@@ -1,5 +1,4 @@
 import datetime
-import random
 import json
 import xml.etree.ElementTree as ET
 
@@ -229,10 +228,11 @@ class Node(NodeBase):
         return None
     def find_max_nest_and_index(self, x_axis=None):
         if x_axis is None:
-            x_axis = []
-        x = self.nest_level
+            x_axis = [0]
+        x = self.nest_level + 1
         y = len(self.child_nodes)
         if len(x_axis) < x + 1:
+            self.max_y_index = 0
             x_axis.append(0)
         x_axis[x] += y
         for child in self.child_nodes.itervalues():
@@ -253,18 +253,11 @@ class Node(NodeBase):
             d['max_index'] * (self.node_size[0] + self.node_spacing[0]), 
             d['max_nest'] * (self.node_size[1] + self.node_spacing[1]), 
         ]
-        self.y = d['canvas_size'][1] / 2
-        self.x = 0
+        self.position = NodePosition(node=self, x=0, y=d['canvas_size'][1] / 2)
         for child in self.child_nodes.itervalues():
             child._calc_position(d)
     def _calc_position(self, d):
-        self.x = (self.nest_level * self.node_size[0]) + self.node_spacing[0]
-        if d['x_axis'][self.nest_level] == 0:
-            self.y = self.parent.y
-        else:
-            #y_size = d['canvas_size'][1] / (d['x_axis'][self.nest_level] * (self.node_size[1] + self.node_spacing[1]))
-            #self.y = (y_size / (self.index + 1)) + self.parent.y
-            self.y = ((self.node_size[1] + self.node_spacing[1]) * self.index) + self.parent.y
+        self.position = NodePosition(node=self)
         for child in self.child_nodes.itervalues():
             child._calc_position(d)
     def to_sigma_json(self, size, d=None):
@@ -278,8 +271,8 @@ class Node(NodeBase):
         node = {
             'id':self.id, 
             'label':self.text, 
-            'x':self.x, #random.random() * size[0], 
-            'y':self.y, #random.random() * size[1], 
+            'x':self.position.x, 
+            'y':self.position.y, 
             'size':8
         }
         c = self.background_color
@@ -349,3 +342,79 @@ class NodeLink(NodeBase):
         d = super(NodeLink, self).get_dict()
         d['destination'] = self.destination_id
         return d
+        
+class NodePosition(object):
+    def __init__(self, **kwargs):
+        self.node = kwargs.get('node')
+        self._x = kwargs.get('x')
+        self._y = kwargs.get('y')
+        if self.node._is_root:
+            rel_x = 0
+        else:
+            rel_x = self.node.node_size[0] + self.node.node_spacing[0]
+        self.relative_x = rel_x
+        self.relative_y = 0
+        self.calc_relative()
+    @property
+    def parent(self):
+        if self.node._is_root:
+            return None
+        return self.node.parent.position
+    @property
+    def root(self):
+        if self.node._is_root:
+            return self
+        return self.parent.root
+    @property
+    def x(self):
+        x = self._x
+        if x is not None:
+            return x
+        return self.calc_x()
+    @x.setter
+    def x(self, value):
+        if value == self._x:
+            return
+        self._x = value
+        for position in self.iter_children():
+            position.calc_x()
+    @property
+    def y(self):
+        y = self._y
+        if y is not None:
+            return y
+        return self.calc_y()
+    @y.setter
+    def y(self, value):
+        if value == self._y:
+            return
+        if value is None:
+            self.calc_y()
+        else:
+            self._y = value
+        for position in self.iter_children():
+            position.calc_y()
+    def calc_x(self):
+        x = self._x = self.parent.x + self.relative_x
+        return x
+    def calc_y(self):
+        y = self._y = self.parent.y + self.relative_y
+        return y
+    def iter_children(self):
+        pos_iter = None
+        for node in self.node.child_nodes.itervalues():
+            if pos_iter is None:
+                pos_iter = [node.position]
+            else:
+                pos_iter = node.position.iter_children()
+            for position in pos_iter:
+                yield position
+    def calc_relative(self):
+        count = len(self.node.parent.child_nodes)
+        offset = (count / float(self.node.index)) - (count / 2.)
+        y = offset * (self.node.node_size[1] + self.node.node_spacing[1])
+        if y != self.relative_y:
+            self.relative_y = y
+            self.y = None
+        
+        
