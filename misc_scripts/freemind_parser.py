@@ -28,6 +28,8 @@ def parse_dt(dt):
 class Element(object):
     def __init__(self, **kwargs):
         self.parent = kwargs.get('parent')
+        self.etree_element = kwargs.get('etree_element')
+        self.do_init(**kwargs)
     @property
     def attribute_registry(self):
         r = getattr(self, '_attribute_registry', None)
@@ -55,19 +57,22 @@ class Element(object):
                 value = Node(**value)
             value.parent = self
         self._root_node = value
+    @classmethod
+    def from_etree(cls, element):
+        keys = element.keys()
+        kwargs = dict(zip([key.lower() for key in keys], [element.get(key) for key in keys]))
+        
     
 class MindMap(Element):
     tag_name = 'map'
-    def __init__(self, **kwargs):
+    def do_init(self, **kwargs):
         self.version = kwargs.get('version')
         self.attribute_registry = kwargs.get('attribute_registry')
         self.root_node = kwargs.get('root_node')
-        super(MindMap, self).__init__(**kwargs)
         
 class AttributeRegistry(Element):
     tag_name = 'attribute_registry'
-    def __init__(self, **kwargs):
-        super(AttributeRegistry, self).__init__(**kwargs)
+    def do_init(self, **kwargs):
         self.attributes = {}
         for key, val in kwargs.get('attributes', {}).iteritems():
             val.setdefault('name', key)
@@ -81,15 +86,13 @@ class AttributeRegistry(Element):
         
 class RegisteredAttribute(Element):
     tag_name = 'attribute_name'
-    def __init__(self, **kwargs):
-        super(RegisteredAttribute, self).__init__(**kwargs)
+    def do_init(self, **kwargs):
         self.name = kwargs.get('name')
         self.visible = kwargs.get('visible')
         
 class Node(Element):
     tag_name = 'node'
-    def __init__(self, **kwargs):
-        super(Node, self).__init__(**kwargs)
+    def do_init(self, **kwargs):
         self.id = kwargs.get('id')
         self.created = parse_dt(kwargs.get('created'))
         self.modified = parse_dt(kwargs.get('modified'))
@@ -116,15 +119,14 @@ class Node(Element):
         
 class NodeAttribute(Element):
     tag_name = 'attribute'
-    def __init__(self, **kwargs):
-        super(NodeAttribute, self).__init__(**kwargs)
+    def do_init(self, **kwargs):
         self.name = kwargs.get('name')
         self.value = kwargs.get('value')
         self.registered_attribute = self.attribute_registry.get(self.name)
         
 class NodeLink(Element):
     tag_name = 'arrowlink'
-    def __init__(self, **kwargs):
+    def do_init(self, **kwargs):
         self.id = kwargs.get('id')
         self.destination_id = kwargs.get('destination')
         self.node = kwargs.get('node')
