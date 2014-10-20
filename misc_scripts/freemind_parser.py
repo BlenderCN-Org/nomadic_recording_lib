@@ -1,3 +1,4 @@
+import math
 import datetime
 import json
 import xml.etree.ElementTree as ET
@@ -345,6 +346,7 @@ class NodeLink(NodeBase):
         
 class NodePosition(object):
     def __init__(self, **kwargs):
+        self.children = {}
         self.node = kwargs.get('node')
         self._x = kwargs.get('x')
         self._y = kwargs.get('y')
@@ -355,6 +357,9 @@ class NodePosition(object):
         self.relative_x = rel_x
         self.relative_y = 0
         self.calc_relative()
+        p = self.parent
+        if p is not None:
+            p.children[self.relative_y] = self
     @property
     def parent(self):
         if self.node._is_root:
@@ -400,21 +405,60 @@ class NodePosition(object):
     def calc_y(self):
         y = self._y = self.parent.y + self.relative_y
         return y
-    def iter_children(self):
+    def iter_children(self, recursive=True):
         pos_iter = None
         for node in self.node.child_nodes.itervalues():
             if pos_iter is None:
                 pos_iter = [node.position]
-            else:
+            elif recursive:
                 pos_iter = node.position.iter_children()
             for position in pos_iter:
                 yield position
+            pos_iter = None
     def calc_relative(self):
         count = len(self.node.parent.child_nodes)
-        offset = (count / float(self.node.index)) - (count / 2.)
-        y = offset * (self.node.node_size[1] + self.node.node_spacing[1])
+        even = count / 2. == int(count / 2.)
+        y = None
+        if not even:
+            center = math.ceil(count / 2.)
+            if self.node.index + 1 == center:
+                y = 0
+        if y is None:
+            offset = (count / float(self.node.index+1)) - (count / 2.)
+            y = offset * (self.node.node_size[1] + self.node.node_spacing[1])
         if y != self.relative_y:
             self.relative_y = y
             self.y = None
-        
-        
+    def get_height_extents(self):
+        top = self.y
+        bottom = self.y
+        for position in self.iter_children():
+            if position.y > top:
+                top = position.y
+            if position.y < bottom:
+                bottom = position.y
+        return top, bottom
+    def adjust_height_offset(self):
+        keys = sorted(self.children.keys())
+        upper = [key for key in keys if key > 0]
+        lower = [key for key in keys if key < 0]
+        if 0 in keys:
+            top, bottom = self.children[0].get_height_extents()
+        else:
+            top = bottom = self.node.node_size[1] + self.node.node_spacing[1]
+        last_top = 0
+        last_bottom = 0
+        for key in reversed(upper):
+            position = self.children[key]
+            _top, _bottom = position.get_height_extents()
+            position.y = _bottom + last_top + top
+            last_top = _top
+            last_bottom = _bottom
+        last_top = 0
+        last_bottom = 0
+        for key in lower:
+            position = self.children[key]
+            _top, _bottom = position.get_height_extents()
+            position.y = _top + last_bottom + bottom
+            last_top = _top
+            last_bottom = _bottom
