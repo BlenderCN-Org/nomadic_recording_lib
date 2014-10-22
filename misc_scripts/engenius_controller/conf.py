@@ -1,3 +1,4 @@
+from UserDict import UserDict
 import json
 from cli_commands import BaseCommand
 
@@ -10,13 +11,16 @@ def iterbases(obj, lastclass='object'):
         cls = obj.__class__
     while cls.__name__ != lastclass:
         yield cls
-        cls = cls.__bases__[0]
+        try:
+            cls = cls.__bases__[0]
+        except IndexError:
+            break
         
-class ConfVar(dict):
+class ConfVar(UserDict):
     def __init__(self, init_dict=None):
         if init_dict is None:
             init_dict = {}
-        super(ConfVar, self).__init__(init_dict)
+        UserDict.__init__(self, init_dict)
         if 'default' not in self:
             self['default'] = None
         if 'value' not in self:
@@ -46,9 +50,10 @@ class ConfVar(dict):
             return
         self['value'] = value
     
-class ConfBase(dict):
+class ConfBase(UserDict):
     child_class = None
     def __init__(self, init_dict=None, **kwargs):
+        UserDict.__init__(self)
         self.child_classes = {}
         self.conf_vars = {}
         for cls in iterbases(self, ConfBase):
@@ -67,12 +72,16 @@ class ConfBase(dict):
             init_dict = json.loads(json_str)
         if init_dict is None:
             init_dict = {}
-        super(ConfBase, self).__init__(init_dict)
+        else:
+            print init_dict
+            print repr(init_dict)
+        for key, val in init_dict.iteritems():
+            self[key] = val
         for key, val in kwargs.iteritems():
             self[key] = val
         for key, val in self.child_classes.iteritems():
             if key not in self:
-                self[key] = val
+                self[key] = val()
         self.do_init(**kwargs)
     def do_init(self, **kwargs):
         pass
@@ -88,23 +97,36 @@ class ConfBase(dict):
         elif var_obj is not None:
             var_obj.value = item
             return
-        super(ConfBase, self).__setitem__(key, item)
-    def __getitem__(self, key, default=None):
+        UserDict.__setitem__(self, key, item)
+    def __getitem__(self, key):
         var_obj = self.conf_vars.get(key)
         if var_obj is not None:
             return var_obj.value
-        return super(ConfBase, self).__getitem__(key, default)
+        return UserDict.__getitem__(self, key)
     def to_json(self):
         return json.dumps(self)
         
-class Commands(ConfBase):
+class CommandBase(ConfBase):
+    def __init__(self, init_dict=None, **kwargs):
+        self.command_map = []
+        ConfBase.__init__(self, init_dict, **kwargs)
+    def append(self, item):
+        if isinstance(item, basestring):
+            item = {'command':item}
+        key = item['command']
+        self[key] = item
+        item = self[key]
+        self.command_map.append(item)
+        return item
+class Commands(CommandBase):
     pass
-    
 class Command(ConfBase):
     _conf_vars = ['command', 'exit_command', 'prompt']
-    _child_classes = {'children':Commands}
+    #_child_classes = {'children':Commands}
+    
 
 Commands.child_class = Command
+Command.child_class = Command
 
 class Auth(ConfBase):
     _conf_vars = [
@@ -131,6 +153,11 @@ class UptimeCommand(BaseCommand):
     def parse_response_data(self, msg):
         s = msg.split('up ')[1].split(' days')[0]
         return int(s)
+#class EAP350GetStatBase(EAP350):
+#    def do_init(self, **kwrags):
+#        cmds = self['commands']
+#        stat = cmds.append({'command':'stat'})
+#        info = stat.append({'command':'info'})
 class EAP350GetUptime(EAP350):
     def do_init(self, **kwrags):
         cmds = self['commands']
@@ -138,6 +165,10 @@ class EAP350GetUptime(EAP350):
         info = stat.append({'command':'info'})
         info.append({'cls':UptimeCommand, 
                      'response_data_callback':self.on_uptime_response})
+#class EAP350GetRFInfo(EAP350):
+#    def do_init(self, **kwargs):
+#        cmds = self['commands']
+#        
     
 def parse_conf(filename):
     with open(filename, 'r') as f:
