@@ -134,6 +134,8 @@ class MindMap(Element):
         d['attribute_registry'] = self.attribute_registry.get_dict()
         d['root_node'] = self.root_node.get_dict()
         return d
+    def get_attributes(self, flat=True):
+        return self.root_node.get_attributes(flat)
         
 class AttributeRegistry(Element):
     tag_name = 'attribute_registry'
@@ -177,11 +179,19 @@ class NodeBase(Element):
         if r is None:
             r = root._attribute_registry = root.parent.attribute_registry
         return r
+    @property
+    def is_root(self):
+        r = self._is_root
+        if r is not None:
+            return r
+        r = self._is_root = not isinstance(self.parent, Node)
+        return r
+
 class Node(NodeBase):
     tag_name = 'node'
     node_size = [24, 12]
     node_spacing = [6, 3]
-    _is_root = False
+    _is_root = None
     def do_init(self, **kwargs):
         self.id = kwargs.get('id')
         self.nest_level = kwargs.get('nest_level', 0)
@@ -205,6 +215,30 @@ class Node(NodeBase):
         for key, val in kwargs.get('child_nodes', {}).iteritems():
             val.setdefault('id', key)
             self.add_child(Node, **val)
+    @property
+    def name(self):
+        n = getattr(self, '_name', None)
+        if n is not None:
+            return n
+        if self.is_root:
+            n = '/'
+        elif self.text:
+            n = self.text
+        else:
+            n = self.id
+        self._name = n
+        return n
+    @property
+    def path_name(self):
+        pn = getattr(self, '_path_name', None)
+        if pn is not None:
+            return pn
+        if self.is_root:
+            pn = ''
+        else:
+            pn = self.parent.path_name
+        pn = self._path_name = '/'.join([pn, self.name])
+        return pn
     def get_child_classes(self):
         return [NodeAttribute, NodeLink, Node]
     def add_child(self, cls, **kwargs):
@@ -227,6 +261,22 @@ class Node(NodeBase):
             if node is not None:
                 return node
         return None
+    def get_attributes(self, flat=True, d=None):
+        if d is None:
+            d = {}
+        attribs = []
+        for attribute in self.attributes:
+            attribs.append({'name':attribute.name, 'value':attribute.value})
+        if flat and not self.is_root:
+            d[self.name] = attribs
+        else:
+            return attribs
+        for key, child in self.child_nodes.iteritems():
+            if flat:
+                d[child.name] = child.get_attributes(flat)
+            else:
+                d = child.get_attributes(flat, d)
+        return d
     def find_max_nest_and_index(self, x_axis=None):
         if x_axis is None:
             x_axis = [0]
