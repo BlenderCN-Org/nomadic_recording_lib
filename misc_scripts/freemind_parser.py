@@ -261,6 +261,8 @@ class Node(NodeBase):
         self.position = NodePosition(node=self)
         for child in self.child_nodes.itervalues():
             child._calc_position(d)
+        if self.nest_level == 1:
+            self.position.adjust_height_offset()
     def to_sigma_json(self, size, d=None):
         if d is None:
             d = {'nodes':[], 'edges':[]}
@@ -356,10 +358,10 @@ class NodePosition(object):
             rel_x = self.node.node_size[0] + self.node.node_spacing[0]
         self.relative_x = rel_x
         self.relative_y = 0
-        self.calc_relative()
         p = self.parent
         if p is not None:
             p.children[self.relative_y] = self
+            self.calc_relative()
     @property
     def parent(self):
         if self.node._is_root:
