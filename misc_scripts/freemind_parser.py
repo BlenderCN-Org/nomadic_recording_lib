@@ -136,6 +136,30 @@ class MindMap(Element):
         return d
     def get_attributes(self, flat=True):
         return self.root_node.get_attributes(flat)
+    def get_attributes_as_csv(self, filename=None):
+        d = self.get_attributes(flat=True)
+        header = ['node_name']
+        rows = [header]
+        for node_name, attribs in d.iteritems():
+            row = [node_name]
+            for attrib in attribs:
+                name = attrib['name']
+                val = attrib['value']
+                if name not in header:
+                    header.append(name)
+                col = header.index(name)
+                while len(row) < col + 1:
+                    row.append('')
+                row[col] = val
+            rows.append(row)
+        rows = ['\t'.join(_row) for _row in rows]
+        s = '\n'.join(rows)
+        #s = '\n'.join([['\t'.join(cell) for cell in _row] for _row in rows])
+        if filename is not None:
+            with open(filename, 'w') as f:
+                f.write(s)
+        return s
+        
         
 class AttributeRegistry(Element):
     tag_name = 'attribute_registry'
