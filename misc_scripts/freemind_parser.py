@@ -140,7 +140,8 @@ class MindMap(Element):
         d = self.get_attributes(flat=True)
         header = ['node_name']
         rows = [header]
-        for node_name, attribs in d.iteritems():
+        for node_name in sorted(d.iterkeys()):
+            attribs = d[node_name]
             row = [node_name]
             for attrib in attribs:
                 name = attrib['name']
@@ -150,16 +151,16 @@ class MindMap(Element):
                 col = header.index(name)
                 while len(row) < col + 1:
                     row.append('')
+                if row[col]:
+                    val = ', '.join([row[col], val])
                 row[col] = val
             rows.append(row)
         rows = ['\t'.join(_row) for _row in rows]
         s = '\n'.join(rows)
-        #s = '\n'.join([['\t'.join(cell) for cell in _row] for _row in rows])
         if filename is not None:
             with open(filename, 'w') as f:
                 f.write(s)
         return s
-        
         
 class AttributeRegistry(Element):
     tag_name = 'attribute_registry'
