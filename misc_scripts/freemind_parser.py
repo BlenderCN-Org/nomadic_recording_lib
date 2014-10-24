@@ -264,6 +264,10 @@ class Node(NodeBase):
         pn = self._path_name = '/'.join([pn, self.name])
         return pn
     def get_child_classes(self):
+        #if self.mind_map.version.split('.')[0] == '1':
+        #    NodeLink.tag_name = 'linktarget'
+        #else:
+        #    NodeLink.tag_name = 'arrowlink'
         return [NodeAttribute, NodeLink, Node]
     def add_child(self, cls, **kwargs):
         if cls == Node:
