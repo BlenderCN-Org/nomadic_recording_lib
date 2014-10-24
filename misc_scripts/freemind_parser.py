@@ -221,7 +221,7 @@ class Node(NodeBase):
         if n is not None:
             return n
         if self.is_root:
-            n = '/'
+            n = 'root'
         elif self.text:
             n = self.text
         else:
@@ -267,15 +267,15 @@ class Node(NodeBase):
         attribs = []
         for attribute in self.attributes:
             attribs.append({'name':attribute.name, 'value':attribute.value})
-        if flat and not self.is_root:
-            d[self.name] = attribs
+        if flat:
+            d[self.path_name] = attribs
         else:
-            return attribs
+            d[self.name] = {'attributes':attribs, 'children':{}}
         for key, child in self.child_nodes.iteritems():
             if flat:
-                d[child.name] = child.get_attributes(flat)
+                child.get_attributes(flat, d)
             else:
-                d = child.get_attributes(flat, d)
+                child.get_attributes(flat, d['children'])
         return d
     def find_max_nest_and_index(self, x_axis=None):
         if x_axis is None:
@@ -378,7 +378,9 @@ class NodeAttribute(NodeBase):
         self.registered_attribute = kwargs.get('registered_attribute')
     def post_init(self):
         if self.registered_attribute is None:
-            self.registered_attribute = self.attribute_registry.get(self.name)
+            registry = self.attribute_registry
+            if registry is not None:
+                self.registered_attribute = registry.get(self.name)
         super(NodeAttribute, self).post_init()
         
 class NodeLink(NodeBase):
