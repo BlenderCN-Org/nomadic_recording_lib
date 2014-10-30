@@ -117,7 +117,18 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             child.unlink()
         self.emit('child_removed', ChildGroup=self, obj=child, id=child.id)
         self.emit('child_update', ChildGroup=self, mode='remove', obj=child)
-            
+        
+    def detach_child(self, child):
+        if child.id in self:
+            del self[child.id]
+        child.unbind(self)
+        if getattr(child, 'ChildGroup_parent', None) == self:
+            delattr(child, 'ChildGroup_parent')
+        if child.Index in self.indexed_items:
+            del self.indexed_items[child.Index]
+        self.emit('child_removed', ChildGroup=self, obj=child, id=child.id)
+        self.emit('child_update', ChildGroup=self, mode='remove', obj=child)
+        
     def get(self, key):
         if type(key) == int and not self.ignore_index:
             return self.indexed_items.get(key)
