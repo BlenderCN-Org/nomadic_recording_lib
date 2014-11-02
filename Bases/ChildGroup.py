@@ -134,6 +134,27 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             return self.indexed_items.get(key)
         return super(ChildGroup, self).get(key)
         
+    def iter_indexed(self):
+        for i in sorted(self.indexed_items.iterkeys()):
+            child = self.indexed_items[i]
+            yield child.id, child
+        
+    def iteritems(self):
+        if self.ignore_index:
+            return super(ChildGroup, self).iteritems()
+        return self.iter_indexed()
+        
+    def itervalues(self):
+        if self.ignore_index:
+            return super(ChildGroup, self).itervalues()
+        return (child for key, child in self.iter_indexed())
+        
+    def items(self):
+        return [(key, val) for key, val in self.iteritems()]
+        
+    def values(self):
+        return [val for key, val in self.iteritems()]
+        
     def find_max_index(self):
         if len(self) ==0 or len(self.indexed_items) == 0:
             return 0
