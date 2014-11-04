@@ -25,7 +25,7 @@ class SubTreeConfFileReader(SubtreeConfFile):
             if 'subtree' not in section:
                 continue
             d = {}
-            prefix = section.split('subtree')[1].strip()
+            prefix = section.split('subtree')[1].strip().strip('"')
             d.update(dict(zip(keys, [p.get(section, key) for key in keys])))
             subtree_id = SubtreeConf.build_id(**d)
             subtree = self.subtrees.get(subtree_id)
@@ -38,6 +38,11 @@ class SubTreeConfFileReader(SubtreeConfFile):
         for subtree in self.subtrees.itervalues():
             try:
                 remote = repo.remote(subtree.remote)
+                remote.fetch()
+            except git.GitCommandError:
+                print 'adding remote: %s' % (remote)
+                remote = repo.create_remote(subtree.remote, subtree.url)
+                remote.fetch()
             except ValueError:
                 remote = repo.create_remote(subtree.remote, subtree.url)
                 remote.fetch()
