@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric5 project file for project nomadic-recording-lib.eric5 -->
-<!-- Saved: 2014-10-19, 20:01:23 -->
+<!-- Saved: 2014-11-01, 09:33:39 -->
 <!-- Copyright (C) 2014 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -189,6 +189,7 @@
     <Source>misc_scripts/dir_watcher.py</Source>
     <Source>misc_scripts/engenius_controller/conf.py</Source>
     <Source>misc_scripts/freemind_parser.py</Source>
+    <Source>misc_scripts/git_subtree_add_remotes.py</Source>
   </Sources>
   <Forms/>
   <Translations/>
