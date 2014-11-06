@@ -273,6 +273,8 @@ class ZeroCenteredGroup(dict):
         self.max_index = 0
         self.centered_items = {}
         self.item_map = {}
+    def get_zero_centered(self, key):
+        return self.centered_items[self.item_map[key]]
     def recalculate_items(self):
         if self._calculating_items:
             return

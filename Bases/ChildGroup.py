@@ -20,6 +20,7 @@ except:
     import collections as UserDict
 from osc_base import OSCBaseObject
 import Serialization
+from misc import ZeroCenteredGroup
 
 class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_class_name = 'ChildGroup'
@@ -33,6 +34,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         self.deserialize_callback = kwargs.get('deserialize_callback')
         self.parent_obj = kwargs.get('parent_obj')
         self.child_class = kwargs.get('child_class')
+        self.allow_index_resort = kwargs.get('allow_index_resort', False)
         if self.child_class == '__self__':
             self.child_class = self.parent_obj.__class__
         self.send_child_updates_to_osc = kwargs.get('send_child_updates_to_osc', False)
@@ -63,6 +65,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 self.LOG.info('ChildGroup %s auto add osc_address %s' % (self.name, osc_address))
                 child.set_osc_address(osc_address)
                 child.init_osc_attrs()
+            self.resort_indecies()
             self.emit('child_added', ChildGroup=self, obj=child)
             self.emit('child_update', ChildGroup=self, mode='add', obj=child)
             return child
@@ -115,6 +118,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             del self.indexed_items[child.Index]
         if unlink:
             child.unlink()
+        self.resort_indecies()
         self.emit('child_removed', ChildGroup=self, obj=child, id=child.id)
         self.emit('child_update', ChildGroup=self, mode='remove', obj=child)
         
@@ -126,6 +130,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             delattr(child, 'ChildGroup_parent')
         if child.Index in self.indexed_items:
             del self.indexed_items[child.Index]
+        self.resort_indecies()
         self.emit('child_removed', ChildGroup=self, obj=child, id=child.id)
         self.emit('child_update', ChildGroup=self, mode='remove', obj=child)
         
@@ -165,6 +170,20 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             return True
         return type(index) == int and index not in self.indexed_items
         
+    def resort_indecies(self):
+        if not self.allow_index_resort:
+            return
+        if getattr(self, '_sorting_indecies', False):
+            return
+        indecies = sorted(self.indexed_items.keys())
+        sorted_indecies = range(len(indecies))
+        if indecies == sorted_indecies:
+            return
+        self._sorting_indecies = True
+        for current_index, new_index in zip(indecies, sorted_indecies):
+            self.indexed_items[current_index].Index = new_index
+        self._sorting_indecies = False
+        
     def clear(self):
         for c in self.values()[:]:
             self.del_child(c)
@@ -180,6 +199,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             del self.indexed_items[old]
         if value is not None:
             self.indexed_items[value] = obj
+        self.resort_indecies()
         self.emit('child_index_changed', ChildGroup=self, obj=obj, old=old, value=value)
         self.emit('child_update', ChildGroup=self, mode='Index', obj=obj, old=old, value=value)
         
@@ -275,3 +295,35 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         
     def __str__(self):
         return 'ChildGroup %s: %r' % (self.name, self.data)
+
+class ZeroCenteredChildGroup(ChildGroup):
+    def __init__(self, **kwargs):
+        self.zero_centered_items = ZeroCenteredGroup()
+        kwargs.setdefault('allow_index_resort', True)
+        super(ZeroCenteredChildGroup, self).__init__(**kwargs)
+    def get_zero_centered(self, **kwargs):
+        child = kwargs.get('child')
+        if child is None:
+            child_index = kwargs.get('index')
+            if child_index is None:
+                child_id = kwargs.get('id')
+                child = self[child_id]
+            else:
+                child = self.indexed_items[child_index]
+        return self.zero_centered_items.get_zero_centered(child.Index)
+    def _ChildGroup_on_own_child_update(self, **kwargs):
+        child = kwargs.get('obj')
+        mode = kwargs.get('mode')
+        if mode == 'add':
+            self.zero_centered_items[child.Index] = child
+        elif mode == 'remove':
+            if child.Index in self.zero_centered_items:
+                del self.zero_centered_items[child.Index]
+        elif mode == 'Index':
+            old = kwargs.get('old')
+            if old in self.zero_centered_items:
+                del self.zero_centered_items[old]
+            self.zero_centered_items[child.Index] = child
+        super(ZeroCenteredChildGroup, self)._ChildGroup_on_own_child_update(**kwargs)
+    
+    
