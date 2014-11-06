@@ -42,10 +42,10 @@ class SubTreeConfFileReader(SubtreeConfFile):
             except git.GitCommandError:
                 print 'adding remote: %s' % (remote)
                 remote = repo.create_remote(subtree.remote, subtree.url)
-                remote.fetch()
+                #remote.fetch()
             except ValueError:
                 remote = repo.create_remote(subtree.remote, subtree.url)
-                remote.fetch()
+                #remote.fetch()
         
         
 class SubtreeConf(object):
