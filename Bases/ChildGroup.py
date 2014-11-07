@@ -311,6 +311,14 @@ class ZeroCenteredChildGroup(ChildGroup):
             else:
                 child = self.indexed_items[child_index]
         return self.zero_centered_items.get_zero_centered(child.Index)
+    def on_child_Index_changed(self, **kwargs):
+        child = kwargs.get('obj')
+        old = kwargs.get('old')
+        value = kwargs.get('value')
+        if old in self.zero_centered_items:
+            del self.zero_centered_items[old]
+        self.zero_centered_items[value] = child
+        super(ZeroCenteredChildGroup, self).on_child_Index_changed(**kwargs)
     def _ChildGroup_on_own_child_update(self, **kwargs):
         child = kwargs.get('obj')
         mode = kwargs.get('mode')
@@ -319,11 +327,6 @@ class ZeroCenteredChildGroup(ChildGroup):
         elif mode == 'remove':
             if child.Index in self.zero_centered_items:
                 del self.zero_centered_items[child.Index]
-        elif mode == 'Index':
-            old = kwargs.get('old')
-            if old in self.zero_centered_items:
-                del self.zero_centered_items[old]
-            self.zero_centered_items[child.Index] = child
         super(ZeroCenteredChildGroup, self)._ChildGroup_on_own_child_update(**kwargs)
     
     
