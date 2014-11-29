@@ -30,7 +30,7 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
     _saved_child_objects = ['indexed_items']
     def __init__(self, **kwargs):
         UserDict.UserDict.__init__(self)
-        self.indexed_items = {}
+        self._indexed_items = {}
         self.deserialize_callback = kwargs.get('deserialize_callback')
         self.parent_obj = kwargs.get('parent_obj')
         self.child_class = kwargs.get('child_class')
@@ -50,7 +50,11 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         if self.send_child_updates_to_osc:
             self.add_osc_handler(callbacks={'child-update':self._on_osc_child_update})
         self.bind(child_update=self._ChildGroup_on_own_child_update)
-        
+    @property
+    def indexed_items(self):
+        if self.ignore_index:
+            return self.data
+        return self._indexed_items
     def add_child(self, cls=None, **kwargs):
         def do_add_child(child):
             self.update({child.id:child})
@@ -257,13 +261,14 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 items[i] = val
             newd['saved_children'] = {'indexed_items':items}
             d = newd
-        items = d['saved_children']['indexed_items']
-        for key in items.keys()[:]:
-            if type(key) != int:
-                item = items[key]
-                #print 'replacing str index: ', key, int(key), item, self
-                del items[key]
-                items[int(key)] = item
+        if d['attrs']['ignore_index'] is False:
+            items = d['saved_children']['indexed_items']
+            for key in items.keys()[:]:
+                if type(key) != int:
+                    item = items[key]
+                    #print 'replacing str index: ', key, int(key), item, self
+                    del items[key]
+                    items[int(key)] = item
         super(ChildGroup, self)._load_saved_attr(d, **kwargs)
         
     def _deserialize_child(self, d, **kwargs):
