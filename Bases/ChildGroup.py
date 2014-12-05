@@ -62,8 +62,9 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
                 osc_address = child.id
             else:
                 osc_address = child.Index
-                self.indexed_items.update({child.Index:child})
-                child.bind(Index=self.on_child_Index_changed)
+                if not self.ignore_index:
+                    self.indexed_items.update({child.Index:child})
+                    child.bind(Index=self.on_child_Index_changed)
             if False:#self.osc_enabled and isinstance(child, OSCBaseObject) and not child.osc_enabled:
                 osc_address = str(osc_address)
                 self.LOG.info('ChildGroup %s auto add osc_address %s' % (self.name, osc_address))
@@ -79,12 +80,13 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
             if child.id in self:
                 return
             if not self.ignore_index:
-                index = child.Index
+                index = kwargs.get('Index', child.Index)
                 if index is None:
                     index = kwargs.get('Index', self.find_max_index() + 1)
-                if not self.check_valid_index(index):
-                    self.LOG.warning('Index error: could not add child', self.name, child)
-                    return False
+                if not self._deserializing and not self.parent_obj._deserializing and not self.check_valid_index(index):
+                    if self.indexed_items.get(index) != child:
+                        self.LOG.warning('Index error: could not add child', self.name, self.parent_obj, child)
+                        return False
                 child.Index = index
             child.ChildGroup_parent = self
             return do_add_child(child)
@@ -175,6 +177,8 @@ class ChildGroup(OSCBaseObject, UserDict.UserDict):
         return type(index) == int and index not in self.indexed_items
         
     def resort_indecies(self):
+        if self._deserializing or self.parent_obj._deserializing:
+            return
         if not self.allow_index_resort:
             return
         if getattr(self, '_sorting_indecies', False):
