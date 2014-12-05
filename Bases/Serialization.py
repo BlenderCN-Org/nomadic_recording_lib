@@ -30,6 +30,7 @@ class Serializer(object):
     def __init__(self, **kwargs):
         d = kwargs.get('deserialize')
         if d:
+            self._deserializing = True
             self._load_saved_attr(d)
             for key in self.saved_attributes:
                 if not hasattr(self, key):
@@ -37,7 +38,14 @@ class Serializer(object):
             for key in self.saved_child_objects:
                 if not hasattr(self, key):
                     setattr(self, key, {})
-                    
+            self._deserializing = False
+            self._deserialization_complete(**kwargs)
+        else:
+            self._deserializing = False
+        
+    def _deserialization_complete(self, **kwargs):
+        pass
+        
     def to_json(self, incl_dict={}, **kwargs):
         json_preset = kwargs.get('json_preset', 'tiny')
         if 'json_preset' in kwargs:
@@ -46,9 +54,15 @@ class Serializer(object):
         d.update(incl_dict)
         return to_json(d, json_preset)
         
-    def from_json(self, string, **kwargs):
+    @classmethod
+    def from_json(cls, string, **kwargs):
         d = from_json(string)
-        self._load_saved_attr(d, **kwargs)
+        if type(cls) == type:
+            kwargs['deserialize'] = d
+            return cls(**kwargs)
+        else:
+            self = cls
+            self._load_saved_attr(d, **kwargs)
         
     def _get_saved_attr(self, **kwargs):
         saved_child_objects = kwargs.get('saved_child_objects')
@@ -173,7 +187,8 @@ class Serializer(object):
                 else:
                     cdict = {}
                     setattr(self, key, cdict)
-                for ckey, cval in val.iteritems():
+                for ckey in sorted(val.keys()):
+                    cval = val[ckey]
                     if is_ChildGroup(cdict, ckey, cval):
                         cg = cdict[ckey]
                         cg._load_saved_attr(cval)
