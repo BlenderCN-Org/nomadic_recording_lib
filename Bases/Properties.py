@@ -17,6 +17,7 @@
 import threading
 import collections
 import weakref
+import numbers
 
 def getbases(startcls, endcls=None, reverse=False):
     if endcls is None:
@@ -145,7 +146,9 @@ class ClsProperty(object):
         value = self.fformat(obj, value)
         if self.entries is not None and value not in self.entries:
             return
-        if self._validate_type(obj, value) and self.fvalidate(obj, value):
+        if not self._validate_type(obj, value):
+            raise TypeError(obj, value)
+        if self.fvalidate(obj, value):
             obj.Properties[self.name].set_value(value)
             
     def _fvalidate(self, obj, value):
@@ -169,6 +172,12 @@ class ClsProperty(object):
             if value is not None:
                 prop.type = type(value)
             return True
+        if prop._type is not None:
+            return prop._type._validate_type(value)
+        if issubclass(prop.type, basestring):
+            return isinstance(value, basestring)
+        if issubclass(prop.type, numbers.Number):
+            return isinstance(value, numbers.Number)
         return isinstance(value, prop.type)
         
     def __get__(self, obj, objtype=None):
@@ -302,6 +311,9 @@ class ObjProperty(object):
     
     def set_value(self, value):
         self.enable_emission = False
+        if issubclass(self.type, basestring) or issubclass(self.type, numbers.Number):
+            if value is not None and not isinstance(value, self.type):
+                value = self.type(value)
         if self._type is not None:
             old = self.value.copy()
             self.value._update_value(value)
@@ -526,6 +538,9 @@ class ListProperty(list):
             item = self.pop()
         self.parent_property.enable_emission = True
         self.parent_property.emit(old)
+    @classmethod
+    def _validate_type(cls, value):
+        return isinstance(value, list)
     def _update_value(self, value):
         for i, item in enumerate(value):
             if i <= len(self):
@@ -589,6 +604,9 @@ class DictProperty(dict):
         for key in keys:
             results[key] = (key, value[key], min[key], max[key])
         return results
+    @classmethod
+    def _validate_type(cls, value):
+        return isinstance(value, dict)
     def _update_value(self, value):
         self.update(value)
     def __setitem__(self, key, item):
@@ -619,6 +637,9 @@ class SetProperty(set):
     def __init__(self, value, **kwargs):
         self.parent_property = kwargs.get('parent_property')
         super(SetProperty, self).__init__(value)
+    @classmethod
+    def _validate_type(cls, value):
+        return isinstance(value, set)
     def _update_value(self, value):
         self.add(value)
     def add(self, item):
@@ -640,6 +661,9 @@ class DequeProperty(collections.deque):
     def __init__(self, value, **kwargs):
         self.parent_property = kwargs.get('parent_property')
         super(DequeProperty, self).__init__(value)
+    @classmethod
+    def _validate_type(cls, value):
+        return type(value) in [list, collections.deque]
     def append(self, value):
         old = self.copy()
         super(DequeProperty, self).append(value)
