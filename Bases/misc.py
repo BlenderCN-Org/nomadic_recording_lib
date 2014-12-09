@@ -284,6 +284,14 @@ class ZeroCenteredGroup(dict):
         if self._calculating_items:
             return
         self._calculating_items = True
+        if not len(self):
+            self.max_index = 0
+            self.center_index = 0
+            if len(self.centered_items):
+                self.centered_items.clear()
+            if len(self.item_map):
+                self.item_map.clear()
+            return
         self.max_index = max(self.keys())
         if self.max_index == 0:
             self.center_index = 0
