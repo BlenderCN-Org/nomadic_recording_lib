@@ -31,15 +31,25 @@ colorprops.update(dict(zip(['rgb', 'hsv'], [dict(default=dict(zip(keys, [0.]*3))
 
 class Color(BaseObject):
     _Properties = colorprops
+    _saved_attributes = ['hue', 'sat', 'val']
+    _saved_class_name = 'Color'
     def __init__(self, **kwargs):
-        super(Color, self).__init__(**kwargs)
         self._rgb_set_local = False
         self._hsv_set_local = False
         self._rgb_props_set_local = False
         self._hsv_props_set_local = False
-        self.bind(rgb=self._on_rgb_set, 
-                  hsv=self._on_hsv_set, 
-                  property_changed=self.on_own_property_changed)
+        prebind = kwargs.get('prebind', {})
+        prebind.update(dict(
+            rgb=self._on_rgb_set, 
+            hsv=self._on_hsv_set, 
+            property_changed=self.on_own_property_changed, 
+        ))
+        kwargs['prebind'] = prebind
+        super(Color, self).__init__(**kwargs)
+        if 'deserialize' not in kwargs:
+            for key in colorprops.iterkeys():
+                if key in kwargs:
+                    setattr(self, key, kwargs[key])
         
     @property
     def rgb_seq(self):
@@ -79,7 +89,12 @@ class Color(BaseObject):
             self.rgb[prop.name] = value
         elif prop.name in hsv_keys and not self._hsv_props_set_local:
             self.hsv[prop.name] = value
-            
+        
+    def __repr__(self):
+        return 'Color: %s' % (self)
+        
+    def __str__(self):
+        return str(self.hsv)
 
 arraytype_map = {'c':chr}
 
