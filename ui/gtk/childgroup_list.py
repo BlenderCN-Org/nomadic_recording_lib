@@ -1,4 +1,4 @@
-from bases import widgets
+from nomadic_recording_lib.ui.gtk.bases import widgets
 import editorbase
 
 class ChildGroupList(editorbase.EditorBase):

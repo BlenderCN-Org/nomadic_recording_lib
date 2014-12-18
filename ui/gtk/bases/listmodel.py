@@ -1,9 +1,9 @@
 from ui_modules import gtk
 
-from Bases import BaseObject
-from Bases.Properties import PropertyConnector
+from nomadic_recording_lib.Bases import BaseObject
+from nomadic_recording_lib.Bases.Properties import PropertyConnector
 
-from gtksimple import ThreadToGtk, TreeModelSort, get_gui_thread
+from gtksimple import ThreadToGtk, get_gui_thread
 
 
 class ListModel(BaseObject, PropertyConnector):

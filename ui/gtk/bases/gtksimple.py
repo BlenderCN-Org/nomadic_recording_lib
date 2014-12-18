@@ -1,15 +1,14 @@
-import time
+
 import threading
 import traceback
 import collections
 import functools
 import types
-#import gtk
-#import gobject
-from ui_modules import gtk, gobject, gdk, glib
 
-from Bases import BaseObject, BaseThread
-from ui_base.bases import simple
+from ui_modules import gtk, gobject, gdk
+
+from nomadic_recording_lib.Bases import BaseObject, BaseThread
+from nomadic_recording_lib.ui.bases import simple
 
 GLOBAL_CONFIG = BaseObject().GLOBAL_CONFIG
 GTK_VERSION = GLOBAL_CONFIG['gtk_version']
@@ -225,8 +224,12 @@ class GCallbackInserter(BaseThread):
         return len(queue) > 0
 
 
-gCBThread = GCallbackInserter()
-gCBThread.start()
+gCBThread = None
+def build_gCBThread():
+    global _gCBThread
+    gCBThread = GCallbackInserter()
+    gCBThread.start()
+    return gCBThread
 
 def thread_to_gtk(cb, *args, **kwargs):
 #    WAIT_FOR_COMPLETION = kwargs.get('WAIT_FOR_COMPLETION', False)

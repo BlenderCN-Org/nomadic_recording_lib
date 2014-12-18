@@ -1,8 +1,8 @@
 #import gtk
 
-from Bases import BaseObject, Scaler
-from Bases import Color as ColorObj
-from Bases.Properties import PropertyConnector
+from nomadic_recording_lib.Bases import BaseObject, Scaler
+from nomadic_recording_lib.Bases import Color as ColorObj
+from nomadic_recording_lib.Bases.Properties import PropertyConnector
 
 class Color(BaseObject, PropertyConnector):
     color_keys = {'red':'red_float', 'green':'green_float', 'blue':'blue_float'}

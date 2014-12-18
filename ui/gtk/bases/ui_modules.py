@@ -2,7 +2,7 @@ import sys
 
 import gi
 
-from Bases.BaseObject import GLOBAL_CONFIG
+from nomadic_recording_lib.Bases.BaseObject import GLOBAL_CONFIG
 
 use_gi = False
 if GLOBAL_CONFIG.get('arg_parse_dict', {}).get('no_gi', False) is False:
@@ -21,9 +21,9 @@ if use_gi:
         sys.argv[0] = str(sys.argv[0])
         
     from gi.repository import GLib, Gdk
-    GLib.threads_init()
-    Gdk.threads_init()
-    from gi.repository import Gtk, Gio, GObject, Pango#, Clutter, GtkClutter
+    #GLib.threads_init()
+    #Gdk.threads_init()
+    from gi.repository import Gtk, Gio, GObject, Pango, Clutter, GtkClutter
     Gtk.gdk = Gdk
     gtk = Gtk
     gio = Gio
@@ -31,8 +31,8 @@ if use_gi:
     gobject = GObject
     glib = GLib
     pango = Pango
-    #clutter = Clutter
-    #cluttergtk = GtkClutter
+    clutter = Clutter
+    cluttergtk = GtkClutter
 else:
     import gtk as _gtk
     import glib as _glib

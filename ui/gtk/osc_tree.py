@@ -1,8 +1,8 @@
-import threading
-from bases.ui_modules import gtk
-from Bases import BaseObject, BaseThread
-from bases.gtksimple import ThreadToGtk, thread_to_gtk
-from bases import widgets, tree
+
+from nomadic_recording_lib.ui.gtk.bases.ui_modules import gtk
+from nomadic_recording_lib.Bases import BaseObject, BaseThread
+from nomadic_recording_lib.ui.gtk.bases.gtksimple import thread_to_gtk
+from nomadic_recording_lib.ui.gtk.bases import widgets
 
 class OSCTree(BaseObject):
     def __init__(self, **kwargs):

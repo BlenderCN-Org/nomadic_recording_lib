@@ -1,32 +1,62 @@
 import threading
-from bases.ui_modules import gtk, gio, gdk, glib
+from nomadic_recording_lib.ui.gtk.bases.ui_modules import gtk, gio, gdk, cluttergtk
 
-from Bases import BaseObject, BaseThread
+from nomadic_recording_lib.Bases import BaseThread
 from .. import BaseUI
 
 
+class _Application(gtk.Application):
+    def __init__(self, **kwargs):
+        self.parent_application = kwargs.get('parent_application')
+        gtk.Application.__init__(self)
+        cluttergtk.init()
+    def do_activate(self):
+        self.parent_application.do_activate()
+    def do_startup(self):
+        gtk.Application.do_startup(self)
+        
 class Application(BaseUI.Application):
     def __init__(self, **kwargs):
-        kwargs['ParentEmissionThread'] = gtksimple.gCBThread
+        if kwargs.get('BuildEmissionThread'):
+            if gtksimple.gCBThread is None:
+                gtksimple.build_gCBThread()
+            kwargs['ParentEmissionThread'] = gtksimple.gCBThread
         super(Application, self).__init__(**kwargs)
         if self.GLOBAL_CONFIG['gtk_version'] >= 3:
             self.app_flags = gio.ApplicationFlags(0)
-            self._application = gtk.Application.new(self.app_id, self.app_flags)
+            self._application = _Application(parent_application=self)
             self._application.register()
         else:
             self._application = None
     
     def _build_mainwindow(self, **kwargs):
         mw = super(Application, self)._build_mainwindow(**kwargs)
-        mw.window.connect('destroy', self.on_mainwindow_close)
+        if self.ParentEmissionThread is not None:
+            mw.window.connect('delete-event', self.on_mainwindow_close)
         return mw
         
+    def run(self, join=False):
+        self.emit('start')
+        if self.ParentEmissionThread is not None:
+            gdk.threads_enter()
+            self._application.run()
+            gdk.threads_leave()
+        else:
+            self._application.run()
+            self.on_mainwindow_close()
+
+    def do_activate(self):
+        mwkwargs = self.mainwindow_kwargs.copy()
+        self.mainwindow = self._build_mainwindow(**mwkwargs)
+        
     def start_GUI_loop(self, join=False):
+        return
         gdk.threads_enter()
         gtk.main()
         gdk.threads_leave()
         
     def stop_GUI_loop(self):
+        return
         gtk.main_quit()
         
 from bases import widgets, gtksimple
@@ -62,6 +92,8 @@ class BaseWindow(BaseUI.BaseWindow):
         self.widgets = {}
             
     def _Application_set(self, old, new):
+        if not hasattr(self, 'window'):
+            return
         if old is not None:
             old._application.remove_window(self.window)
         if new is not None:
@@ -69,7 +101,7 @@ class BaseWindow(BaseUI.BaseWindow):
                 new._application.add_window(self.window)
             
     def _build_window(self, **kwargs):
-        return gtk.Window()
+        return gtk.ApplicationWindow(application=self.Application._application)
         
     def set_window_size(self, size):
         self.window.set_property('default_width', size[0])

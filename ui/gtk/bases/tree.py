@@ -1,6 +1,6 @@
 from ui_modules import gtk
 
-from Bases import BaseObject
+from nomadic_recording_lib.Bases import BaseObject
 
 GLOBAL_CONFIG = BaseObject().GLOBAL_CONFIG
 def get_gui_thread():

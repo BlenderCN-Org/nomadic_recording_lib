@@ -1,11 +1,10 @@
 import threading
 
-from ui_modules import gtk, gobject, gdk, pango
+from ui_modules import gtk, gdk, pango
 
-from Bases import BaseObject
-from Bases.Properties import PropertyConnector
-from ...bases import widgets as basewidgets
-#from gtksimple import *
+from nomadic_recording_lib.Bases import BaseObject
+from nomadic_recording_lib.Bases.Properties import PropertyConnector
+from nomadic_recording_lib.ui.bases import widgets as basewidgets
 import gtksimple
 
 get_gtk2_enum = gtksimple.get_gtk2_enum

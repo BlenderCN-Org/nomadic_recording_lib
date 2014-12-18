@@ -1,5 +1,5 @@
-from Bases import BaseObject
-from bases import widgets
+from nomadic_recording_lib.Bases import BaseObject
+from nomadic_recording_lib.ui.gtk.bases import widgets
 
 class EditorBase(BaseObject):
     def __init__(self, **kwargs):

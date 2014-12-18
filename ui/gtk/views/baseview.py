@@ -1,5 +1,5 @@
-from ..gtkBaseUI import BaseContainer
-from ..bases import widgets
+from nomadic_recording_lib.ui.gtk.gtkBaseUI import BaseContainer
+from nomadic_recording_lib.ui.gtk.bases import widgets
 
 
 class BaseView(BaseContainer):

@@ -1,4 +1,4 @@
-from Bases import BaseObject
+from nomadic_recording_lib.Bases import BaseObject
 
 class Application(BaseObject):
     def __init__(self, **kwargs):
@@ -47,10 +47,10 @@ class BaseWindow(BaseObject):
     def __init__(self, **kwargs):
         kwargs['ParentEmissionThread'] = kwargs['Application'].ParentEmissionThread
         super(BaseWindow, self).__init__(**kwargs)
-        self.window = self._build_window(**kwargs)
-        self.bind(property_changed=self._on_own_property_changed)
         self._Application = None
         self.Application = kwargs.get('Application')
+        self.window = self._build_window(**kwargs)
+        self.bind(property_changed=self._on_own_property_changed)
         #for key in ['size', 'window_size']:
         #    if hasattr(self, key):
         #        kwargs.setdefault('size', getattr(self, key))

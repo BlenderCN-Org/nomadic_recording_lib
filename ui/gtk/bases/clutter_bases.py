@@ -1,13 +1,12 @@
-#import cluttergtk
-#import clutter
-#import gtk
-#import pango
 from ui_modules import gtk, pango, clutter, cluttergtk
 
-from Bases import BaseObject
-import widgets
+from nomadic_recording_lib.Bases import BaseObject
+from nomadic_recording_lib.ui.gtk.bases import widgets
 
-alignment_map = {'left':pango.ALIGN_LEFT, 'center':pango.ALIGN_CENTER, 'right':pango.ALIGN_RIGHT}
+alignment_map = {
+    'left':pango.Alignment.LEFT, 
+    'center':pango.Alignment.CENTER, 
+    'right':pango.Alignment.RIGHT}
 
 class Scene(BaseObject):
     def __init__(self, **kwargs):
