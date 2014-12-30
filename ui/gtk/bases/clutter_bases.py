@@ -14,7 +14,9 @@ class Scene(BaseObject):
         self.register_signal('clicked', 'released')
         self.stage = None
         self.embed = cluttergtk.Embed()
-        self.embed.set_size_request(128, 128)
+        size_request = kwargs.get('size_request', (128, 128))
+        self.embed.set_size_request(*size_request)
+        self.embed.set_use_layout_size(kwargs.get('use_layout_size', True))
         self.motion_event_id = None  
         
     def on_button_press(self, obj, event):
