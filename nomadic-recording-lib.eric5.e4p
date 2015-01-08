@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project nomadic-recording-lib.eric5 -->
-<!-- Saved: 2014-12-18, 11:18:09 -->
-<!-- Copyright (C) 2014 ,  -->
+<!-- Copyright (C) 2015 ,  -->
 <Project version="5.1">
   <Language></Language>
   <Hash>744f77c12a08a288ca136422e32582ee4d1fa99d</Hash>
@@ -192,6 +191,18 @@
     <Source>misc_scripts/git_subtree_add_remotes.py</Source>
     <Source>misc_scripts/rm_ssh_host.py</Source>
     <Source>ui/gtk/editorbase.py</Source>
+    <Source>__init__.py</Source>
+    <Source>Bases/actiontree.py</Source>
+    <Source>comm/interprocess/message_queue.py</Source>
+    <Source>ui/iOSCControl/basepage.py</Source>
+    <Source>ui/kivy/kivyBaseUI.py</Source>
+    <Source>ui/kivy/editorbase.py</Source>
+    <Source>ui/fltk/fltkBaseUI.py</Source>
+    <Source>ui/fltk/__init__.py</Source>
+    <Source>ui/fltk/bases/widgets.py</Source>
+    <Source>ui/fltk/bases/fltksimple.py</Source>
+    <Source>ui/fltk/bases/ui_modules.py</Source>
+    <Source>ui/fltk/bases/__init__.py</Source>
   </Sources>
   <Forms/>
   <Translations/>
@@ -199,7 +210,7 @@
   <Interfaces/>
   <Others/>
   <Vcs>
-    <VcsType>None</VcsType>
+    <VcsType>Git</VcsType>
     <VcsOptions>
       <dict>
         <key>
