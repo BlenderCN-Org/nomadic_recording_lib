@@ -43,7 +43,7 @@ class Interface(object):
             if last_update is not None:
                 self.current_io_bytes[io_type] = total_bytes - self.total_io_bytes[io_type]
             self.total_io_bytes[io_type] = total_bytes
-        self.on_data_update()
+        self.on_data_update(timestamp=now)
     def on_data_update(self, **kwargs):
         cb = self.update_callback
         if cb is None:
@@ -136,8 +136,8 @@ class TimerThread(threading.Thread):
 class OutputHandler(object):
     def __init__(self, **kwargs):
         self.output_format = kwargs.get('output_format')
-    def handle_output(self, data):
-        output = self.format_output(data)
+    def handle_output(self, **kwargs):
+        output = self.format_output(kwargs.get('data'))
         self.write(output)
     def format_output(self, data):
         fmt = self.output_format
@@ -197,7 +197,7 @@ class Main(object):
         obj = Interface(name=name, update_callback=self.on_interface_update)
         self.interfaces[name] = obj
     def on_interface_update(self, **kwargs):
-        self.output_handler.handle_output(kwargs.get('data'))
+        self.output_handler.handle_output(**kwargs)
         
 def main(**kwargs):
     auto_start = kwargs.get('auto_start', True)
