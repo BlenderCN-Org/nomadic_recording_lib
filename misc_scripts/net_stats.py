@@ -179,6 +179,7 @@ OUTPUT_HANDLERS = {'console':ConsoleOutput, 'file':FileOutput, 'callback':Callba
 class Main(object):
     def __init__(self, **kwargs):
         self.interface_names = kwargs.get('net_devs')
+        self.interval = kwargs.get('update_interval', 1.)
         cls = OUTPUT_HANDLERS.get(kwargs.get('output_type'))
         self.output_handler = cls(**kwargs)
         self.interfaces = {}
@@ -188,13 +189,13 @@ class Main(object):
             cls = BlockingScheduler
         else:
             cls = ThreadedScheduler
-        self.scheduler = cls(update_objects=self.interfaces.values())
+        self.scheduler = cls(interval=self.interval, update_objects=self.interfaces.values())
     def start(self, join=False):
         self.scheduler.start(join)
     def stop(self):
         self.scheduler.stop()
     def add_interface(self, name):
-        obj = Interface(name=name, update_callback=self.on_interface_update)
+        obj = Interface(name=name, interval=self.interval, update_callback=self.on_interface_update)
         self.interfaces[name] = obj
     def on_interface_update(self, **kwargs):
         self.output_handler.handle_output(**kwargs)
@@ -212,6 +213,7 @@ def main(**kwargs):
                    choices=['json', 'csv', 'tsv'], 
                    default='tsv')
     p.add_argument('--output-filename', dest='output_filename')
+    p.add_argument('--update-interval', dest='update_interval', default='1.0', type=float)
     p.add_argument('--scheduler-type', 
                    dest='scheduler_type',
                    choices=['blocking', 'threaded'], 

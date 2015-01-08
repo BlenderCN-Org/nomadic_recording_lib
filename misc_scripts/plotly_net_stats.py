@@ -8,15 +8,17 @@ import net_stats
 stream_ids = tls.get_credentials_file()['stream_ids']
 
 traces = {
-    'tx':Scatter(x=[], y=[], stream=dict(token=stream_ids[0])), 
-    'rx':Scatter(x=[], y=[], stream=dict(token=stream_ids[1])), 
+    'tx':Scatter(x=[], y=[], name='tx', stream=dict(token=stream_ids[0])), 
+    'rx':Scatter(x=[], y=[], name='rx', stream=dict(token=stream_ids[1])), 
 }
 data = {
     'tx':Data([traces['tx']]), 
     'rx':Data([traces['rx']]), 
 }
-for d in data.values():
-    py.plot(d)
+data = Data([traces['tx'], traces['rx']])
+figure = Figure(data=data, layout=Layout())
+py.plot(figure)
+
 streams = {
     'tx':py.Stream(stream_ids[0]), 
     'rx':py.Stream(stream_ids[1]), 
