@@ -57,6 +57,7 @@ class Interface(object):
         for field in self.fields:
             data['data'][field] = getattr(self, field)
         kwargs['data'] = data
+        kwargs['obj'] = self
         cb(**kwargs)
     
 class Scheduler(object):
@@ -182,14 +183,14 @@ class Main(object):
         self.interval = kwargs.get('update_interval', 1.)
         cls = OUTPUT_HANDLERS.get(kwargs.get('output_type'))
         self.output_handler = cls(**kwargs)
-        self.interfaces = {}
-        for name in self.interface_names:
-            self.add_interface(name)
         if kwargs.get('scheduler_type') == 'blocking':
             cls = BlockingScheduler
         else:
             cls = ThreadedScheduler
-        self.scheduler = cls(interval=self.interval, update_objects=self.interfaces.values())
+        self.scheduler = cls(interval=self.interval)
+        self.interfaces = {}
+        for name in self.interface_names:
+            self.add_interface(name)
     def start(self, join=False):
         self.scheduler.start(join)
     def stop(self):
@@ -197,6 +198,7 @@ class Main(object):
     def add_interface(self, name):
         obj = Interface(name=name, interval=self.interval, update_callback=self.on_interface_update)
         self.interfaces[name] = obj
+        self.scheduler.add_update_object(obj)
     def on_interface_update(self, **kwargs):
         self.output_handler.handle_output(**kwargs)
         
