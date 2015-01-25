@@ -64,7 +64,13 @@ class FreqBand():
         f = self.center
         lower = f / (2 ** (1. / self.octave_divisor / 2.))
         upper = f * (2 ** (1. / self.octave_divisor / 2.))
+        if lower < FREQUENCY_RANGE[0]:
+            lower = FREQUENCY_RANGE[0]
+        if upper > FREQUENCY_RANGE[1]:
+            upper = FREQUENCY_RANGE[1]
         return [lower, upper]
+    def __str__(self):
+        return '%s<%s>%s' % (self.range[0], self.center, self.range[1])
 class Spectrum():
     def __init__(self, **kwargs):
         self.octave_divisor = kwargs.get('octave_divisor', 1.)
