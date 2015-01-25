@@ -120,15 +120,16 @@ def setup_scene():
     for key, band in spectrum.iteritems():
         if cube is None:
             cube = base_cube
-            cube.name = 'soundbake.cube.%s' % (key)
         else:
             bpy.ops.object.add(type='MESH')
             cube = bpy.context.active_object
-            cube.name = 'soundbake.cube.%s' % (key)
             cube.data = base_cube.data
-            cube.location = [band.index * 2., 0., 0.]
-            bpy.context.scene.update()
+            #print(band.center, band.index, band.index * 2.)
+            #bpy.context.scene.update()
+        cube.name = 'soundbake.cube.%s' % (key)
+        cube.location = [band.index * 2., 0., 0.]
         bake_sound(obj=cube, file=FILENAME, range=band.range)
         cube.parent = parent
+        cube.select = False
 setup_scene()
     
