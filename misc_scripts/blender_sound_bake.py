@@ -13,6 +13,13 @@ def find_sound_clip():
             
 FILENAME = find_sound_clip().filepath
 
+def get_screen(screen_type):
+    for window in bpy.context.window_manager.windows:
+        screen = window.screen
+        for area in screen.areas:
+            if area.type == screen_type:
+                return {'window':window, 'screen':screen, 'area':area}
+    
 def bake_sound(**kwargs):
     obj = kwargs.get('obj')
     sound_file = kwargs.get('file')
@@ -21,23 +28,16 @@ def bake_sound(**kwargs):
     release = kwargs.get('release', .2)
     def build_keyframe():
         obj.keyframe_insert(data_path='scale', index=2, frame=1)
-    def get_graph_screen():
-        for window in bpy.context.window_manager.windows:
-            screen = window.screen
-            for area in screen.areas:
-                if area.type == 'GRAPH_EDITOR':
-                    return {'window':window, 'screen':screen, 'area':area}
-        return False
     def do_bake():
         bpy.ops.graph.sound_bake(filepath=sound_file, low=freq_range[0], high=freq_range[1],
                                  attack=attack, release=release)
     build_keyframe()
-    #bpy.context.scene.show_keys_from_selected_only = True
-    override = get_graph_screen()
+    override = get_screen('GRAPH_EDITOR')
     bpy.ops.screen.screen_full_area(override)
     do_bake()
+    bpy.ops.screen.back_to_previous()
+    
 
-#bake_sound(obj=bpy.context.active_object, file=FILENAME, range=[0,100])
 CENTER_FREQUENCY = 1000.
 FREQUENCY_RANGE = [20., 20000.]
 
@@ -122,8 +122,10 @@ def setup_scene():
             cube = base_cube
             cube.name = 'soundbake.cube.%s' % (key)
         else:
-            cube = bpy.data.objects.new(name='soundbake.cube.%s' % (key), object_data=base_cube.data)
-            bpy.context.scene.objects.link(cube)
+            bpy.ops.object.add(type='MESH')
+            cube = bpy.context.active_object
+            cube.name = 'soundbake.cube.%s' % (key)
+            cube.data = base_cube.data
             cube.location = [band.index * 2., 0., 0.]
             bpy.context.scene.update()
         bake_sound(obj=cube, file=FILENAME, range=band.range)
