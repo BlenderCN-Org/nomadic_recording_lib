@@ -7,11 +7,11 @@ except:
 
 def find_sound_clip():
     vse = bpy.context.scene.sequence_editor
-    for clip in vse.sequences_all():
+    for clip in vse.sequences_all:
         if clip.type == 'SOUND':
             return clip
             
-#FILENAME = find_sound_clip().filepath
+FILENAME = find_sound_clip().filepath
 
 def bake_sound(**kwargs):
     obj = kwargs.get('obj')
@@ -86,7 +86,7 @@ class Spectrum():
             i -= 1.
             if center in self.bands:
                 continue
-            i -= 1.
+            self.bands[center] = band
     def iterkeys(self):
         for key in sorted(self.bands.keys()):
             yield key
@@ -112,18 +112,21 @@ def build_base_cube():
     return obj
     
 def setup_scene():
-    base_cube = build_base_cube()
     bpy.ops.object.add(type='EMPTY', location=[0., 0., 0.])
     parent = bpy.context.active_object
-    base_cube.parent = parent
+    base_cube = build_base_cube()
     spectrum = Spectrum()
     cube = None
-    for i, key in enumerate(spectrum.iterkeys()):
+    for key, band in spectrum.iteritems():
         if cube is None:
             cube = base_cube
             cube.name = 'soundbake.cube.%s' % (key)
         else:
-            cube = bpy.ops.object.new(name='soundbake.cube.%s' % (key), object_data=base_cube.data)
-            cube.location = [i * 2., 0., 0.]
-            cube.parent = parent
+            cube = bpy.data.objects.new(name='soundbake.cube.%s' % (key), object_data=base_cube.data)
+            bpy.context.scene.objects.link(cube)
+            cube.location = [band.index * 2., 0., 0.]
+            bpy.context.scene.update()
+        bake_sound(obj=cube, file=FILENAME, range=band.range)
+        cube.parent = parent
+setup_scene()
     
