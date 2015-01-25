@@ -203,6 +203,9 @@
     <Source>ui/fltk/bases/fltksimple.py</Source>
     <Source>ui/fltk/bases/ui_modules.py</Source>
     <Source>ui/fltk/bases/__init__.py</Source>
+    <Source>misc_scripts/net_stats.py</Source>
+    <Source>misc_scripts/plotly_net_stats.py</Source>
+    <Source>misc_scripts/blender_sound_bake.py</Source>
   </Sources>
   <Forms/>
   <Translations/>
