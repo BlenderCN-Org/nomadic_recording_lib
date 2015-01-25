@@ -62,8 +62,8 @@ class FreqBand():
         return f
     def calc_range(self):
         f = self.center
-        lower = f / (2 ** (1. / self.octave_divisor))
-        upper = f * (2 ** (1. / self.octave_divisor))
+        lower = f / (2 ** (1. / self.octave_divisor / 2.))
+        upper = f * (2 ** (1. / self.octave_divisor / 2.))
         return [lower, upper]
 class Spectrum():
     def __init__(self, **kwargs):
@@ -76,6 +76,8 @@ class Spectrum():
         while center < FREQUENCY_RANGE[1]:
             band = FreqBand(index=i, octave_divisor=self.octave_divisor)
             center = band.center
+            if center > FREQUENCY_RANGE[1]:
+                break
             self.bands[center] = band
             i += 1.
         center = CENTER_FREQUENCY
@@ -83,6 +85,8 @@ class Spectrum():
         while center > FREQUENCY_RANGE[0]:
             band = FreqBand(index=i, octave_divisor=self.octave_divisor)
             center = band.center
+            if center < FREQUENCY_RANGE[0]:
+                break
             i -= 1.
             if center in self.bands:
                 continue
