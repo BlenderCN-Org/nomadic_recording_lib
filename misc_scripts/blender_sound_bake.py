@@ -190,20 +190,23 @@ class BakedCube(Cube):
             child = self.children[i]
             child.set_slow_parent()
         
-def setup_scene():
+def setup_scene(**kwargs):
+    octave_divisor = kwargs.get('octave_divisor', 1.)
+    offset_count = kwargs.get('offset_count', 10)
     bpy.ops.object.add(type='EMPTY', location=[0., 0., 0.])
     parent = bpy.context.active_object
-    spectrum = Spectrum()
+    spectrum = Spectrum(octave_divisor=octave_divisor)
     cubes = []
-    mesh = None
+    ckwargs = dict(parent=parent, offset_count=offset_count)
     for key, band in spectrum.iteritems():
-        cube = BakedCube(parent=parent, band=band, mesh=mesh)
+        ckwargs['band'] = band
+        cube = BakedCube(**ckwargs)
         cubes.append(cube)
-        if mesh is None:
-            mesh = cube.mesh
+        if ckwargs.get('mesh') is None:
+            ckwargs['mesh'] = cube.mesh
     clip = find_sound_clip()
     for cube in cubes:
         cube.bake_sound(clip.filepath)
     bpy.context.scene.frame_end = clip.frame_final_duration
     
-setup_scene()
+setup_scene(octave_divisor=3., offset_count=30)
