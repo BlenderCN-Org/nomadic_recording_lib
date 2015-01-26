@@ -130,13 +130,13 @@ class Cube():
         self.mesh = kwargs.get('mesh')
         self.material = kwargs.get('material')
         self.name = 'soundbake.cube.%s.%03d' % (self.band.center, self.offset_index)
-        if self.material is None:
-            bpy.ops.material.new()
-            self.material = bpy.data.materials[len(bpy.data.materials)-1]
-            self.material.name = 'soundbake.cube'
         if self.mesh is None:
             self.obj = build_base_cube(name=self.name)
             self.mesh = self.obj.data
+            if self.material is None:
+                bpy.ops.material.new()
+                self.material = bpy.data.materials[len(bpy.data.materials)-1]
+                self.material.name = 'soundbake.cube'
             self.mesh.materials.append(self.material)
         else:
             bpy.ops.object.add(type='MESH')
@@ -150,8 +150,7 @@ class Cube():
             pobj = self.parent.obj
         else:
             x = self.band.index * 2.
-            self.obj.scale = [1., 1., math.log10(self.band.center)]
-            bpy.ops.object.transform_apply(scale=True)
+            self.obj.delta_scale = [1., 1., math.log10(self.band.center)]
             pobj = self.parent
         self.obj.location = [x, y, 0.]
         self.obj.parent = pobj
@@ -165,9 +164,9 @@ class Cube():
         bpy.context.scene.update()
     def set_slow_parent(self):
         self.update_scene()
-        if self.offset_index > 0:
-            self.obj.use_slow_parent = True
-            self.obj.slow_parent_offset = self.offset_index
+        self.obj.use_slow_parent = True
+        self.obj.use_extra_recalc_object = True
+        self.obj.slow_parent_offset = self.offset_index / 2.
         self.update_scene()
     
     
@@ -177,8 +176,8 @@ class BakedCube(Cube):
         self.offset_count = kwargs.get('offset_count', 10)
         self.children = {}
         ckwargs = dict(parent=self, band=self.band, mesh=self.mesh)
-        for i in range(self.offset_count):
-            ckwargs['offset_index'] = i + 1
+        for i in range(1, self.offset_count + 1):
+            ckwargs['offset_index'] = i
             cube = Cube(**ckwargs)
             self.children[i] = cube
     def bake_sound(self, filename):
@@ -196,12 +195,12 @@ def setup_scene():
     parent = bpy.context.active_object
     spectrum = Spectrum()
     cubes = []
-    material = None
+    mesh = None
     for key, band in spectrum.iteritems():
-        cube = BakedCube(parent=parent, band=band, material=material)
+        cube = BakedCube(parent=parent, band=band, mesh=mesh)
         cubes.append(cube)
-        if material is None:
-            material = cube.material
+        if mesh is None:
+            mesh = cube.mesh
     clip = find_sound_clip()
     for cube in cubes:
         cube.bake_sound(clip.filepath)
