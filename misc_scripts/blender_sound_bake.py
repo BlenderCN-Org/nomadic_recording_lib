@@ -1,3 +1,4 @@
+import math
 import operator
 
 try:
@@ -129,10 +130,16 @@ class Cube():
         self.offset_index = kwargs.get('offset_index', 0)
         self.parent = kwargs.get('parent')
         self.mesh = kwargs.get('mesh')
+        self.material = kwargs.get('material')
         self.name = 'soundbake.cube.%s.%03d' % (self.band.center, self.offset_index)
+        if self.material is None:
+            bpy.ops.material.new()
+            self.material = bpy.data.materials[len(bpy.data.materials)-1]
+            self.material.name = 'soundbake.cube'
         if self.mesh is None:
             self.obj = build_base_cube(name=self.name)
             self.mesh = self.obj.data
+            self.mesh.materials.append(self.material)
         else:
             bpy.ops.object.add(type='MESH')
             self.obj = bpy.context.active_object
@@ -145,6 +152,8 @@ class Cube():
             pobj = self.parent.obj
         else:
             x = self.band.index * 2.
+            self.obj.scale = [1., 1., math.log10(self.band.center)]
+            bpy.ops.object.transform_apply(scale=True)
             pobj = self.parent
         self.obj.location = [x, y, 0.]
         self.obj.parent = pobj
@@ -189,8 +198,12 @@ def setup_scene():
     parent = bpy.context.active_object
     spectrum = Spectrum()
     cubes = []
+    material = None
     for key, band in spectrum.iteritems():
-        cubes.append(BakedCube(parent=parent, band=band))
+        cube = BakedCube(parent=parent, band=band, material=material)
+        cubes.append(cube)
+        if material is None:
+            material = cube.material
     for cube in cubes:
         cube.bake_sound(FILENAME)
 setup_scene()
