@@ -113,33 +113,84 @@ class Spectrum():
     def items(self):
         return [(key, val) for key, val in self.iteritems()]
 
-def build_base_cube():
+def build_base_cube(**kwargs):
+    name = kwargs.get('name', 'soundbake.cube')
+    data_name = kwargs.get('data_name', 'soundbake.cube')
     bpy.ops.mesh.primitive_cube_add()
     obj = bpy.context.active_object
-    obj.name = 'soundbake.cube'
-    obj.data.name = 'soundbake.cube'
+    obj.name = name
+    obj.data.name = data_name
     obj.location = [0., 0., 0.]
     return obj
     
+class Cube():
+    def __init__(self, **kwargs):
+        self.band = kwargs.get('band')
+        self.offset_index = kwargs.get('offset_index', 0)
+        self.parent = kwargs.get('parent')
+        self.mesh = kwargs.get('mesh')
+        self.name = 'soundbake.cube.%s.%03d' % (self.band.center, self.offset_index)
+        if self.mesh is None:
+            self.obj = build_base_cube(name=self.name)
+            self.mesh = self.obj.data
+        else:
+            bpy.ops.object.add(type='MESH')
+            self.obj = bpy.context.active_object
+            self.obj.data = self.mesh
+            self.obj.name = self.name
+        self.update_scene()
+        y = self.offset_index * 2.
+        if isinstance(self.parent, Cube):
+            x = 0.
+            pobj = self.parent.obj
+        else:
+            x = self.band.index * 2.
+            pobj = self.parent
+        self.obj.location = [x, y, 0.]
+        self.obj.parent = pobj
+        self.update_scene()
+    @property
+    def need_update(self):
+        return self.obj.is_updated or self.obj.is_updated_data
+    def update_scene(self):
+        if not self.need_update:
+            return
+        bpy.context.scene.update()
+    def set_slow_parent(self):
+        self.update_scene()
+        if self.offset_index > 0:
+            self.obj.use_slow_parent = True
+            self.obj.slow_parent_offset = self.offset_index
+        self.update_scene()
+    
+    
+class BakedCube(Cube):
+    def __init__(self, **kwargs):
+        super(BakedCube, self).__init__(**kwargs)
+        self.offset_count = kwargs.get('offset_count', 10)
+        self.children = {}
+        ckwargs = dict(parent=self, band=self.band, mesh=self.mesh)
+        for i in range(self.offset_count):
+            ckwargs['offset_index'] = i + 1
+            cube = Cube(**ckwargs)
+            self.children[i] = cube
+    def bake_sound(self, filename):
+        for obj in bpy.context.selected_objects:
+            obj.select = False
+        self.obj.select = True
+        bake_sound(obj=self.obj, file=filename, range=self.band.range)
+        self.update_scene()
+        for i in sorted(self.children):
+            child = self.children[i]
+            child.set_slow_parent()
+        
 def setup_scene():
     bpy.ops.object.add(type='EMPTY', location=[0., 0., 0.])
     parent = bpy.context.active_object
-    base_cube = build_base_cube()
     spectrum = Spectrum()
-    cube = None
+    cubes = []
     for key, band in spectrum.iteritems():
-        if cube is None:
-            cube = base_cube
-        else:
-            bpy.ops.object.add(type='MESH')
-            cube = bpy.context.active_object
-            cube.data = base_cube.data
-            #print(band.center, band.index, band.index * 2.)
-            #bpy.context.scene.update()
-        cube.name = 'soundbake.cube.%s' % (key)
-        cube.location = [band.index * 2., 0., 0.]
-        bake_sound(obj=cube, file=FILENAME, range=band.range)
-        cube.parent = parent
-        cube.select = False
+        cubes.append(BakedCube(parent=parent, band=band))
+    for cube in cubes:
+        cube.bake_sound(FILENAME)
 setup_scene()
-    
