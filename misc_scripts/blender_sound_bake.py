@@ -11,8 +11,6 @@ def find_sound_clip():
     for clip in vse.sequences_all:
         if clip.type == 'SOUND':
             return clip
-            
-FILENAME = find_sound_clip().filepath
 
 def get_screen(screen_type):
     for window in bpy.context.window_manager.windows:
@@ -204,6 +202,9 @@ def setup_scene():
         cubes.append(cube)
         if material is None:
             material = cube.material
+    clip = find_sound_clip()
     for cube in cubes:
-        cube.bake_sound(FILENAME)
+        cube.bake_sound(clip.filepath)
+    bpy.context.scene.frame_end = clip.frame_final_duration
+    
 setup_scene()
