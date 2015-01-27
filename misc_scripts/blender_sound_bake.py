@@ -12,12 +12,45 @@ def find_sound_clip():
         if clip.type == 'SOUND':
             return clip
 
+def ensure_areas_in_viewport(*args):
+    in_viewport = {}
+    not_in_viewport = set()
+    areas_modified = {}
+    screen = bpy.context.screen
+    def find_area(area_type):
+        for i, area in enumerate(screen.areas):
+            if area.type == area_type:
+                return i, area
+        return None, None
+    for arg in args:
+        i, area = find_area(arg)
+        if i is not None:
+            in_viewport[i] = arg
+        else:
+            not_in_viewport.add(arg)
+    for area_type in not_in_viewport:
+        _i = None
+        _area = None
+        for i, area in enumerate(screen.areas):
+            if i not in in_viewport:
+                _i = i
+                _area = area
+                break
+        areas_modified[_i] = {'old':_area.type, 'current':area_type}
+        _area.type = area_type
+    return areas_modified
+    
+def restore_areas(areas_modified):
+    screen = bpy.context.screen
+    for i, d in areas_modified.items():
+        screen.areas[i].type = d['old']
+    
 def get_screen(screen_type):
-    for window in bpy.context.window_manager.windows:
-        screen = window.screen
-        for area in screen.areas:
-            if area.type == screen_type:
-                return {'window':window, 'screen':screen, 'area':area}
+    screen = bpy.context.screen
+    window = bpy.context.window
+    for area in screen.areas:
+        if area.type == screen_type:
+            return {'window':window, 'screen':screen, 'area':area}
     
 def bake_sound(**kwargs):
     obj = kwargs.get('obj')
@@ -191,6 +224,7 @@ class BakedCube(Cube):
             child.set_slow_parent()
         
 def setup_scene(**kwargs):
+    areas_modified = ensure_areas_in_viewport('VIEW_3D', 'GRAPH_EDITOR')
     octave_divisor = kwargs.get('octave_divisor', 1.)
     offset_count = kwargs.get('offset_count', 10)
     bpy.ops.object.add(type='EMPTY', location=[0., 0., 0.])
@@ -208,5 +242,6 @@ def setup_scene(**kwargs):
     for cube in cubes:
         cube.bake_sound(clip.filepath)
     bpy.context.scene.frame_end = clip.frame_final_duration
+    restore_areas(areas_modified)
     
 setup_scene(octave_divisor=3., offset_count=30)
