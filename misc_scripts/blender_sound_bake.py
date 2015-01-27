@@ -1,10 +1,21 @@
 import math
 import operator
 
-try:
-    import bpy
-except:
-    pass
+import bpy
+from bpy.types import Operator
+from bpy.props import FloatProperty, IntProperty
+from bpy_extras.io_utils import ImportHelper
+
+bl_info = {
+    "name": "Bake Sound Spectrum",
+    "author": "Matt Reid",
+    "version": (0, 0, 1),
+    "blender": (2, 73, 0),
+    "location": "File > Import > Bake Sound Spectrum",
+    "description": "Audio visualization with some cubes", 
+    "warning": "",
+    "category": "Animation",
+}
 
 def find_sound_clip():
     vse = bpy.context.scene.sequence_editor
@@ -227,6 +238,7 @@ def setup_scene(**kwargs):
     areas_modified = ensure_areas_in_viewport('VIEW_3D', 'GRAPH_EDITOR')
     octave_divisor = kwargs.get('octave_divisor', 1.)
     offset_count = kwargs.get('offset_count', 10)
+    filepath = kwargs.get('filepath')
     bpy.ops.object.add(type='EMPTY', location=[0., 0., 0.])
     parent = bpy.context.active_object
     spectrum = Spectrum(octave_divisor=octave_divisor)
@@ -238,10 +250,49 @@ def setup_scene(**kwargs):
         cubes.append(cube)
         if ckwargs.get('mesh') is None:
             ckwargs['mesh'] = cube.mesh
-    clip = find_sound_clip()
+    if filepath is None:
+        clip = find_sound_clip()
+        filepath = clip.filepath
     for cube in cubes:
-        cube.bake_sound(clip.filepath)
-    bpy.context.scene.frame_end = clip.frame_final_duration
+        cube.bake_sound(filepath)
+    #bpy.context.scene.frame_end = clip.frame_final_duration
     restore_areas(areas_modified)
     
-setup_scene(octave_divisor=3., offset_count=30)
+class BakeSoundSpectrum(Operator, ImportHelper):
+    """Bake a sound file into an audio visualization"""
+    bl_idname = 'bake_sound.spectrum'
+    bl_label = 'Bake Sound Spectrum'
+    bl_options = {'REGISTER', 'UNDO'}
+    octave_divisor = FloatProperty(name='Band Divisor', 
+        description='Divisor to use for each band (Use "1" for a full octave, "3" for 3rd octave).\nHigher values will make more cubes', 
+        default=1.)
+    offset_count = IntProperty(name='Offset Count', 
+        description='Number of cubes to add behind each band with an animation offset', 
+        default=10)
+    def draw(self, context):
+        layout = self.layout
+        box = layout.box()
+        box.label('Options:')
+        row = box.row()
+        row.prop(self, 'octave_divisor')
+        row = box.row()
+        row.prop(self, 'offset_count')
+    def execute(self, context):
+        setup_scene(octave_divisor=self.octave_divisor, 
+                    offset_count=self.offset_count, 
+                    filepath=self.filepath)
+        return {'FINISHED'}
+    
+def menu_func_import(self, context):
+    self.layout.operator(BakeSoundSpectrum.bl_idname, text='Bake Sound Spectrum')
+    
+def register():
+    bpy.utils.register_class(BakeSoundSpectrum)
+    bpy.types.INFO_MT_file_import.append(menu_func_import)
+    
+def unregister():
+    bpy.utils.unregister_class(BakeSoundSpectrum)
+    bpy.types.INFO_MT_file_import.remove(menu_func_import)
+    
+if __name__ == '__main__':
+    register()
