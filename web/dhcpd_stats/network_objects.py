@@ -1,5 +1,7 @@
+import datetime
 from parser import LeaseConf
 
+NOW = datetime.datetime.now()
 NETWORKS = []
 LEASES = []
 
@@ -148,6 +150,8 @@ class Range(NetworkBase):
             return False
         return True
     def add_lease(self, lease):
+        if lease.expired:
+            return False
         if not self.match_address(lease.address):
             return False
         key = lease.address
@@ -174,6 +178,10 @@ class Lease(LeaseConf):
         self._network_obj = None
         super(Lease, self).__init__(**kwargs)
         self.address = IPAddress(self.address)
+        if self.end_time is None:
+            self.expired = True
+        else:
+            self.expired = self.end_time < NOW
         self.network_obj = kwargs.get('network_obj')
         if self.network_obj is None:
             self.network_obj = self.find_network()
