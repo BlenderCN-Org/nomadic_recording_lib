@@ -78,6 +78,12 @@ class NestedBracket(object):
                 break
             else:
                 self.lines.append(line)
+    def walk_children(self):
+        for child in self.children:
+            iters = [[child], child.walk_children()]
+            for child_iter in iters:
+                for _child in child_iter:
+                    yield _child
     def __repr__(self):
         return 'RecursionBracket: %s' % (self)
     def __str__(self):
@@ -85,6 +91,7 @@ class NestedBracket(object):
         
 class ParseBase(object):
     def __init__(self, **kwargs):
+        self._start_line = kwargs.get('start_line')
         self.parent = kwargs.get('parent')
         self.bracket = kwargs.get('bracket')
         from_parse = kwargs.get('from_parse')
@@ -92,24 +99,13 @@ class ParseBase(object):
             self.parse_start_line(self.start_line)
     @property
     def start_line(self):
-        return self.bracket.lines[0].strip()
+        line = self._start_line
+        if line is None:
+            line = self._start_line = self.bracket.lines[0].strip()
+        return line
     def parse_children(self, cls):
         ckwargs = {'parent':self}
-        def walk_children(bracket):
-            is_first = True
-            for schild in bracket.children:
-                if is_first:
-                    to_yield = schild
-                    is_first = False
-                elif len(schild.children):
-                    for gchild in walk_children(schild):
-                        to_yield = gchild
-                else:
-                    to_yield = None
-                if to_yield is None:
-                    break
-                yield to_yield
-        for pchild in walk_children(self.bracket):
+        for pchild in self.bracket.walk_children():
             ckwargs['bracket'] = pchild
             chobj = cls._parse(**ckwargs)
             if chobj is False:
@@ -118,11 +114,12 @@ class ParseBase(object):
     @classmethod
     def _parse(cls, **kwargs):
         bracket = kwargs.get('bracket')
-        start_line = bracket.lines[0].strip()
+        start_line = kwargs.get('start_line')
+        if start_line is None:
+            start_line = bracket.lines[0].strip()
         if cls.conf_keyword not in start_line:
             return False
         objkwargs = kwargs.copy()
-        objkwargs['start_line'] = start_line
         objkwargs['from_parse'] = True
         return cls(**objkwargs)
     def parse_start_line(self, line):
@@ -190,13 +187,22 @@ class PoolConf(ParseBase):
         self.ranges = []
         super(PoolConf, self).__init__(**kwargs)
         if self.bracket is not None:
-            for r in self.parse_children(RangeConf):
+            rkwargs = dict(parent=self, bracket=self.bracket)
+            for line in self.bracket.contents.splitlines():
+                if 'range' not in line:
+                    continue
+                rkwargs['start_line'] = line
+                r = RangeConf._parse(**rkwargs)
                 self.ranges.append(r)
     def serialize(self):
         d = {'ranges':[]}
         for r in self.ranges:
             d['ranges'].append(r.serialize())
         return d
+    def __repr__(self):
+        return 'PoolConf: %s' % (self)
+    def __str__(self):
+        return str([str(r) for r in self.ranges])
             
 class RangeConf(ParseBase):
     conf_keyword = 'range'
@@ -221,11 +227,9 @@ def parse_conf(**kwargs):
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
     return_parsed = kwargs.get('return_parsed')
-    return_enclosures = kwargs.get('return_enclosures')
     if to_parse is None:
         with open(filename, 'r') as f:
             to_parse = f.read()
-    
     root_bracket = NestedBracket(text=to_parse)
     for bracket in root_bracket.children:
         if 'shared-network' in bracket.lines[0]:
@@ -306,3 +310,7 @@ def parse_leases(**kwargs):
         obj = LeaseConf._parse(lines)
         PARSED_LEASES.append(obj)
     return PARSED_LEASES
+
+def test_conf(**kwargs):
+    return parse_conf(filename='dhcpd.conf', return_parsed=True)
+    
