@@ -34,7 +34,13 @@ class TreeItem(object):
         column_types = self.tree_root.column_types
         for i, attr in enumerate(self.attr_map):
             t = column_types[i]
-            vals.append(t(getattr(self.obj, attr)))
+            if attr is None:
+                vals.append(None)
+                continue
+            v = getattr(self.obj, attr, None)
+            if v is not None:
+                v = t(v)
+            vals.append(v)
         if self.tree_parent is None:
             parent = None
         else:
@@ -107,6 +113,25 @@ def build_treeviews(**kwargs):
                    root_obj=data['PARSED_BRACKETS'])
     tsdata['tree_store'] = ts
     tree_stores.append(tsdata)
+    tsdata = {'id':'NETWORKS'}
+    ts = TreeStore(
+        column_names=['name', 'range_start', 'range_end', 'client address', 'client id'], 
+        column_types=[str, str, str, str, str], 
+        column_attr_map={
+            'Network':['name', None, None, None, None], 
+            'Subnet':[None, None, None, None, None], 
+            'Range':[None, 'start', 'end', None, None], 
+            'Lease':[None, None, None, 'address', 'mac_address'], 
+        }, 
+        child_attrs={
+            'Network':'subnets', 
+            'Subnet':'ranges', 
+            'Range':'leases', 
+        }, 
+        root_obj=data['NETWORKS'], 
+    )
+    tsdata['tree_store'] = ts
+    tree_stores.append(tsdata)
     win = Window(tree_stores=tree_stores)
     win.connect("delete-event", Gtk.main_quit)
     win.show_all()
@@ -122,3 +147,6 @@ def test(**kwargs):
             'PARSED_LEASES':lease_conf, 
             'NETWORKS':nets, 
             'LEASES':leases}
+if __name__ == '__main__':
+    d = test()
+    build_treeviews(data=d)
