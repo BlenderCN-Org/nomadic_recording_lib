@@ -81,6 +81,13 @@ class Network(NetworkBase):
             if removed:
                 return True
         return False
+    def serialize(self):
+        d = dict(name=self.name, 
+                 available_addresses=self.available_addresses, 
+                 subnets={})
+        for key, val in self.subnets.iteritems():
+            d['subnets'][str(key)] = val.serialize()
+        return d
     def __repr__(self):
         return 'Network: %s' % (self)
     def __str__(self):
@@ -126,6 +133,11 @@ class Subnet(NetworkBase):
             if removed:
                 return True
         return False
+    def serialize(self):
+        d = dict(address=str(self.address), ranges=[])
+        for r in self.ranges:
+            d['ranges'].append(r.serialize())
+        return d
     def __repr__(self):
         return 'Subnet %s' % (self)
     def __str__(self):
@@ -168,6 +180,14 @@ class Range(NetworkBase):
             return False
         del self.leases[key]
         return True
+    def serialize(self):
+        d = dict(start=str(self.start), 
+                 end=str(self.end), 
+                 available_addresses=self.available_addresses, 
+                 leases={})
+        for addr, lease in self.leases.iteritems():
+            d['leases'][str(addr)] = lease.serialize()
+        return d
     def __repr__(self):
         return 'Range: %s' % (self)
     def __str__(self):
@@ -208,6 +228,16 @@ class Lease(LeaseConf):
         for n in NETWORKS:
             if n.match_address(self.address):
                 return n
+    def serialize(self):
+        d = {}
+        for attr in self._conf_attrs:
+            val = getattr(self, attr)
+            if isinstance(val, datetime.datetime):
+                val = str(val)
+            elif isinstance(val, IPAddress):
+                val = str(val)
+            d[attr] = val
+        return d
         
 def build_networks(conf_networks):
     global NETWORKS

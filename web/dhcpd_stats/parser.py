@@ -228,7 +228,7 @@ class RangeConf(ParseBase):
 def parse_conf(**kwargs):
     global PARSED_NETWORKS
     to_parse = kwargs.get('to_parse')
-    filename = kwargs.get('filename')
+    filename = kwargs.get('filename', config.dhcpd_conf)
     return_parsed = kwargs.get('return_parsed')
     file_opts = getattr(config, 'file_opts', {})
     if to_parse is None:
@@ -288,7 +288,7 @@ class LeaseConf(object):
 def parse_leases(**kwargs):
     global PARSED_LEASES
     to_parse = kwargs.get('to_parse')
-    filename = kwargs.get('filename')
+    filename = kwargs.get('filename', config.dhcpd_leases)
     file_opts = getattr(config, 'file_opts', {})
     if to_parse is None:
         f = get_opener(filename, **file_opts)
