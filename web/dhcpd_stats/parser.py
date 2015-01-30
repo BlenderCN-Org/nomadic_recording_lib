@@ -1,5 +1,8 @@
 import datetime
 
+from config import config
+from file_io import get_opener
+
 PARSED_NETWORKS = []
 PARSED_LEASES = []
 
@@ -227,8 +230,10 @@ def parse_conf(**kwargs):
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
     return_parsed = kwargs.get('return_parsed')
+    file_opts = getattr(config, 'file_opts', {})
     if to_parse is None:
-        with open(filename, 'r') as f:
+        f = get_opener(filename, **file_opts)
+        with f:
             to_parse = f.read()
     root_bracket = NestedBracket(text=to_parse)
     for bracket in root_bracket.children:
@@ -284,8 +289,10 @@ def parse_leases(**kwargs):
     global PARSED_LEASES
     to_parse = kwargs.get('to_parse')
     filename = kwargs.get('filename')
+    file_opts = getattr(config, 'file_opts', {})
     if to_parse is None:
-        with open(filename, 'r') as f:
+        f = get_opener(filename, **file_opts)
+        with f:
             to_parse = f.read()
     if isinstance(to_parse, basestring):
         to_parse = to_parse.splitlines()
