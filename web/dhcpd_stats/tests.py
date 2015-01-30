@@ -1,3 +1,4 @@
+import argparse
 from gi.repository import Gtk
 import parser
 import network_objects
@@ -115,13 +116,13 @@ def build_treeviews(**kwargs):
     tree_stores.append(tsdata)
     tsdata = {'id':'NETWORKS'}
     ts = TreeStore(
-        column_names=['name', 'range_start', 'range_end', 'client address', 'client id'], 
-        column_types=[str, str, str, str, str], 
+        column_names=['name', 'total addresses', 'available addresses', 'range_start', 'range_end', 'client address', 'client id'], 
+        column_types=[str, int, int, str, str, str, str], 
         column_attr_map={
-            'Network':['name', None, None, None, None], 
-            'Subnet':[None, None, None, None, None], 
-            'Range':[None, 'start', 'end', None, None], 
-            'Lease':[None, None, None, 'address', 'mac_address'], 
+            'Network':['name', 'total_addresses', 'available_addresses', None, None, None, None], 
+            'Subnet':[None, 'total_addresses', 'available_addresses', None, None, None, None], 
+            'Range':[None, 'total_addresses', 'available_addresses', 'start', 'end', None, None], 
+            'Lease':[None, None, None, None, None, 'address', 'mac_address'], 
         }, 
         child_attrs={
             'Network':'subnets', 
@@ -138,8 +139,10 @@ def build_treeviews(**kwargs):
     Gtk.main()
     
 def test(**kwargs):
-    net_conf, net_parse = parser.parse_conf(filename='dhcpd.conf', return_parsed=True)
-    lease_conf = parser.parse_leases(filename='dhcpd.leases')
+    conf_file = kwargs.get('conf_file', 'dhcpd.conf')
+    lease_file = kwargs.get('lease_file', 'dhcpd.leases')
+    net_conf, net_parse = parser.parse_conf(filename=conf_file, return_parsed=True)
+    lease_conf = parser.parse_leases(filename=lease_file)
     nets = network_objects.build_networks(net_conf)
     leases = network_objects.build_leases(lease_conf)
     return {'PARSED_NETWORKS':net_conf, 
@@ -147,6 +150,12 @@ def test(**kwargs):
             'PARSED_LEASES':lease_conf, 
             'NETWORKS':nets, 
             'LEASES':leases}
+            
 if __name__ == '__main__':
-    d = test()
+    p = argparse.ArgumentParser()
+    p.add_argument('-c', dest='conf_file', default='dhcpd.conf')
+    p.add_argument('-l', dest='lease_file', default='dhcpd.leases')
+    args, remaining = p.parse_known_args()
+    o = vars(args)
+    d = test(**o)
     build_treeviews(data=d)
