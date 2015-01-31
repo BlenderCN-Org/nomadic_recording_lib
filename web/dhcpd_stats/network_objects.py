@@ -81,12 +81,12 @@ class Network(NetworkBase):
             if removed:
                 return True
         return False
-    def serialize(self):
+    def serialize(self, **kwargs):
         d = dict(name=self.name, 
                  available_addresses=self.available_addresses, 
                  subnets={})
         for key, val in self.subnets.iteritems():
-            d['subnets'][str(key)] = val.serialize()
+            d['subnets'][str(key)] = val.serialize(**kwargs)
         return d
     def __repr__(self):
         return 'Network: %s' % (self)
@@ -133,10 +133,10 @@ class Subnet(NetworkBase):
             if removed:
                 return True
         return False
-    def serialize(self):
+    def serialize(self, **kwargs):
         d = dict(address=str(self.address), ranges=[])
         for r in self.ranges:
-            d['ranges'].append(r.serialize())
+            d['ranges'].append(r.serialize(**kwargs))
         return d
     def __repr__(self):
         return 'Subnet %s' % (self)
@@ -180,13 +180,14 @@ class Range(NetworkBase):
             return False
         del self.leases[key]
         return True
-    def serialize(self):
+    def serialize(self, **kwargs):
         d = dict(start=str(self.start), 
                  end=str(self.end), 
-                 available_addresses=self.available_addresses, 
-                 leases={})
-        for addr, lease in self.leases.iteritems():
-            d['leases'][str(addr)] = lease.serialize()
+                 available_addresses=self.available_addresses)
+        if kwargs.get('include_leases', True):
+            d['leases'] = {}
+            for addr, lease in self.leases.iteritems():
+                d['leases'][str(addr)] = lease.serialize()
         return d
     def __repr__(self):
         return 'Range: %s' % (self)
