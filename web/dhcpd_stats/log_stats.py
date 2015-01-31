@@ -1,5 +1,4 @@
 import os
-import datetime
 import json
 import argparse
 
@@ -21,7 +20,7 @@ def log_all(nets=None):
     for n in nets:
         d[n.name] = n.serialize()
     s = json.dumps(d)
-    now = datetime.datetime.now()
+    now = config.now
     fn = now.strftime(config.log_file_format)
     p = os.path.expanduser(config.log_file_path)
     if not os.path.exists(p):
@@ -36,7 +35,7 @@ def log_stats(nets=None):
     d = {}
     for n in nets:
         d[n.name] = n.serialize(include_leases=False)
-    now = datetime.datetime.now()
+    now = config.now
     fn = 'stats.json'
     p = os.path.expanduser(config.log_file_path)
     if not os.path.exists(p):

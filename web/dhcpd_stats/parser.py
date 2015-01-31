@@ -1,5 +1,7 @@
 import datetime
 
+import pytz
+
 from config import config
 from file_io import get_opener
 
@@ -254,7 +256,9 @@ def parse_dt(dtstr):
     fmt_str = '%w %Y/%m/%d %H:%M:%S'
     if dtstr == 'never':
         return None
-    return datetime.datetime.strptime(dtstr, fmt_str)
+    dt = datetime.datetime.strptime(dtstr, fmt_str)
+    dt = config.server_timezone.localize(dt)
+    return pytz.utc.normalize(dt)
     
 class LeaseConf(object):
     _conf_attrs = ['address', 'start_time', 'end_time', 
