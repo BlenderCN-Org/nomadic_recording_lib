@@ -84,6 +84,7 @@ class Network(NetworkBase):
         return False
     def serialize(self, **kwargs):
         d = dict(name=self.name, 
+                 total_addresses=self.total_addresses, 
                  available_addresses=self.available_addresses, 
                  subnets={})
         for key, val in self.subnets.iteritems():
@@ -184,6 +185,7 @@ class Range(NetworkBase):
     def serialize(self, **kwargs):
         d = dict(start=str(self.start), 
                  end=str(self.end), 
+                 total_addresses=self.total_addresses, 
                  available_addresses=self.available_addresses)
         if kwargs.get('include_leases', True):
             d['leases'] = {}
