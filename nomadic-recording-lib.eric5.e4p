@@ -208,6 +208,9 @@
     <Source>misc_scripts/blender_scripts/blender_sound_bake.py</Source>
     <Source>web/dhcpd_stats/file_io.py</Source>
     <Source>web/dhcpd_stats/log_stats.py</Source>
+    <Source>misc_scripts/ableton_project_parser/__init__.py</Source>
+    <Source>misc_scripts/ableton_project_parser/parser.py</Source>
+    <Source>misc_scripts/ableton_project_parser/google_org_chart.py</Source>
   </Sources>
   <Forms/>
   <Translations/>
