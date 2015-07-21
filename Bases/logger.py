@@ -91,7 +91,10 @@ class StdoutLogger(object):
         msg = format_msg(*args)
         tstr = now.strftime(self.dt_fmt_str)
         print ('%s %s: %s' % (tstr, level, msg), file=sys.stdout)
-        sys.stdout.flush()
+        try:
+            sys.stdout.flush()
+        except AttributeError:
+            pass
     def debug(self, *args, **kwargs):
         self.log('debug', *args, **kwargs)
     def info(self, *args, **kwargs):
