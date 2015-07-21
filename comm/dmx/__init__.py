@@ -1,5 +1,8 @@
 from NetlinxDMX import NetlinxDMX
-from usb_pro import USBProIO
+try:
+    from usb_pro import USBProIO
+except ImportError:
+    USBProIO = None
 from artnet.manager import ArtnetManager
 
 class olaLoader(type):
@@ -10,5 +13,6 @@ class olaLoader(type):
 
 IO_LOADER = {'NetlinxDMX':NetlinxDMX,
              'ola_IO':olaLoader,
-             'USBPro':USBProIO,
              'Artnet':ArtnetManager}
+if USBProIO is not None:
+    IO_LOADER['USBPro'] = USBProIO
