@@ -22,10 +22,13 @@ import uuid
 from Bases import BaseObject
 
 def detect_usable_address():
-    for addr in socket.gethostbyname_ex(socket.gethostname())[2]:
-        if addr.split('.')[0] != '127':
-            return addr
-    return socket.gethostbyname('.'.join([socket.gethostname(), 'local']))
+    try:
+        for addr in socket.gethostbyname_ex(socket.gethostname())[2]:
+            if addr.split('.')[0] != '127':
+                return addr
+        return socket.gethostbyname('.'.join([socket.gethostname(), 'local']))
+    except socket.error:
+        return '127.0.0.1'
     
 def get_mac_address(out_type=None):
     if out_type is None:
