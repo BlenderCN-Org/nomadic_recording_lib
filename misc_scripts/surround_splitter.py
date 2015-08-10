@@ -39,8 +39,8 @@ def build_cmd(**kwargs):
         outfn = '.'.join([chan_name, output_ext])
         if output_prefix is not None:
             outfn = ''.join([output_prefix, outfn])
-        maps.append("-map '%s' %s" % (key, outfn))
-    cmd_str = "avconv -i %s -filter_complex 'channelsplit=channel_layout=%s'" % (
+        maps.append("-map '%s' '%s'" % (key, outfn))
+    cmd_str = "avconv -i '%s' -filter_complex 'channelsplit=channel_layout=%s'" % (
         infile, layout_str)
     cmd_str = ' '.join([cmd_str] + maps)
     return cmd_str
